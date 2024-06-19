@@ -1,0 +1,3379 @@
+---
+title: "Compiled and prepare data "
+author: "Juliana E Trach"
+date: "`r Sys.Date()`"
+output: pdf_document
+toc: yes
+toc_depth: 2
+fontsize: 12pt
+---
+\newpage
+
+# Abstract
+This script takes the raw data for each subject, concatenates it, adds columns for analysis purposes, and performs exclusions. Each chunk of code can take >5min to run so pre-compiled data is also provided (in compiledData) that will work with the main anaysis scripts.
+
+#  Prep data for Experiment 1
+```{r, echo=F, message=F, warning=F, error=T, fig.width=6, fig.height=4, fig.align='center'}
+# set up workspace
+rm(list=ls(all=TRUE))
+setwd("~/Documents/GitHub/StructuredActionPrepVMDM/rawData")
+datadir = "~/Documents/GitHub/StructuredActionPrepVMDM/rawData/Experiment1"
+# load libraries
+library(ggpubr)
+library(reshape2)
+library(dplyr)
+library(tidyr)
+library(tidyverse)
+library(itsadug)
+library(RColorBrewer)
+library(knitr)
+library(extrafont)
+library(fs)
+library(Rmisc)
+
+# read in files
+file_paths = fs::dir_ls(datadir)
+compiledData = data.frame()
+for (i in seq_along(file_paths)){
+  newSubjData = read_csv(file = file_paths[[i]], col_types = cols(hierarchy = col_character(),question_order = col_character()))
+  compiledData = rbind(compiledData, newSubjData)
+}
+
+
+# clean up data
+compiledData$rt = as.numeric(compiledData$rt)
+compiledData$time_elapsed = as.numeric(compiledData$time_elapsed)
+compiledData$key_press = as.numeric(compiledData$key_press)
+compiledData$stim = as.numeric(compiledData$stim)
+compiledData$corrresp = as.numeric(compiledData$corrresp)
+
+
+
+# sort data into prac and test
+compiledData = filter(compiledData, trialType %in% c('rl','motor','motorRepeat','postmotor'))
+pracData = filter(compiledData, phase == "prac")
+testData_ExperimentOne = filter(compiledData, phase %in% c("motor","test","postmotor"))
+
+# get some variables
+prolificNums = unique(testData_ExperimentOne$subject)
+subjNums_all = unique(testData_ExperimentOne$subject)
+N_all = length(prolificNums)
+
+allResps_new = c(65,83,68,70,72,74,75,76)
+LH_new = c(65,83,68,70)
+RH_new = c(72,74,75,76)
+coupletOne_new = c(65,83,72,74)
+coupletTwo_new = c(68,70,75,76)
+
+allResps = c(1,2,3,4,5,6,7,8)
+
+#make a column for recoded responses to make life easier
+testData_ExperimentOne$corrrespAll = NA
+testData_ExperimentOne$finger_press = NA
+testData_ExperimentOne$corrrespAll[testData_ExperimentOne$corrresp == 65] = 1
+testData_ExperimentOne$corrrespAll[testData_ExperimentOne$corrresp == 83] = 2
+testData_ExperimentOne$corrrespAll[testData_ExperimentOne$corrresp == 68] = 3
+testData_ExperimentOne$corrrespAll[testData_ExperimentOne$corrresp == 70] = 4
+testData_ExperimentOne$corrrespAll[testData_ExperimentOne$corrresp == 72] = 5
+testData_ExperimentOne$corrrespAll[testData_ExperimentOne$corrresp == 74] = 6
+testData_ExperimentOne$corrrespAll[testData_ExperimentOne$corrresp == 75] = 7
+testData_ExperimentOne$corrrespAll[testData_ExperimentOne$corrresp == 76] = 8
+
+testData_ExperimentOne$finger_press[ testData_ExperimentOne$key_press == 65] = 1
+testData_ExperimentOne$finger_press[testData_ExperimentOne$key_press == 83] = 2
+testData_ExperimentOne$finger_press[testData_ExperimentOne$key_press == 68] = 3
+testData_ExperimentOne$finger_press[testData_ExperimentOne$key_press == 70] = 4
+testData_ExperimentOne$finger_press[testData_ExperimentOne$key_press == 72] = 5
+testData_ExperimentOne$finger_press[testData_ExperimentOne$key_press == 74] = 6
+testData_ExperimentOne$finger_press[testData_ExperimentOne$key_press == 75] = 7
+testData_ExperimentOne$finger_press[testData_ExperimentOne$key_press == 76] = 8
+
+ns = length(allResps)
+
+# add more info to trials before saving
+testData_ExperimentOne$iter = NA
+testData_ExperimentOne$zscoredRTs = NA
+testData_ExperimentOne$logRTs = NA
+testData_ExperimentOne$hand = NA
+testData_ExperimentOne$couplet = NA
+testData_ExperimentOne$handSwitch = NA
+testData_ExperimentOne$coupletSwitch = NA
+testData_ExperimentOne$fingerSwitch = NA
+testData_ExperimentOne$handSwitch_actual = NA
+testData_ExperimentOne$coupletSwitch_actual = NA
+testData_ExperimentOne$fingerSwitch_actual = NA
+testData_ExperimentOne$respHand = NA
+testData_ExperimentOne$respCouplet = NA
+testData_ExperimentOne$corrHand = NA
+testData_ExperimentOne$corrCouplet = NA
+
+for(ai in 1:N_all){
+  testData_ExperimentOne$zscoredRTs[testData_ExperimentOne$subject == subjNums_all[ai]] = scale(testData_ExperimentOne$rt[testData_ExperimentOne$subject == subjNums_all[ai]])
+  testData_ExperimentOne$logRTs[testData_ExperimentOne$subject == subjNums_all[ai]] = log(testData_ExperimentOne$rt[testData_ExperimentOne$subject == subjNums_all[ai]])
+  # add iteration numbers
+  for(bi in 1:ns){
+    idx = which(testData_ExperimentOne$subject == subjNums_all[ai]&testData_ExperimentOne$corrrespAll == allResps[bi] & testData_ExperimentOne$phase == 'test')
+    for (ci in 1:length(idx)){
+      testData_ExperimentOne$stimNum[idx[ci]] = bi
+      testData_ExperimentOne$iter[idx[ci]] = ci
+    }
+  }
+  trialNum_idx = which(testData_ExperimentOne$subject == subjNums_all[ai] & testData_ExperimentOne$trialType == 'rl')
+  testData_ExperimentOne$trialNum[trialNum_idx] = c(1:length(which(testData_ExperimentOne$subject == subjNums_all[ai] & testData_ExperimentOne$trialType == 'rl')))
+}
+for (xi in 1:dim(testData_ExperimentOne)[1]){
+  # put in correct hand and couplet
+  if(testData_ExperimentOne$corrresp[xi] %in% RH_new){
+    testData_ExperimentOne$hand[xi] = 'R'
+  }else if (testData_ExperimentOne$corrresp[xi] %in% LH_new){
+    testData_ExperimentOne$hand[xi] = 'L'
+  }
+  
+  if(testData_ExperimentOne$corrresp[xi] %in% coupletOne_new){
+    testData_ExperimentOne$couplet[xi] = 1
+  }else if (testData_ExperimentOne$corrresp[xi] %in% coupletTwo_new){
+    testData_ExperimentOne$couplet[xi] = 2
+  }
+  
+  # put in the hand and couplet of the response
+  if(testData_ExperimentOne$key_press[xi] %in% RH_new){
+    testData_ExperimentOne$respHand[xi] = 'R'
+  }else if (testData_ExperimentOne$key_press[xi] %in% LH_new){
+    testData_ExperimentOne$respHand[xi] = 'L'
+  }
+  
+  if(testData_ExperimentOne$key_press[xi] %in% coupletOne_new){
+    testData_ExperimentOne$respCouplet[xi] = 1
+  }else if (testData_ExperimentOne$key_press[xi] %in% coupletTwo_new){
+    testData_ExperimentOne$respCouplet[xi] = 2
+  }
+  
+  # 1 for correct hand, 0 for incorrect
+  if(is.na(testData_ExperimentOne$respHand[xi])){
+    testData_ExperimentOne$corrHand[xi] = 0
+  } else if(testData_ExperimentOne$hand[xi] == testData_ExperimentOne$respHand[xi]){
+    testData_ExperimentOne$corrHand[xi] = 1
+  }else if (testData_ExperimentOne$hand[xi] != testData_ExperimentOne$respHand[xi]){
+    testData_ExperimentOne$corrHand[xi] = 0
+  }
+  if(is.na(testData_ExperimentOne$respCouplet[xi])){
+    testData_ExperimentOne$corrCouplet[xi] = 0
+  }else if(testData_ExperimentOne$couplet[xi] == testData_ExperimentOne$respCouplet[xi]){
+    testData_ExperimentOne$corrCouplet[xi] = 1
+  }else if (testData_ExperimentOne$couplet[xi] != testData_ExperimentOne$respCouplet[xi]){
+    testData_ExperimentOne$corrCouplet[xi] = 0
+  }
+  
+}
+
+for(di in 1:(dim(testData_ExperimentOne)[1]-1)){
+  #hand switches
+  if(testData_ExperimentOne$hand[di] == testData_ExperimentOne$hand[di+1]){
+    testData_ExperimentOne$handSwitch[di+1]= 0
+  } else if(testData_ExperimentOne$hand[di] != testData_ExperimentOne$hand[di+1]){
+    testData_ExperimentOne$handSwitch[di+1] = 1
+  }
+  if(testData_ExperimentOne$couplet[di] == testData_ExperimentOne$couplet[di+1]){
+    testData_ExperimentOne$coupletSwitch[di+1]= 0
+  } else if(testData_ExperimentOne$couplet[di] != testData_ExperimentOne$couplet[di+1]){
+    testData_ExperimentOne$coupletSwitch[di+1] = 1
+  }
+  #switches and repeats for finger
+  if(testData_ExperimentOne$corrresp[di] == testData_ExperimentOne$corrresp[di+1]){
+    testData_ExperimentOne$fingerSwitch[di+1] = 0
+  }else{
+    testData_ExperimentOne$fingerSwitch[di+1] = 1
+  }
+  
+  # same but with actual responses
+  if(is.na(testData_ExperimentOne$respHand[di]) | is.na(testData_ExperimentOne$respHand[di+1])){
+    testData_ExperimentOne$handSwitch_actual[di]= NA
+    testData_ExperimentOne$handSwitch_actual[di+1]=NA
+  }else if(testData_ExperimentOne$respHand[di] == testData_ExperimentOne$respHand[di+1]){
+    testData_ExperimentOne$handSwitch_actual[di+1]= 0
+  } else if(testData_ExperimentOne$respHand[di] != testData_ExperimentOne$respHand[di+1]){
+    testData_ExperimentOne$handSwitch_actual[di+1] = 1
+  }
+  if(is.na(testData_ExperimentOne$respCouplet[di]) | is.na(testData_ExperimentOne$respCouplet[di+1]) ){
+    testData_ExperimentOne$coupletSwitch_actual[di]= NA
+    testData_ExperimentOne$coupletSwitch_actual[di+1]= NA
+  }else if(testData_ExperimentOne$respCouplet[di] == testData_ExperimentOne$respCouplet[di+1]){
+    testData_ExperimentOne$coupletSwitch_actual[di+1]= 0
+  } else if(testData_ExperimentOne$respCouplet[di] != testData_ExperimentOne$respCouplet[di+1]){
+    testData_ExperimentOne$coupletSwitch_actual[di+1] = 1
+  }
+  #switches and repeats for finger
+  if(is.na(testData_ExperimentOne$key_press[di])| is.na(testData_ExperimentOne$key_press[di+1])){
+    testData_ExperimentOne$fingerSwitch_actual[di+1]= NA
+    testData_ExperimentOne$fingerSwitch_actual[di]= NA
+  }else if(testData_ExperimentOne$key_press[di] == testData_ExperimentOne$key_press[di+1]){
+    testData_ExperimentOne$fingerSwitch_actual[di+1] = 0
+  }else{
+    testData_ExperimentOne$fingerSwitch_actual[di+1] = 1
+  }
+  
+  if(is.na(testData_ExperimentOne$trialNum[di])){
+    testData_ExperimentOne$handSwitch[di] = testData_ExperimentOne$handSwitch[di-1]
+    testData_ExperimentOne$coupletSwitch[di] = testData_ExperimentOne$coupletSwitch[di-1]
+    testData_ExperimentOne$fingerSwitch[di] = testData_ExperimentOne$fingerSwitch[di-1]
+    testData_ExperimentOne$handSwitch_actual[di] = testData_ExperimentOne$handSwitch_actual[di-1]
+    testData_ExperimentOne$coupletSwitch_actual[di] = testData_ExperimentOne$coupletSwitch_actual[di-1]
+    testData_ExperimentOne$fingerSwitch_actual[di] = testData_ExperimentOne$fingerSwitch_actual[di-1]
+  }else if(testData_ExperimentOne$trialNum[di] == 1){
+    testData_ExperimentOne$handSwitch[di] = NA
+    testData_ExperimentOne$coupletSwitch[di] = NA
+    testData_ExperimentOne$fingerSwitch[di] = NA
+    testData_ExperimentOne$handSwitch_actual[di] = NA
+    testData_ExperimentOne$coupletSwitch_actual[di] = NA
+    testData_ExperimentOne$fingerSwitch_actual[di] = NA
+  }
+}
+testData_ExperimentOne$combinedType = NA
+testData_ExperimentOne$combinedType[testData_ExperimentOne$coupletSwitch_actual == 0&testData_ExperimentOne$handSwitch_actual == 0] = 'rep/rep/sw'
+testData_ExperimentOne$combinedType[testData_ExperimentOne$coupletSwitch_actual == 0&testData_ExperimentOne$handSwitch_actual == 1] = 'sw/rep/sw'
+testData_ExperimentOne$combinedType[testData_ExperimentOne$coupletSwitch_actual == 1&testData_ExperimentOne$handSwitch_actual == 0] = 'rep/sw/sw'
+testData_ExperimentOne$combinedType[testData_ExperimentOne$coupletSwitch_actual == 1&testData_ExperimentOne$handSwitch_actual == 1] = 'sw/sw/sw'
+testData_ExperimentOne$combinedType[testData_ExperimentOne$fingerSwitch_actual == 0] = 'rep/rep/rep'
+testData_ExperimentOne$combinedType[testData_ExperimentOne$trialNum == 1] = NA
+
+testData_ExperimentOne$treeDistance = NA
+testData_ExperimentOne$treeDistance[testData_ExperimentOne$coupletSwitch_actual == 0&testData_ExperimentOne$handSwitch_actual == 0] = 2
+testData_ExperimentOne$treeDistance[testData_ExperimentOne$coupletSwitch_actual == 0&testData_ExperimentOne$handSwitch_actual == 1] = 6
+testData_ExperimentOne$treeDistance[testData_ExperimentOne$coupletSwitch_actual == 1&testData_ExperimentOne$handSwitch_actual == 0] =4
+testData_ExperimentOne$treeDistance[testData_ExperimentOne$coupletSwitch_actual == 1&testData_ExperimentOne$handSwitch_actual == 1] = 6
+testData_ExperimentOne$treeDistance[testData_ExperimentOne$fingerSwitch_actual == 0] = 0
+testData_ExperimentOne$treeDistance[testData_ExperimentOne$trialNum == 1] = NA
+
+# Fix issue with motorRepeat in postmotor phase classified in wrong phase
+repeatIdx = which(testData_ExperimentOne$trialType == 'motorRepeat')
+
+for(ei in repeatIdx){
+  if(testData_ExperimentOne$phase[ei-1] == 'postmotor'){
+    testData_ExperimentOne$phase[ei] = 'postmotor'
+  }
+}
+
+ExperimentOne = testData_ExperimentOne %>% filter(trialType == 'rl', iter < 128)
+
+#### EXCLUSIONS ####
+accuracyExclusions = ExperimentOne %>% group_by(subject, stimNum) %>% dplyr::summarize(pCorStim = mean(corr,na.rm = TRUE))
+
+includeSub = NA
+includeSub_strict = NA
+
+for (ai in 1:length(subjNums_all)){
+  if(sum(accuracyExclusions$pCorStim[accuracyExclusions$subject == subjNums_all[ai]] >=.25) >4){
+    includeSub[ai] = 1
+  }else{
+    includeSub[ai] = 0
+  }
+  if(sum(accuracyExclusions$pCorStim[accuracyExclusions$subject == subjNums_all[ai]] >=.25) == 8){
+    includeSub_strict[ai] = 1
+  }else{
+    includeSub_strict[ai] = 0
+  }
+}
+subjNums_included = subjNums_all[includeSub ==1]
+subjNums_included_strict = subjNums_all[includeSub_strict ==1]
+#now filter for just these subjects that aren't excluded 
+ExperimentOne_withExclusions = ExperimentOne %>% filter(subject %in% subjNums_all[includeSub ==1])
+testData_ExperimentOne_withExclusions = testData_ExperimentOne %>% filter(subject %in% subjNums_all[includeSub ==1])
+#Add a column for the strict exclusion criterion to see if that helps
+ExperimentOne_withExclusions$includeStrict = NA
+ExperimentOne_withExclusions$includeStrict[ExperimentOne_withExclusions$subject %in% c(subjNums_included_strict)] = 1
+
+# Add finger distance column 
+ExperimentOne_withExclusions$fingerDistance[1] = NA
+ExperimentOne_withExclusions$fingerDistance[2:length(ExperimentOne_withExclusions$fingerDistance)] = abs(ExperimentOne_withExclusions$finger_press[2:length(ExperimentOne_withExclusions$fingerDistance)]-ExperimentOne_withExclusions$finger_press[1:length(ExperimentOne_withExclusions$finger_press)-1])
+ExperimentOne_withExclusions$fingerDistance[ExperimentOne_withExclusions$trialNum == 1] = NA
+# Add previous corr response column 
+ExperimentOne_withExclusions$corrrespAll_prev[1] = NA
+ExperimentOne_withExclusions$corrrespAll_prev[2:length(ExperimentOne_withExclusions$corrresp)] = ExperimentOne_withExclusions$corrrespAll[1:length(ExperimentOne_withExclusions$corrresp)-1]
+ExperimentOne_withExclusions$corrrespAll_prev[ExperimentOne_withExclusions$trialNum == 1] = NA
+# Add previous ACTUAL response column 
+ExperimentOne_withExclusions$finger_press_prev[1] = NA
+ExperimentOne_withExclusions$finger_press_prev[2:length(ExperimentOne_withExclusions$finger_press)] = ExperimentOne_withExclusions$finger_press[1:length(ExperimentOne_withExclusions$corrresp)-1]
+ExperimentOne_withExclusions$finger_press_prev[ExperimentOne_withExclusions$trialNum == 1] = NA
+
+#add feature sw column
+featureSwitchArray = array(c(0,1,1,2,1,2,2,3,1,0,2,1,2,1,3,2,1,2,0,1,2,3,1,2,2,1,1,0,3,2,2,1,1,2,2,3,0,1,1,2,2,1,3,2,1,0,2,1,2,3,1,2,1,2,0,1,3,2,2,1,2,1,1,0),dim = c(8,8))
+# add path distances
+treeDistanceArray = array(c(0,2,4,4,6,6,6,6,2,0,4,4,6,6,6,6,4,4,0,2,6,6,6,6,4,4,2,0,6,6,6,6,6,6,6,6,0,2,4,4,6,6,6,6,2,0,4,4,6,6,6,6,4,4,0,2,6,6,6,6,4,4,2,0),dim = c(8,8))
+
+ExperimentOne_withExclusions$nFeatureSwitch[1] = NA
+for(ai in 1:length(ExperimentOne_withExclusions$nFeatureSwitch)){
+  prev = ExperimentOne_withExclusions$corrrespAll_prev[ai]
+  curr = ExperimentOne_withExclusions$corrrespAll[ai]
+  ExperimentOne_withExclusions$nFeatureSwitch[ai] = featureSwitchArray[prev,curr]
+}
+ExperimentOne_withExclusions$nFeatureSwitch[ExperimentOne_withExclusions$trialNum == 1] = NA
+
+## add switch/rep for each level of hierarchy
+ExperimentOne_withExclusions$topType = NA
+ExperimentOne_withExclusions$midType = NA
+ExperimentOne_withExclusions$lowType = NA
+#top level
+ExperimentOne_withExclusions$topType[ExperimentOne_withExclusions$handSwitch ==1] = 1
+ExperimentOne_withExclusions$topType[ExperimentOne_withExclusions$handSwitch ==0] = 0
+#mid level
+ExperimentOne_withExclusions$midType[ExperimentOne_withExclusions$coupletSwitch ==1] = 1
+ExperimentOne_withExclusions$midType[ExperimentOne_withExclusions$coupletSwitch ==0] = 0
+#low level
+for(bi in 2:length(ExperimentOne_withExclusions$lowType)){
+  prev = ExperimentOne_withExclusions$corrrespAll_prev[bi]
+  curr = ExperimentOne_withExclusions$corrrespAll[bi]
+  if(ExperimentOne_withExclusions$trialNum[bi] == 1){
+    ExperimentOne_withExclusions$lowType[bi] = NA 
+  }else if(((prev %% 2 == 0) & (curr %%2 == 0)) | ((prev %% 2 != 0) & (curr %% 2 != 0))){
+    ExperimentOne_withExclusions$lowType[bi] = 0
+  }else{
+    ExperimentOne_withExclusions$lowType[bi] = 1
+  }
+}
+ExperimentOne_withExclusions = ExperimentOne_withExclusions %>% group_by(subject) %>% filter(rt > 200, rt < mean(rt,na.rm = TRUE)+(sd(rt,na.rm = TRUE) * 3), trialNum > 3)
+
+#### PREP MOTOR DATA FOR CORRECTION #### 
+motorData_withExclusions_allRT = testData_ExperimentOne %>% filter(phase == 'motor', trialType == 'motor', corr == 1) 
+motorData_withExclusions = motorData_withExclusions_allRT %>% group_by(subject) %>% filter(rt > mean(rt,na.rm = TRUE)-(sd(rt,na.rm = TRUE) * 3),rt < mean(rt,na.rm = TRUE)+(sd(rt,na.rm = TRUE) * 3), trialNum > 3)
+
+#pull out second motor phase
+postmotorData_withExclusions_allRT = testData_ExperimentOne_withExclusions %>% filter(phase == 'postmotor', trialType == 'postmotor', corr == 1) 
+postmotorData_withExclusions = postmotorData_withExclusions_allRT %>% group_by(subject) %>% filter(rt > mean(rt,na.rm = TRUE)-(sd(rt,na.rm = TRUE) * 3),rt < mean(rt,na.rm = TRUE)+(sd(rt,na.rm = TRUE) * 3), trialNum >3)
+
+allmotorData_withExclusions = testData_ExperimentOne_withExclusions %>% filter(phase %in% c('motor','postmotor'), corr == 1, trialType %in% c('motor','postmotor')) %>% filter(rt > mean(rt,na.rm = TRUE)-(sd(rt,na.rm = TRUE) * 3),rt < mean(rt,na.rm = TRUE)+(sd(rt,na.rm = TRUE) * 3), trialNum > 3)
+upperBound = mean(allmotorData_withExclusions$rt,na.rm = TRUE)+3*sd(allmotorData_withExclusions$rt,na.rm = TRUE)
+
+allmotorData_withExclusions = allmotorData_withExclusions %>% filter(rt < upperBound)
+
+motorStats = allmotorData_withExclusions %>% group_by(subject) %>% dplyr::summarise(avg = mean(rt,na.rm = TRUE),maxi = max(rt,na.rm = TRUE),mini = min(rt,na.rm =TRUE), trip = avg+3*sd(rt,na.rm = TRUE),tooFast = sum(rt < 150), tooSlow = sum(rt>900))
+
+# do this in a hacky way rn to exclude super slow RTs
+allmotorData_withExclusions$rtStrict = NA
+allmotorData_withExclusions$rtStrict[allmotorData_withExclusions$rt < 900] = 1
+
+allmotorData_withExclusions_corr = allmotorData_withExclusions %>% filter(trialType %in% c('motor','postmotor'), corr == 1, !is.na(fingerSwitch))
+allmotorData_withExclusions_corr$rt_corr = allmotorData_withExclusions_corr$rt
+allmotorData_withExclusions_corr$rtz_corr = allmotorData_withExclusions_corr$rtz
+
+allmotorData_withExclusions_corr$rt_corr[allmotorData_withExclusions_corr$trialType == 'motorRepeat'] = NA
+allmotorData_withExclusions_corr$rtz_corr[allmotorData_withExclusions_corr$trialType == 'motorRepeat'] = NA
+
+#filter for correct responses
+heatmapData_allmotorData_withExclusions_corr = data.frame(currResp = allmotorData_withExclusions_corr$key_press[2:length(allmotorData_withExclusions_corr$key_press)], prevResp = allmotorData_withExclusions_corr$key_press[1:length(allmotorData_withExclusions_corr$key_press)-1], trialNum = allmotorData_withExclusions_corr$trialNum[2:length(allmotorData_withExclusions_corr$trialNum)], rt = allmotorData_withExclusions_corr$rt_corr[2:length(allmotorData_withExclusions_corr$rt_corr)]) %>% filter(trialNum >3, !is.na(currResp), !is.na(prevResp)) %>% group_by(currResp, prevResp) %>% dplyr::summarize(meanRT = mean(rt, na.rm=TRUE),medRT = median(rt,na.rm =TRUE))
+
+heatmapData_allmotorData_withExclusions_corr$prevResp = factor(heatmapData_allmotorData_withExclusions_corr$prevResp, levels = c(76,75,74,72,70,68,83,65))
+heatmapData_allmotorData_withExclusions_corr$currResp = factor(heatmapData_allmotorData_withExclusions_corr$currResp, levels = c(65,83,68,70,72,74,75,76))
+
+heatmapData_allTrials_resp_m_both = data.frame(subject = allmotorData_withExclusions_corr$subject[2:length(allmotorData_withExclusions_corr$subject)],currResp = allmotorData_withExclusions_corr$key_press[2:length(allmotorData_withExclusions_corr$key_press)], prevResp = allmotorData_withExclusions_corr$key_press[1:length(allmotorData_withExclusions_corr$key_press)-1], trialNum = allmotorData_withExclusions_corr$trialNum[2:length(allmotorData_withExclusions_corr$trialNum)], rt = allmotorData_withExclusions_corr$rt_corr[2:length(allmotorData_withExclusions_corr$rt_corr)]) %>% filter(trialNum > 3, !is.na(currResp), !is.na(prevResp)) %>% group_by(subject,currResp, prevResp) %>% dplyr::summarize(meanRT = mean(rt, na.rm=TRUE),medianRT = median(rt, na.rm = TRUE))
+heatmapData_allTrials_resp_m_both$prevResp = factor(heatmapData_allTrials_resp_m_both$prevResp, levels = c(76,75,74,72,70,68,83,65))
+heatmapData_allTrials_resp_m_both$currResp = factor(heatmapData_allTrials_resp_m_both$currResp, levels = c(65,83,68,70,72,74,75,76))
+
+###### MOTOR CORRECTION ######
+nCombos = ns^2
+motorTransitions = data.frame(matrix(nrow = nCombos*length(subjNums_included)))
+
+#initialize these columns
+motorTransitions$subject = NA
+motorTransitions$currResp = NA
+motorTransitions$prevResp = NA
+motorTransitions$rt = NA
+motorTransitions$rt_both = NA
+motorTransitions$swapRT = NA
+
+#loop over subjects to set up empty array
+startidx = 1
+for(xi in 1:length(subjNums_included)){
+  motorTransitions$subject[startidx:(startidx+nCombos-1)] = subjNums_included[xi]
+  counter = startidx
+  for(yi in 1:ns){
+    for(zi in 1:ns){
+      motorTransitions$currResp[counter] = allResps_new[yi]
+      motorTransitions$prevResp[counter] = allResps_new[zi]
+      counter = counter+1
+    }
+  }
+  startidx = counter
+}
+
+# now put in the meanrts from the motor task
+for(mi in 1:dim(heatmapData_allTrials_resp_m_both)[1]){
+  subj = heatmapData_allTrials_resp_m_both$subject[mi]
+  currResp_m = heatmapData_allTrials_resp_m_both$currResp[mi]
+  prevResp_m = heatmapData_allTrials_resp_m_both$prevResp[mi]
+  
+  motorTransitions$rt[motorTransitions$subject == subj & motorTransitions$currResp == currResp_m & motorTransitions$prevResp == prevResp_m] = heatmapData_allTrials_resp_m_both$meanRT[mi]
+  motorTransitions$rt_both[motorTransitions$subject == subj & motorTransitions$currResp == currResp_m & motorTransitions$prevResp == prevResp_m] = heatmapData_allTrials_resp_m_both$meanRT[mi]
+  
+  
+}
+
+# if there are missing transitions from the motor sequence, fill in with the transition in the opposite direction
+missingIdx = which(is.na(motorTransitions$rt))
+if(sum(missingIdx) != 0){
+  for(i in 1:length(missingIdx)){
+    swapPrev = motorTransitions$currResp[missingIdx[i]]
+    swapCurr = motorTransitions$prevResp[missingIdx[i]]
+    motorTransitions$rt[missingIdx[i]] = motorTransitions$rt[motorTransitions$currResp == swapPrev & motorTransitions$prevResp == swapCurr]
+    motorTransitions$medRT[missingIdx[i]] = motorTransitions$medRT[motorTransitions$currResp == swapPrev & motorTransitions$prevResp == swapCurr]
+    
+    motorTransitions$rt_both[missingIdx[i]] = motorTransitions$rt_both[motorTransitions$currResp == swapPrev & motorTransitions$prevResp == swapCurr]
+    motorTransitions$medRT_both[missingIdx[i]] = motorTransitions$medRT_both[motorTransitions$currResp == swapPrev & motorTransitions$prevResp == swapCurr]
+    
+    motorTransitions$rt_strict[missingIdx[i]] = motorTransitions$rt_strict[motorTransitions$currResp == swapPrev & motorTransitions$prevResp == swapCurr]
+    motorTransitions$medRT_strict[missingIdx[i]] = motorTransitions$medRT_strict[motorTransitions$currResp == swapPrev & motorTransitions$prevResp == swapCurr]
+    
+    motorTransitions$swapRT[missingIdx[i]] = 1
+  }
+}
+
+ExperimentOne_withExclusions$rt_corrected = NA
+ExperimentOne_withExclusions$medRT_corrected = NA
+
+ExperimentOne_withExclusions$rt_corrected_both = NA
+ExperimentOne_withExclusions$medRT_corrected_both = NA
+
+ExperimentOne_withExclusions$rt_strict_corrected = NA
+ExperimentOne_withExclusions$medRT_strict_corrected = NA
+
+for(i in 1:length(ExperimentOne_withExclusions$rt_corrected)){
+  if(ExperimentOne_withExclusions$trialNum[i] ==1){
+    ExperimentOne_withExclusions$rt_corrected[i] = NA
+  }else{
+    prev = ExperimentOne_withExclusions$corrrespAll_prev[i]
+    curr = ExperimentOne_withExclusions$finger_press[i]
+    motorRT = motorTransitions$rt[motorTransitions$prevResp == allResps_new[prev] & motorTransitions$currResp == allResps_new[curr]]
+    
+    motorRT_both = motorTransitions$rt_both[motorTransitions$prevResp == allResps_new[prev] & motorTransitions$currResp == allResps_new[curr]]
+    
+    ExperimentOne_withExclusions$rt_corrected[i] = ExperimentOne_withExclusions$rt[i] - motorRT
+    
+    ExperimentOne_withExclusions$rt_corrected_both[i] = ExperimentOne_withExclusions$rt[i] - motorRT_both
+    
+    
+  }
+}
+
+
+##### STREAK PERFORMANCE ##### add a column to track consecutively correct trials
+ExperimentOne_withExclusions$streak = NA
+ExperimentOne_withExclusions$longStreak = NA
+for(ai in 2:length(ExperimentOne_withExclusions$corr)){
+  trial = ExperimentOne_withExclusions$trialNum[ai]
+  if(ExperimentOne_withExclusions$trialNum[ai-1]==(trial-1)){
+    if(ExperimentOne_withExclusions$corr[ai]==1 & ExperimentOne_withExclusions$corr[ai-1]==1){
+      ExperimentOne_withExclusions$streak[ai] = 1
+    }else{
+      ExperimentOne_withExclusions$streak[ai] = 0
+    }
+  }else{
+    ExperimentOne_withExclusions$streak[ai] = 0
+  }
+}
+
+for(ai in 2:length(ExperimentOne_withExclusions$corr)){
+  trial = ExperimentOne_withExclusions$trialNum[ai]
+  if(ExperimentOne_withExclusions$trialNum[ai-1]==(trial-1)){
+    if(ExperimentOne_withExclusions$streak[ai]==1 & ExperimentOne_withExclusions$streak[ai-1]==1){
+      ExperimentOne_withExclusions$longStreak[ai] = 1
+    }else{
+      ExperimentOne_withExclusions$longStreak[ai] = 0
+    }
+  }else{
+    ExperimentOne_withExclusions$longStreak[ai] = 0
+  }
+}
+
+ExperimentOne_withExclusions$streak[ExperimentOne_withExclusions$trialNum ==1] = NA
+
+######### WRITE DATA TO FILE ########
+write.csv(allmotorData_withExclusions, 'motorData_Experiment1_compiled.csv')
+write.csv(ExperimentOne_withExclusions, 'Experiment1_compiled.csv')
+
+```
+
+# Prep data for EXPERIMENT 2
+```{r, echo=F, message=F, warning=F, error=T, fig.width=6, fig.height=4, fig.align='center'}
+# set up workspace
+# set up workspace
+rm(list=ls(all=TRUE))
+
+setwd("~/Documents/GitHub/StructuredActionPrepVMDM/rawData")
+datadir = "~/Documents/GitHub/StructuredActionPrepVMDM/rawData/Experiment2"
+# load libraries
+library(ggplot2)
+library(gridExtra)
+library(ggpubr)
+library(reshape2)
+library(dplyr)
+library(tidyr)
+library(tidyverse)
+library(itsadug)
+library(RColorBrewer)
+library(knitr)
+library(extrafont)
+library(fs)
+library(fabricatr)
+library(Rmisc)
+library(lme4)
+library(rstatix)
+library(MuMIn)
+
+# read in data
+  file_paths = fs::dir_ls(datadir)
+  compiledData = data.frame()
+  for (i in seq_along(file_paths)){
+    newSubjData = read_csv(file = file_paths[[i]], col_types = cols(hierarchy = col_character(),question_order = col_character()))
+    compiledData = rbind(compiledData, newSubjData)
+  }
+  
+  
+  # clean up data
+  compiledData$rt = as.numeric(compiledData$rt)
+  compiledData$time_elapsed = as.numeric(compiledData$time_elapsed)
+  compiledData$key_press = as.numeric(compiledData$key_press)
+  compiledData$corrresp = as.numeric(compiledData$corrresp)
+  
+  
+  
+  # sort data into prac and test
+  compiledData = filter(compiledData, trialType %in% c('rl','motor','motorRepeat'))
+  pracData = filter(compiledData, phase == "prac")
+  testData_ExperimentTwo = filter(compiledData, phase %in% c("motor","test"))
+  
+  # get some variables
+  prolificNums = unique(testData_ExperimentTwo$subject)
+  subjNums_all = unique(testData_ExperimentTwo$subject)
+  N_all = length(prolificNums)
+  
+  allResps_new = c(65,83,68,70,72,74,75,76)
+  LH_new = c(65,83,68,70)
+  RH_new = c(72,74,75,76)
+  
+  # changed couplets to finger space
+  coupletOne_new = c(68,70,72,74)
+  coupletTwo_new = c(65,83,75,76)
+  
+  allResps = c(1,2,3,4,5,6,7,8)
+  
+  #make a column for recoded responses to make life easier
+  
+  testData_ExperimentTwo$corrrespAll = NA
+  testData_ExperimentTwo$finger_press = NA
+  testData_ExperimentTwo$corrrespAll[testData_ExperimentTwo$corrresp == 65] = 1
+  testData_ExperimentTwo$corrrespAll[testData_ExperimentTwo$corrresp == 83] = 2
+  testData_ExperimentTwo$corrrespAll[testData_ExperimentTwo$corrresp == 68] = 3
+  testData_ExperimentTwo$corrrespAll[testData_ExperimentTwo$corrresp == 70] = 4
+  testData_ExperimentTwo$corrrespAll[testData_ExperimentTwo$corrresp == 72] = 5
+  testData_ExperimentTwo$corrrespAll[testData_ExperimentTwo$corrresp == 74] = 6
+  testData_ExperimentTwo$corrrespAll[testData_ExperimentTwo$corrresp == 75] = 7
+  testData_ExperimentTwo$corrrespAll[testData_ExperimentTwo$corrresp == 76] = 8
+  
+  testData_ExperimentTwo$finger_press[ testData_ExperimentTwo$key_press == 65] = 1
+  testData_ExperimentTwo$finger_press[testData_ExperimentTwo$key_press == 83] = 2
+  testData_ExperimentTwo$finger_press[testData_ExperimentTwo$key_press == 68] = 3
+  testData_ExperimentTwo$finger_press[testData_ExperimentTwo$key_press == 70] = 4
+  testData_ExperimentTwo$finger_press[testData_ExperimentTwo$key_press == 72] = 5
+  testData_ExperimentTwo$finger_press[testData_ExperimentTwo$key_press == 74] = 6
+  testData_ExperimentTwo$finger_press[testData_ExperimentTwo$key_press == 75] = 7
+  testData_ExperimentTwo$finger_press[testData_ExperimentTwo$key_press == 76] = 8
+  
+  ns = length(allResps)
+  # add more info to trials before saving
+  testData_ExperimentTwo$iter = NA
+  testData_ExperimentTwo$zscoredRTs = NA
+  testData_ExperimentTwo$logRTs = NA
+  testData_ExperimentTwo$hand = NA
+  testData_ExperimentTwo$couplet = NA
+  testData_ExperimentTwo$handSwitch = NA
+  testData_ExperimentTwo$coupletSwitch = NA
+  testData_ExperimentTwo$fingerSwitch = NA
+  testData_ExperimentTwo$handSwitch_actual = NA
+  testData_ExperimentTwo$coupletSwitch_actual = NA
+  testData_ExperimentTwo$fingerSwitch_actual = NA
+  testData_ExperimentTwo$respHand = NA
+  testData_ExperimentTwo$respCouplet = NA
+  testData_ExperimentTwo$corrHand = NA
+  testData_ExperimentTwo$corrCouplet = NA
+  for(ai in 1:N_all){
+    testData_ExperimentTwo$zscoredRTs[testData_ExperimentTwo$subject == subjNums_all[ai]] = scale(testData_ExperimentTwo$rt[testData_ExperimentTwo$subject == subjNums_all[ai]])
+    testData_ExperimentTwo$logRTs[testData_ExperimentTwo$subject == subjNums_all[ai]] = log(testData_ExperimentTwo$rt[testData_ExperimentTwo$subject == subjNums_all[ai]])
+    # add iteration numbers
+    for(bi in 1:ns){
+      idx = which(testData_ExperimentTwo$subject == subjNums_all[ai]&testData_ExperimentTwo$corrrespAll == allResps[bi] & testData_ExperimentTwo$phase == 'test')
+      for (ci in 1:length(idx)){
+        testData_ExperimentTwo$stimNum[idx[ci]] = bi
+        testData_ExperimentTwo$iter[idx[ci]] = ci
+      }
+    }
+    trialNum_idx = which(testData_ExperimentTwo$subject == subjNums_all[ai] & testData_ExperimentTwo$trialType == 'rl')
+    testData_ExperimentTwo$trialNum[trialNum_idx] = c(1:length(which(testData_ExperimentTwo$subject == subjNums_all[ai] & testData_ExperimentTwo$trialType == 'rl')))
+  }
+  for (xi in 1:dim(testData_ExperimentTwo)[1]){
+    # put in correct hand and couplet
+    if(testData_ExperimentTwo$corrresp[xi] %in% RH_new){
+      testData_ExperimentTwo$hand[xi] = 'R'
+    }else if (testData_ExperimentTwo$corrresp[xi] %in% LH_new){
+      testData_ExperimentTwo$hand[xi] = 'L'
+    }
+    
+      if(testData_ExperimentTwo$corrresp[xi] %in% coupletOne_new){
+      testData_ExperimentTwo$couplet[xi] = 1
+    }else if (testData_ExperimentTwo$corrresp[xi] %in% coupletTwo_new){
+      testData_ExperimentTwo$couplet[xi] = 2
+    }
+    
+    # put in the hand and couplet of the response
+    if(testData_ExperimentTwo$key_press[xi] %in% RH_new){
+      testData_ExperimentTwo$respHand[xi] = 'R'
+    }else if (testData_ExperimentTwo$key_press[xi] %in% LH_new){
+      testData_ExperimentTwo$respHand[xi] = 'L'
+    }
+    
+    if(testData_ExperimentTwo$key_press[xi] %in% coupletOne_new){
+      testData_ExperimentTwo$respCouplet[xi] = 1
+    }else if (testData_ExperimentTwo$key_press[xi] %in% coupletTwo_new){
+      testData_ExperimentTwo$respCouplet[xi] = 2
+    }
+    
+    # 1 for correct hand, 0 for incorrect
+    if(is.na(testData_ExperimentTwo$respHand[xi])){
+      testData_ExperimentTwo$corrHand[xi] = 0
+    } else if(testData_ExperimentTwo$hand[xi] == testData_ExperimentTwo$respHand[xi]){
+      testData_ExperimentTwo$corrHand[xi] = 1
+    }else if (testData_ExperimentTwo$hand[xi] != testData_ExperimentTwo$respHand[xi]){
+      testData_ExperimentTwo$corrHand[xi] = 0
+    }
+     if(is.na(testData_ExperimentTwo$respCouplet[xi])){
+      testData_ExperimentTwo$corrCouplet[xi] = 0
+    }else if(testData_ExperimentTwo$couplet[xi] == testData_ExperimentTwo$respCouplet[xi]){
+      testData_ExperimentTwo$corrCouplet[xi] = 1
+    }else if (testData_ExperimentTwo$couplet[xi] != testData_ExperimentTwo$respCouplet[xi]){
+      testData_ExperimentTwo$corrCouplet[xi] = 0
+    }
+    
+  }
+  
+  for(di in 1:(dim(testData_ExperimentTwo)[1]-1)){
+    #hand switches
+    if(testData_ExperimentTwo$hand[di] == testData_ExperimentTwo$hand[di+1]){
+      testData_ExperimentTwo$handSwitch[di+1]= 0
+    } else if(testData_ExperimentTwo$hand[di] != testData_ExperimentTwo$hand[di+1]){
+      testData_ExperimentTwo$handSwitch[di+1] = 1
+    }
+    if(testData_ExperimentTwo$couplet[di] == testData_ExperimentTwo$couplet[di+1]){
+      testData_ExperimentTwo$coupletSwitch[di+1]= 0
+    } else if(testData_ExperimentTwo$couplet[di] != testData_ExperimentTwo$couplet[di+1]){
+      testData_ExperimentTwo$coupletSwitch[di+1] = 1
+    }
+    #switches and repeats for finger
+    if(testData_ExperimentTwo$corrresp[di] == testData_ExperimentTwo$corrresp[di+1]){
+      testData_ExperimentTwo$fingerSwitch[di+1] = 0
+    }else{
+      testData_ExperimentTwo$fingerSwitch[di+1] = 1
+    }
+    
+    # same but with actual responses
+    if(is.na(testData_ExperimentTwo$respHand[di]) | is.na(testData_ExperimentTwo$respHand[di+1])){
+      if(is.na(testData_ExperimentTwo$respHand[di]) & is.na(testData_ExperimentTwo$respHand[di+1])){
+        testData_ExperimentTwo$handSwitch_actual[di]= NA
+        testData_ExperimentTwo$handSwitch_actual[di+1]=NA
+      }else if(is.na(testData_ExperimentTwo$respHand[di])){
+        testData_ExperimentTwo$handSwitch_actual[di]= NA
+        testData_ExperimentTwo$handSwitch_actual[di+1]=NA
+      }else if(is.na(testData_ExperimentTwo$respHand[di+1])){
+        testData_ExperimentTwo$handSwitch_actual[di+1] = NA
+      }
+
+    }else if(testData_ExperimentTwo$respHand[di] == testData_ExperimentTwo$respHand[di+1]){
+      testData_ExperimentTwo$handSwitch_actual[di+1]= 0
+    } else if(testData_ExperimentTwo$respHand[di] != testData_ExperimentTwo$respHand[di+1]){
+      testData_ExperimentTwo$handSwitch_actual[di+1] = 1
+    }
+    if(is.na(testData_ExperimentTwo$respCouplet[di]) | is.na(testData_ExperimentTwo$respCouplet[di+1])){
+      if(is.na(testData_ExperimentTwo$respCouplet[di]) & is.na(testData_ExperimentTwo$respCouplet[di+1])){
+        testData_ExperimentTwo$coupletSwitch_actual[di]= NA
+        testData_ExperimentTwo$coupletSwitch_actual[di+1]=NA
+      }else if(is.na(testData_ExperimentTwo$respCouplet[di])){
+        testData_ExperimentTwo$coupletSwitch_actual[di]= NA
+        testData_ExperimentTwo$coupletSwitch_actual[di+1]=NA
+      }else if(is.na(testData_ExperimentTwo$respCouplet[di+1])){
+        testData_ExperimentTwo$coupletSwitch_actual[di+1] = NA
+      }
+    }else if(testData_ExperimentTwo$respCouplet[di] == testData_ExperimentTwo$respCouplet[di+1]){
+      testData_ExperimentTwo$coupletSwitch_actual[di+1]= 0
+    } else if(testData_ExperimentTwo$respCouplet[di] != testData_ExperimentTwo$respCouplet[di+1]){
+      testData_ExperimentTwo$coupletSwitch_actual[di+1] = 1
+    }
+    #switches and repeats for finger
+    if(is.na(testData_ExperimentTwo$key_press[di])| is.na(testData_ExperimentTwo$key_press[di+1])){
+        if(is.na(testData_ExperimentTwo$key_press[di]) & is.na(testData_ExperimentTwo$key_press[di+1])){
+        testData_ExperimentTwo$fingerSwitch_actual[di]= NA
+        testData_ExperimentTwo$fingerSwitch_actual[di+1]=NA
+      }else if(is.na(testData_ExperimentTwo$key_press[di])){
+        testData_ExperimentTwo$fingerSwitch_actual[di]= NA
+        testData_ExperimentTwo$fingerSwitch_actual[di+1]=NA
+      }else if(is.na(testData_ExperimentTwo$key_press[di+1])){
+        testData_ExperimentTwo$fingerSwitch_actual[di+1] = NA
+      }
+    }else if(testData_ExperimentTwo$key_press[di] == testData_ExperimentTwo$key_press[di+1]){
+      testData_ExperimentTwo$fingerSwitch_actual[di+1] = 0
+    }else{
+      testData_ExperimentTwo$fingerSwitch_actual[di+1] = 1
+    }
+    
+    if(is.na(testData_ExperimentTwo$trialNum[di])){
+      testData_ExperimentTwo$handSwitch[di] = testData_ExperimentTwo$handSwitch[di-1]
+      testData_ExperimentTwo$coupletSwitch[di] = testData_ExperimentTwo$coupletSwitch[di-1]
+      testData_ExperimentTwo$fingerSwitch[di] = testData_ExperimentTwo$fingerSwitch[di-1]
+      testData_ExperimentTwo$handSwitch_actual[di] = testData_ExperimentTwo$handSwitch_actual[di-1]
+      testData_ExperimentTwo$coupletSwitch_actual[di] = testData_ExperimentTwo$coupletSwitch_actual[di-1]
+      testData_ExperimentTwo$fingerSwitch_actual[di] = testData_ExperimentTwo$fingerSwitch_actual[di-1]
+    }else if(testData_ExperimentTwo$trialNum[di] == 1){
+      testData_ExperimentTwo$handSwitch[di] = NA
+      testData_ExperimentTwo$coupletSwitch[di] = NA
+      testData_ExperimentTwo$fingerSwitch[di] = NA
+      testData_ExperimentTwo$handSwitch_actual[di] = NA
+      testData_ExperimentTwo$coupletSwitch_actual[di] = NA
+      testData_ExperimentTwo$fingerSwitch_actual[di] = NA
+    }
+  }
+  testData_ExperimentTwo$combinedType = NA
+testData_ExperimentTwo$combinedType[testData_ExperimentTwo$coupletSwitch_actual == 0&testData_ExperimentTwo$handSwitch_actual == 0] = 'rep/rep/sw'
+testData_ExperimentTwo$combinedType[testData_ExperimentTwo$coupletSwitch_actual == 0&testData_ExperimentTwo$handSwitch_actual == 1] = 'sw/rep/sw'
+testData_ExperimentTwo$combinedType[testData_ExperimentTwo$coupletSwitch_actual == 1&testData_ExperimentTwo$handSwitch_actual == 0] = 'rep/sw/sw'
+testData_ExperimentTwo$combinedType[testData_ExperimentTwo$coupletSwitch_actual == 1&testData_ExperimentTwo$handSwitch_actual == 1] = 'sw/sw/sw'
+testData_ExperimentTwo$combinedType[testData_ExperimentTwo$fingerSwitch_actual == 0] = 'rep/rep/rep'
+testData_ExperimentTwo$combinedType[testData_ExperimentTwo$trialNum == 1] = NA
+
+testData_ExperimentTwo$treeDistance = NA
+testData_ExperimentTwo$treeDistance[testData_ExperimentTwo$coupletSwitch_actual == 0&testData_ExperimentTwo$handSwitch_actual == 0] = 2
+testData_ExperimentTwo$treeDistance[testData_ExperimentTwo$coupletSwitch_actual == 0&testData_ExperimentTwo$handSwitch_actual == 1] = 6
+testData_ExperimentTwo$treeDistance[testData_ExperimentTwo$coupletSwitch_actual == 1&testData_ExperimentTwo$handSwitch_actual == 0] =4
+testData_ExperimentTwo$treeDistance[testData_ExperimentTwo$coupletSwitch_actual == 1&testData_ExperimentTwo$handSwitch_actual == 1] = 6
+testData_ExperimentTwo$treeDistance[testData_ExperimentTwo$fingerSwitch_actual == 0] = 0
+testData_ExperimentTwo$treeDistance[testData_ExperimentTwo$trialNum == 1] = NA
+
+# exclude first trials
+testData_ExperimentTwo = testData_ExperimentTwo %>% filter(trialNum > 3)
+  # Fix issue with motorRepeat in postmotor phase classified in wrong phase
+  repeatIdx = which(testData_ExperimentTwo$trialType == 'motorRepeat')
+  
+
+  for(ei in repeatIdx){
+    if(testData_ExperimentTwo$phase[ei-1] == 'postmotor'){
+      testData_ExperimentTwo$phase[ei] = 'postmotor'
+    }
+  }
+  
+ExperimentTwo = testData_ExperimentTwo %>% filter(trialType == 'rl', iter < 57)
+
+#### EXCLUSIONS ####
+accuracyExclusions = ExperimentTwo %>% group_by(subject, stimNum) %>% dplyr::summarize(pCorStim = mean(corr,na.rm = TRUE))
+
+includeSub = NA
+includeSub_strict = NA
+
+for (ai in 1:length(subjNums_all)){
+  if(sum(accuracyExclusions$pCorStim[accuracyExclusions$subject == subjNums_all[ai]] >=.25) >4){
+    includeSub[ai] = 1
+  }else{
+    includeSub[ai] = 0
+  }
+  if(sum(accuracyExclusions$pCorStim[accuracyExclusions$subject == subjNums_all[ai]] >=.25) == 8){
+    includeSub_strict[ai] = 1
+  }else{
+    includeSub_strict[ai] = 0
+  }
+}
+subjNums_included = subjNums_all[includeSub ==1]
+subjNums_included_strict = subjNums_all[includeSub_strict ==1]
+#now filter for just these subjects that aren't excluded 
+testData_ExperimentTwo_withExclusions = testData_ExperimentTwo %>% filter(subject %in% subjNums_all[includeSub ==1])
+
+#Add a column for the strict exclusion criterion
+testData_ExperimentTwo_withExclusions$includeStrict = NA
+testData_ExperimentTwo_withExclusions$includeStrict[testData_ExperimentTwo_withExclusions$subject %in% c(subjNums_included_strict)] = 1
+
+# Add finger distance column 
+testData_ExperimentTwo_withExclusions$fingerDistance[1] = NA
+testData_ExperimentTwo_withExclusions$fingerDistance[2:length(testData_ExperimentTwo_withExclusions$fingerDistance)] = abs(testData_ExperimentTwo_withExclusions$finger_press[2:length(testData_ExperimentTwo_withExclusions$fingerDistance)]-testData_ExperimentTwo_withExclusions$finger_press[1:length(testData_ExperimentTwo_withExclusions$finger_press)-1])
+testData_ExperimentTwo_withExclusions$fingerDistance[testData_ExperimentTwo_withExclusions$trialNum == 1] = NA
+
+# Add previous corr response column 
+testData_ExperimentTwo_withExclusions$corrrespAll_prev[1] = NA
+testData_ExperimentTwo_withExclusions$corrrespAll_prev[2:length(testData_ExperimentTwo_withExclusions$corrresp)] = testData_ExperimentTwo_withExclusions$corrrespAll[1:length(testData_ExperimentTwo_withExclusions$corrresp)-1]
+testData_ExperimentTwo_withExclusions$corrrespAll_prev[testData_ExperimentTwo_withExclusions$trialNum == 1] = NA
+# Add previous ACTUAL response column 
+testData_ExperimentTwo_withExclusions$finger_press_prev[1] = NA
+testData_ExperimentTwo_withExclusions$finger_press_prev[2:length(testData_ExperimentTwo_withExclusions$finger_press)] = testData_ExperimentTwo_withExclusions$finger_press[1:length(testData_ExperimentTwo_withExclusions$corrresp)-1]
+testData_ExperimentTwo_withExclusions$finger_press_prev[testData_ExperimentTwo_withExclusions$trialNum == 1] = NA
+
+
+
+#add feature sw column
+featureSwitchArray = array(c(0,1,1,2,3,2,2,1, 
+                             1,0,2,1,2,3,1,2,
+                             1,2,0,1,2,1,3,2,
+                             2,1,1,0,1,2,2,3,
+                             3,2,2,1,0,1,1,2,
+                             2,3,1,2,1,0,2,1,
+                             2,1,3,2,1,2,0,1,
+                             1,2,2,3,2,1,1,0),dim = c(8,8))
+testData_ExperimentTwo_withExclusions$nFeatureSwitch[1] = NA
+testData_ExperimentTwo_withExclusions$nFeatureSwitch[is.na(testData_ExperimentTwo_withExclusions$treeDistance)] = NA
+
+for(ai in 1:length(testData_ExperimentTwo_withExclusions$nFeatureSwitch)){
+  prev = testData_ExperimentTwo_withExclusions$corrrespAll_prev[ai]
+  curr = testData_ExperimentTwo_withExclusions$corrrespAll[ai]
+  testData_ExperimentTwo_withExclusions$nFeatureSwitch[ai] = featureSwitchArray[prev,curr]
+}
+testData_ExperimentTwo_withExclusions$nFeatureSwitch[testData_ExperimentTwo_withExclusions$trialNum == 1] = NA
+
+# add tree distance column 
+treeDistanceArray = array(c(0,2,4,4,6,6,6,6,2,0,4,4,6,6,6,6,4,4,0,2,6,6,6,6,4,4,2,0,6,6,6,6,6,6,6,6,0,2,4,4,6,6,6,6,2,0,4,4,6,6,6,6,4,4,0,2,6,6,6,6,4,4,2,0),dim = c(8,8))
+
+
+# MAKE SURE TO FILTER OUT EXTRA ITERATIONS and first 4 trials! (move earlier in code for future versions)
+ExperimentTwo_withExclusions = testData_ExperimentTwo_withExclusions %>% filter(phase == 'test') %>% filter(iter < 57)
+## add switch/rep for each level of hierarchy
+ExperimentTwo_withExclusions$topType = NA
+ExperimentTwo_withExclusions$midType = NA
+ExperimentTwo_withExclusions$lowType = NA
+
+#top level
+ExperimentTwo_withExclusions$topType[ExperimentTwo_withExclusions$handSwitch ==1] = 1
+ExperimentTwo_withExclusions$topType[ExperimentTwo_withExclusions$handSwitch ==0] = 0
+
+#mid level
+ExperimentTwo_withExclusions$midType[ExperimentTwo_withExclusions$coupletSwitch ==1] = 1
+ExperimentTwo_withExclusions$midType[ExperimentTwo_withExclusions$coupletSwitch ==0] = 0
+
+
+#low level
+for(bi in 2:length(ExperimentTwo_withExclusions$lowType)){
+  prev = ExperimentTwo_withExclusions$corrrespAll_prev[bi]
+  curr = ExperimentTwo_withExclusions$corrrespAll[bi]
+  if(ExperimentTwo_withExclusions$trialNum[bi] == 1){
+   ExperimentTwo_withExclusions$lowType[bi] = NA 
+  }else if(((prev %% 2 == 0) & (curr %% 2 == 0)) | ((prev %% 2 != 0) & (curr %% 2 != 0))){
+    ExperimentTwo_withExclusions$lowType[bi] = 0
+  }else{
+    ExperimentTwo_withExclusions$lowType[bi] = 1
+  }
+}
+
+ExperimentTwo_withExclusions = ExperimentTwo_withExclusions %>% group_by(subject) %>% filter(rt > 200, rt < mean(rt,na.rm = TRUE)+(sd(rt,na.rm = TRUE) * 3), trialNum > 3)
+
+allmotorData_withExclusions = testData_ExperimentTwo_withExclusions %>% filter(phase %in% c('motor'), corr == 1, trialType %in% c('motor'), subject %in% subjNums_included) %>% group_by(subject) %>% filter(rt > mean(rt,na.rm = TRUE)-(sd(rt,na.rm = TRUE) * 3),rt < mean(rt,na.rm = TRUE)+(sd(rt,na.rm = TRUE) * 3), trialNum > 3)
+motorUpperBound = mean(allmotorData_withExclusions$rt,na.rm = TRUE)+sd(allmotorData_withExclusions$rt,na.rm = TRUE)*3
+
+allmotorData_withExclusions_corr = allmotorData_withExclusions %>% filter(trialType %in% c('motor'), corr == 1, !is.na(fingerSwitch))
+allmotorData_withExclusions_corr$rt_corr = allmotorData_withExclusions_corr$rt
+allmotorData_withExclusions_corr$rt_corr[allmotorData_withExclusions_corr$trialType == 'motorRepeat'] = NA
+
+# heatmap array for BOTH motor tasks
+heatmapData_allTrials_resp_m_both = data.frame(subject = allmotorData_withExclusions_corr$subject[2:length(allmotorData_withExclusions_corr$subject)],currResp = allmotorData_withExclusions_corr$key_press[2:length(allmotorData_withExclusions_corr$key_press)], prevResp = allmotorData_withExclusions_corr$key_press[1:length(allmotorData_withExclusions_corr$key_press)-1], trialNum = allmotorData_withExclusions_corr$trialNum[2:length(allmotorData_withExclusions_corr$trialNum)], rt = allmotorData_withExclusions_corr$rt_corr[2:length(allmotorData_withExclusions_corr$rt_corr)]) %>% filter(trialNum > 3, !is.na(currResp), !is.na(prevResp)) %>% group_by(subject,currResp, prevResp) %>% dplyr::summarize(meanRT = mean(rt, na.rm=TRUE),medianRT = median(rt, na.rm = TRUE))
+heatmapData_allTrials_resp_m_both$prevResp = factor(heatmapData_allTrials_resp_m_both$prevResp, levels = c(76,75,74,72,70,68,83,65))
+heatmapData_allTrials_resp_m_both$currResp = factor(heatmapData_allTrials_resp_m_both$currResp, levels = c(65,83,68,70,72,74,75,76))
+
+# ok, so we want add a column onto the main RL dataframe we're working with that has the baseline corrected rts
+# first let's make the motor dataframe easier to use by creating a dataframe with all of the possible combinations
+nCombos = ns^2
+motorTransitions = data.frame(matrix(nrow = nCombos*length(subjNums_included)))
+
+#initialize these columns
+motorTransitions$subject = NA
+motorTransitions$currResp = NA
+motorTransitions$prevResp = NA
+
+motorTransitions$rt_both = NA
+motorTransitions$medRT_both = NA
+
+motorTransitions$swapRT = NA
+
+#loop over subjects to set up empty array
+startidx = 1
+for(xi in 1:length(subjNums_included)){
+  motorTransitions$subject[startidx:(startidx+nCombos-1)] = subjNums_included[xi]
+  counter = startidx
+  for(yi in 1:ns){
+    for(zi in 1:ns){
+      motorTransitions$currResp[counter] = allResps_new[yi]
+      motorTransitions$prevResp[counter] = allResps_new[zi]
+      counter = counter+1
+    }
+  }
+  startidx = counter
+}
+
+# now put in the meanrts from the motor task
+for(mi in 1:dim(heatmapData_allTrials_resp_m_both)[1]){
+  subj = heatmapData_allTrials_resp_m_both$subject[mi]
+  currResp_m = heatmapData_allTrials_resp_m_both$currResp[mi]
+  prevResp_m = heatmapData_allTrials_resp_m_both$prevResp[mi]
+
+  motorTransitions$rt_both[motorTransitions$subject == subj & motorTransitions$currResp == currResp_m & motorTransitions$prevResp == prevResp_m] = heatmapData_allTrials_resp_m_both$meanRT[mi]
+  motorTransitions$medRT_both[motorTransitions$subject == subj & motorTransitions$currResp == currResp_m & motorTransitions$prevResp == prevResp_m] = heatmapData_allTrials_resp_m_both$medianRT[mi]
+
+
+  }
+
+# if there are missing transitions from the motor sequence, fill in with the transition in the opposite direction
+missingIdx = which(is.na(motorTransitions$rt))
+if(sum(missingIdx) != 0){
+  for(i in 1:length(missingIdx)){
+    swapPrev = motorTransitions$currResp[missingIdx[i]]
+    swapCurr = motorTransitions$prevResp[missingIdx[i]]
+    motorTransitions$rt_both[missingIdx[i]] = motorTransitions$rt_both[motorTransitions$currResp == swapPrev & motorTransitions$prevResp == swapCurr]
+    motorTransitions$medRT_both[missingIdx[i]] = motorTransitions$medRT_both[motorTransitions$currResp == swapPrev & motorTransitions$prevResp == swapCurr]
+    motorTransitions$swapRT[missingIdx[i]] = 1
+  }
+}
+
+ExperimentTwo_withExclusions$rt_corrected_both = NA
+ExperimentTwo_withExclusions$medRT_corrected_both = NA
+
+ExperimentTwo_withExclusions$rt_strict_corrected = NA
+ExperimentTwo_withExclusions$medRT_strict_corrected = NA
+
+for(i in 1:length(ExperimentTwo_withExclusions$rt_corrected_both)){
+  if(ExperimentTwo_withExclusions$trialNum[i] ==1){
+    ExperimentTwo_withExclusions$rt_corrected[i] = NA
+  }else{
+    prev = ExperimentTwo_withExclusions$corrrespAll_prev[i]
+    curr = ExperimentTwo_withExclusions$finger_press[i]
+
+    motorRT_both = motorTransitions$rt_both[motorTransitions$prevResp == allResps_new[prev] & motorTransitions$currResp == allResps_new[curr]]
+    motorRT_med_both = motorTransitions$medRT_both[motorTransitions$prevResp == allResps_new[prev] & motorTransitions$currResp == allResps_new[curr]]
+
+    
+    ExperimentTwo_withExclusions$rt_corrected_both[i] = ExperimentTwo_withExclusions$rt[i] - motorRT_both
+    ExperimentTwo_withExclusions$medRT_corrected_both[i] = ExperimentTwo_withExclusions$rt[i] - motorRT_med_both
+
+  }
+}
+zscoredRT = ExperimentTwo_withExclusions %>% group_by(subject) %>% dplyr::summarise(rt_corrected_both_z = scale(rt))
+ExperimentTwo_withExclusions$rt_corrected_both_z = zscoredRT$rt_corrected_both_z
+
+#### STREAK TRIALS #####
+ExperimentTwo_withExclusions$streak = NA
+ExperimentTwo_withExclusions$longStreak = NA
+for(ai in 2:length(ExperimentTwo_withExclusions$corr)){
+  trial = ExperimentTwo_withExclusions$trialNum[ai]
+ if(ExperimentTwo_withExclusions$trialNum[ai-1]==(trial-1)){
+   if(ExperimentTwo_withExclusions$corr[ai]==1 & ExperimentTwo_withExclusions$corr[ai-1]==1){
+   ExperimentTwo_withExclusions$streak[ai] = 1
+   }else{
+     ExperimentTwo_withExclusions$streak[ai] = 0
+   }
+ }else{
+   ExperimentTwo_withExclusions$streak[ai] = 0
+ }
+}
+
+for(ai in 2:length(ExperimentTwo_withExclusions$corr)){
+  trial = ExperimentTwo_withExclusions$trialNum[ai]
+ if(ExperimentTwo_withExclusions$trialNum[ai-1]==(trial-1)){
+   if(ExperimentTwo_withExclusions$streak[ai]==1 & ExperimentTwo_withExclusions$streak[ai-1]==1){
+   ExperimentTwo_withExclusions$longStreak[ai] = 1
+   }else{
+     ExperimentTwo_withExclusions$longStreak[ai] = 0
+   }
+ }else{
+   ExperimentTwo_withExclusions$longStreak[ai] = 0
+ }
+}
+
+ExperimentTwo_withExclusions$streak[ExperimentTwo_withExclusions$trialNum ==1] = NA
+
+
+######### WRITE DATA TO FILE ########
+write.csv(allmotorData_withExclusions, 'motorData_Experiment2_compiled.csv')
+write.csv(ExperimentTwo_withExclusions, 'Experiment2_compiled.csv')
+
+```
+# Prep data for EXPERIMENT 3
+```{r, echo=F, message=F, warning=F, error=T, fig.width=6, fig.height=4, fig.align='center'}
+# set up workspace
+rm(list=ls(all=TRUE))
+setwd("~/Documents/GitHub/StructuredActionPrepVMDM/rawData")
+datadir = "~/Documents/GitHub/StructuredActionPrepVMDM/rawData/Experiment3"
+# load libraries
+library(ggplot2)
+library(gridExtra)
+library(ggpubr)
+library(reshape2)
+library(dplyr)
+library(tidyr)
+library(tidyverse)
+library(itsadug)
+library(RColorBrewer)
+library(knitr)
+library(extrafont)
+library(fs)
+library(fabricatr)
+library(Rmisc)
+library(lme4)
+library(rstatix)
+library(MuMIn)
+
+
+# read in data
+  file_paths = fs::dir_ls(datadir)
+  compiledData = data.frame()
+  for (i in seq_along(file_paths)){
+    newSubjData = read_csv(file = file_paths[[i]], col_types = cols(rt = col_double(),
+  responses = col_character(),
+  time_elapsed = col_double(),
+  subject = col_character(),
+  prolificID = col_character(),
+  demoID = col_character(),
+  trialType = col_character(),
+  question_order = col_character(),
+  key_press = col_character(),
+  stim = col_character(),
+  corrresp = col_double(),
+  phase = col_character(),
+  stimNum = col_double(),
+  type = col_character(),
+  trialNum = col_double(),
+  corr = col_double(),
+  repeatTrial = col_double(),
+  motorSwitch = col_double(),
+  pracCounter = col_double()))
+    compiledData = rbind(compiledData, newSubjData)
+  }
+  
+  
+  # clean up data
+  compiledData$rt = as.numeric(compiledData$rt)
+  compiledData$time_elapsed = as.numeric(compiledData$time_elapsed)
+  compiledData$key_press = as.numeric(compiledData$key_press)
+  compiledData$stim = as.numeric(compiledData$stim)
+  compiledData$corrresp = as.numeric(compiledData$corrresp)
+  
+  
+  
+  # sort data into prac and test
+  compiledData = filter(compiledData, trialType %in% c('rl','motor','motorRepeat','postmotor'))
+  pracData = filter(compiledData, phase == "prac")
+  testData_ExperimentThree = filter(compiledData, phase %in% c("motor","test","postmotor"))
+  
+  # get some variables
+  prolificNums = unique(testData_ExperimentThree$subject)
+  subjNums_all = unique(testData_ExperimentThree$subject)
+  N_all = length(prolificNums)
+  
+  allResps_new = c(65,83,68,70,72,74,75,76)
+  LH_new = c(65,83,68,70)
+  RH_new = c(72,74,75,76)
+  coupletOne_new = c(65,83,72,74)
+  coupletTwo_new = c(68,70,75,76)
+  
+  allResps = c(1,2,3,4,5,6,7,8)
+  
+  #make a column for recoded responses to make life easier
+  
+  testData_ExperimentThree$corrrespAll = NA
+  testData_ExperimentThree$finger_press = NA
+  testData_ExperimentThree$corrrespAll[testData_ExperimentThree$corrresp == 65] = 1
+  testData_ExperimentThree$corrrespAll[testData_ExperimentThree$corrresp == 83] = 2
+  testData_ExperimentThree$corrrespAll[testData_ExperimentThree$corrresp == 68] = 3
+  testData_ExperimentThree$corrrespAll[testData_ExperimentThree$corrresp == 70] = 4
+  testData_ExperimentThree$corrrespAll[testData_ExperimentThree$corrresp == 72] = 5
+  testData_ExperimentThree$corrrespAll[testData_ExperimentThree$corrresp == 74] = 6
+  testData_ExperimentThree$corrrespAll[testData_ExperimentThree$corrresp == 75] = 7
+  testData_ExperimentThree$corrrespAll[testData_ExperimentThree$corrresp == 76] = 8
+  
+  testData_ExperimentThree$finger_press[ testData_ExperimentThree$key_press == 65] = 1
+  testData_ExperimentThree$finger_press[testData_ExperimentThree$key_press == 83] = 2
+  testData_ExperimentThree$finger_press[testData_ExperimentThree$key_press == 68] = 3
+  testData_ExperimentThree$finger_press[testData_ExperimentThree$key_press == 70] = 4
+  testData_ExperimentThree$finger_press[testData_ExperimentThree$key_press == 72] = 5
+  testData_ExperimentThree$finger_press[testData_ExperimentThree$key_press == 74] = 6
+  testData_ExperimentThree$finger_press[testData_ExperimentThree$key_press == 75] = 7
+  testData_ExperimentThree$finger_press[testData_ExperimentThree$key_press == 76] = 8
+  
+  ns = length(allResps)
+  # add more info to trials before saving
+  testData_ExperimentThree$iter = NA
+  testData_ExperimentThree$zscoredRTs = NA
+  testData_ExperimentThree$logRTs = NA
+  testData_ExperimentThree$hand = NA
+  testData_ExperimentThree$couplet = NA
+  testData_ExperimentThree$handSwitch = NA
+  testData_ExperimentThree$coupletSwitch = NA
+  testData_ExperimentThree$fingerSwitch = NA
+  testData_ExperimentThree$handSwitch_actual = NA
+  testData_ExperimentThree$coupletSwitch_actual = NA
+  testData_ExperimentThree$fingerSwitch_actual = NA
+  testData_ExperimentThree$respHand = NA
+  testData_ExperimentThree$respCouplet = NA
+  testData_ExperimentThree$corrHand = NA
+  testData_ExperimentThree$corrCouplet = NA
+  for(ai in 1:N_all){
+    testData_ExperimentThree$zscoredRTs[testData_ExperimentThree$subject == subjNums_all[ai]] = scale(testData_ExperimentThree$rt[testData_ExperimentThree$subject == subjNums_all[ai]])
+    testData_ExperimentThree$logRTs[testData_ExperimentThree$subject == subjNums_all[ai]] = log(testData_ExperimentThree$rt[testData_ExperimentThree$subject == subjNums_all[ai]])
+    # add iteration numbers
+    for(bi in 1:ns){
+      idx = which(testData_ExperimentThree$subject == subjNums_all[ai]&testData_ExperimentThree$corrrespAll == allResps[bi] & testData_ExperimentThree$phase == 'test')
+      for (ci in 1:length(idx)){
+        testData_ExperimentThree$stimNum[idx[ci]] = bi
+        testData_ExperimentThree$iter[idx[ci]] = ci
+      }
+    }
+    trialNum_idx = which(testData_ExperimentThree$subject == subjNums_all[ai] & testData_ExperimentThree$trialType == 'rl')
+    testData_ExperimentThree$trialNum[trialNum_idx] = c(1:length(which(testData_ExperimentThree$subject == subjNums_all[ai] & testData_ExperimentThree$trialType == 'rl')))
+  }
+  for (xi in 1:dim(testData_ExperimentThree)[1]){
+    # put in correct hand and couplet
+    if(testData_ExperimentThree$corrresp[xi] %in% RH_new){
+      testData_ExperimentThree$hand[xi] = 'R'
+    }else if (testData_ExperimentThree$corrresp[xi] %in% LH_new){
+      testData_ExperimentThree$hand[xi] = 'L'
+    }
+    
+      if(testData_ExperimentThree$corrresp[xi] %in% coupletOne_new){
+      testData_ExperimentThree$couplet[xi] = 1
+    }else if (testData_ExperimentThree$corrresp[xi] %in% coupletTwo_new){
+      testData_ExperimentThree$couplet[xi] = 2
+    }
+    
+    # put in the hand and couplet of the response
+    if(testData_ExperimentThree$key_press[xi] %in% RH_new){
+      testData_ExperimentThree$respHand[xi] = 'R'
+    }else if (testData_ExperimentThree$key_press[xi] %in% LH_new){
+      testData_ExperimentThree$respHand[xi] = 'L'
+    }
+    
+    if(testData_ExperimentThree$key_press[xi] %in% coupletOne_new){
+      testData_ExperimentThree$respCouplet[xi] = 1
+    }else if (testData_ExperimentThree$key_press[xi] %in% coupletTwo_new){
+      testData_ExperimentThree$respCouplet[xi] = 2
+    }
+    
+    # 1 for correct hand, 0 for incorrect
+    if(is.na(testData_ExperimentThree$respHand[xi])){
+      testData_ExperimentThree$corrHand[xi] = 0
+    } else if(testData_ExperimentThree$hand[xi] == testData_ExperimentThree$respHand[xi]){
+      testData_ExperimentThree$corrHand[xi] = 1
+    }else if (testData_ExperimentThree$hand[xi] != testData_ExperimentThree$respHand[xi]){
+      testData_ExperimentThree$corrHand[xi] = 0
+    }
+     if(is.na(testData_ExperimentThree$respCouplet[xi])){
+      testData_ExperimentThree$corrCouplet[xi] = 0
+    }else if(testData_ExperimentThree$couplet[xi] == testData_ExperimentThree$respCouplet[xi]){
+      testData_ExperimentThree$corrCouplet[xi] = 1
+    }else if (testData_ExperimentThree$couplet[xi] != testData_ExperimentThree$respCouplet[xi]){
+      testData_ExperimentThree$corrCouplet[xi] = 0
+    }
+    
+  }
+  
+  for(di in 1:(dim(testData_ExperimentThree)[1]-1)){
+    #hand switches
+    if(testData_ExperimentThree$hand[di] == testData_ExperimentThree$hand[di+1]){
+      testData_ExperimentThree$handSwitch[di+1]= 0
+    } else if(testData_ExperimentThree$hand[di] != testData_ExperimentThree$hand[di+1]){
+      testData_ExperimentThree$handSwitch[di+1] = 1
+    }
+    if(testData_ExperimentThree$couplet[di] == testData_ExperimentThree$couplet[di+1]){
+      testData_ExperimentThree$coupletSwitch[di+1]= 0
+    } else if(testData_ExperimentThree$couplet[di] != testData_ExperimentThree$couplet[di+1]){
+      testData_ExperimentThree$coupletSwitch[di+1] = 1
+    }
+    #switches and repeats for finger
+    if(testData_ExperimentThree$corrresp[di] == testData_ExperimentThree$corrresp[di+1]){
+      testData_ExperimentThree$fingerSwitch[di+1] = 0
+    }else{
+      testData_ExperimentThree$fingerSwitch[di+1] = 1
+    }
+    
+    # same but with actual responses
+    if(is.na(testData_ExperimentThree$respHand[di]) | is.na(testData_ExperimentThree$respHand[di+1])){
+      testData_ExperimentThree$handSwitch_actual[di]= NA
+      testData_ExperimentThree$handSwitch_actual[di+1]=NA
+    }else if(testData_ExperimentThree$respHand[di] == testData_ExperimentThree$respHand[di+1]){
+      testData_ExperimentThree$handSwitch_actual[di+1]= 0
+    } else if(testData_ExperimentThree$respHand[di] != testData_ExperimentThree$respHand[di+1]){
+      testData_ExperimentThree$handSwitch_actual[di+1] = 1
+    }
+    if(is.na(testData_ExperimentThree$respCouplet[di]) | is.na(testData_ExperimentThree$respCouplet[di+1]) ){
+      testData_ExperimentThree$coupletSwitch_actual[di]= NA
+      testData_ExperimentThree$coupletSwitch_actual[di+1]= NA
+    }else if(testData_ExperimentThree$respCouplet[di] == testData_ExperimentThree$respCouplet[di+1]){
+      testData_ExperimentThree$coupletSwitch_actual[di+1]= 0
+    } else if(testData_ExperimentThree$respCouplet[di] != testData_ExperimentThree$respCouplet[di+1]){
+      testData_ExperimentThree$coupletSwitch_actual[di+1] = 1
+    }
+    #switches and repeats for finger
+    if(is.na(testData_ExperimentThree$key_press[di])| is.na(testData_ExperimentThree$key_press[di+1])){
+      testData_ExperimentThree$fingerSwitch_actual[di+1]= NA
+      testData_ExperimentThree$fingerSwitch_actual[di]= NA
+    }else if(testData_ExperimentThree$key_press[di] == testData_ExperimentThree$key_press[di+1]){
+      testData_ExperimentThree$fingerSwitch_actual[di+1] = 0
+    }else{
+      testData_ExperimentThree$fingerSwitch_actual[di+1] = 1
+    }
+    
+    if(is.na(testData_ExperimentThree$trialNum[di])){
+      testData_ExperimentThree$handSwitch[di] = testData_ExperimentThree$handSwitch[di-1]
+      testData_ExperimentThree$coupletSwitch[di] = testData_ExperimentThree$coupletSwitch[di-1]
+      testData_ExperimentThree$fingerSwitch[di] = testData_ExperimentThree$fingerSwitch[di-1]
+      testData_ExperimentThree$handSwitch_actual[di] = testData_ExperimentThree$handSwitch_actual[di-1]
+      testData_ExperimentThree$coupletSwitch_actual[di] = testData_ExperimentThree$coupletSwitch_actual[di-1]
+      testData_ExperimentThree$fingerSwitch_actual[di] = testData_ExperimentThree$fingerSwitch_actual[di-1]
+    }else if(testData_ExperimentThree$trialNum[di] == 1){
+      testData_ExperimentThree$handSwitch[di] = NA
+      testData_ExperimentThree$coupletSwitch[di] = NA
+      testData_ExperimentThree$fingerSwitch[di] = NA
+            testData_ExperimentThree$handSwitch_actual[di] = NA
+      testData_ExperimentThree$coupletSwitch_actual[di] = NA
+      testData_ExperimentThree$fingerSwitch_actual[di] = NA
+    }
+  }
+  testData_ExperimentThree$combinedType = NA
+testData_ExperimentThree$combinedType[testData_ExperimentThree$coupletSwitch_actual == 0&testData_ExperimentThree$handSwitch_actual == 0] = 'rep/rep/sw'
+testData_ExperimentThree$combinedType[testData_ExperimentThree$coupletSwitch_actual == 0&testData_ExperimentThree$handSwitch_actual == 1] = 'sw/rep/sw'
+testData_ExperimentThree$combinedType[testData_ExperimentThree$coupletSwitch_actual == 1&testData_ExperimentThree$handSwitch_actual == 0] = 'rep/sw/sw'
+testData_ExperimentThree$combinedType[testData_ExperimentThree$coupletSwitch_actual == 1&testData_ExperimentThree$handSwitch_actual == 1] = 'sw/sw/sw'
+testData_ExperimentThree$combinedType[testData_ExperimentThree$fingerSwitch_actual == 0] = 'rep/rep/rep'
+
+  # Fix issue with motorRepeat in postmotor phase classified in wrong phase
+  repeatIdx = which(testData_ExperimentThree$trialType == 'motorRepeat')
+  
+  for(ei in repeatIdx){
+    if(testData_ExperimentThree$phase[ei-1] == 'postmotor'){
+      testData_ExperimentThree$phase[ei] = 'postmotor'
+    }
+  }
+
+ExperimentThree = testData_ExperimentThree %>% filter(trialType == 'rl', iter < 128)
+
+####### EXCLUSIONS #####
+accuracyExclusions = ExperimentThree %>% group_by(subject, stimNum) %>% dplyr::summarize(pCorStim = mean(corr,na.rm = TRUE))
+
+includeSub = NA
+for (ai in 1:length(subjNums_all)){
+  if(sum(accuracyExclusions$pCorStim[accuracyExclusions$subject == subjNums_all[ai]] >=.25) >4){
+    includeSub[ai] = 1
+  }else{
+    includeSub[ai] = 0
+  }
+}
+subjNums_included = subjNums_all[includeSub ==1]
+#now filter for just these subjects that aren't excluded
+testData_ExperimentThree_withExclusions = testData_ExperimentThree %>% filter(subject %in% subjNums_all[includeSub ==1])
+# Add finger distance column 
+testData_ExperimentThree_withExclusions$fingerDistance[1] = NA
+testData_ExperimentThree_withExclusions$fingerDistance[2:length(testData_ExperimentThree_withExclusions$fingerDistance)] = abs(testData_ExperimentThree_withExclusions$finger_press[2:length(testData_ExperimentThree_withExclusions$fingerDistance)]-testData_ExperimentThree_withExclusions$finger_press[1:length(testData_ExperimentThree_withExclusions$finger_press)-1])
+testData_ExperimentThree_withExclusions$fingerDistance[testData_ExperimentThree_withExclusions$trialNum == 1] = NA
+# Add previous corr response column 
+testData_ExperimentThree_withExclusions$corrrespAll_prev[1] = NA
+testData_ExperimentThree_withExclusions$corrrespAll_prev[2:length(testData_ExperimentThree_withExclusions$corrresp)] = testData_ExperimentThree_withExclusions$corrrespAll[1:length(testData_ExperimentThree_withExclusions$corrresp)-1]
+testData_ExperimentThree_withExclusions$corrrespAll_prev[testData_ExperimentThree_withExclusions$trialNum == 1] = NA
+# Add previous ACTUAL response column 
+testData_ExperimentThree_withExclusions$finger_press_prev[1] = NA
+testData_ExperimentThree_withExclusions$finger_press_prev[2:length(testData_ExperimentThree_withExclusions$finger_press)] = testData_ExperimentThree_withExclusions$finger_press[1:length(testData_ExperimentThree_withExclusions$corrresp)-1]
+testData_ExperimentThree_withExclusions$finger_press_prev[testData_ExperimentThree_withExclusions$trialNum == 1] = NA
+
+#add feature sw column
+featureSwitchArray = array(c(0,1,1,2,1,2,2,3,1,0,2,1,2,1,3,2,1,2,0,1,2,3,1,2,2,1,1,0,3,2,2,1,1,2,2,3,0,1,1,2,2,1,3,2,1,0,2,1,2,3,1,2,1,2,0,1,3,2,2,1,2,1,1,0),dim = c(8,8))
+testData_ExperimentThree_withExclusions$nFeatureSwitch[1] = NA
+for(ai in 1:length(testData_ExperimentThree_withExclusions$nFeatureSwitch)){
+  prev = testData_ExperimentThree_withExclusions$corrrespAll_prev[ai]
+  curr = testData_ExperimentThree_withExclusions$corrrespAll[ai]
+  testData_ExperimentThree_withExclusions$nFeatureSwitch[ai] = featureSwitchArray[prev,curr]
+}
+testData_ExperimentThree_withExclusions$nFeatureSwitch[testData_ExperimentThree_withExclusions$trialNum == 1] = NA
+
+# MAKE SURE TO FILTER OUT EXTRA ITERATIONS! (move earlier in code for future versions)
+ExperimentThree_withExclusions = testData_ExperimentThree_withExclusions %>% filter(phase == 'test') %>% filter(iter < 128)
+## add switch/rep for each level of hierarchy
+ExperimentThree_withExclusions$topType = NA
+ExperimentThree_withExclusions$midType = NA
+ExperimentThree_withExclusions$lowType = NA
+#top level
+ExperimentThree_withExclusions$topType[ExperimentThree_withExclusions$handSwitch ==1] = 1
+ExperimentThree_withExclusions$topType[ExperimentThree_withExclusions$handSwitch ==0] = 0
+#mid level
+ExperimentThree_withExclusions$midType[ExperimentThree_withExclusions$coupletSwitch ==1] = 1
+ExperimentThree_withExclusions$midType[ExperimentThree_withExclusions$coupletSwitch ==0] = 0
+#low level
+for(bi in 2:length(ExperimentThree_withExclusions$lowType)){
+  prev = ExperimentThree_withExclusions$corrrespAll_prev[bi]
+  curr = ExperimentThree_withExclusions$corrrespAll[bi]
+  if(ExperimentThree_withExclusions$trialNum[bi] == 1){
+   ExperimentThree_withExclusions$lowType[bi] = NA 
+  }else if(((prev %% 2 == 0) & (curr %%2 == 0)) | ((prev %% 2 != 0) & (curr %% 2 != 0))){
+    ExperimentThree_withExclusions$lowType[bi] = 0
+  }else{
+    ExperimentThree_withExclusions$lowType[bi] = 1
+  }
+}
+ExperimentThree_withExclusions = ExperimentThree_withExclusions %>% group_by(subject) %>% filter(rt > 200, rt < mean(rt,na.rm = TRUE)+(sd(rt,na.rm = TRUE) * 3))
+
+
+##### MOTOR CORRECTION #####
+allmotorData_withExclusions = testData_ExperimentThree_withExclusions %>% filter(phase %in% c('motor','postmotor'), corr == 1, trialType %in% c('motor','postmotor')) %>% group_by(subject, phase) %>% filter(rt > mean(rt,na.rm = TRUE)-(sd(rt,na.rm = TRUE) * 3),rt < mean(rt,na.rm = TRUE)+(sd(rt,na.rm = TRUE) * 3), trialNum > 3)
+
+motorStats = allmotorData_withExclusions %>% group_by(subject) %>% dplyr::summarise(avg = mean(rt,na.rm = TRUE),maxi = max(rt,na.rm = TRUE),mini = min(rt,na.rm =TRUE), trip = avg+3*sd(rt,na.rm = TRUE),tooFast = sum(rt < 150), tooSlow = sum(rt>900))
+
+# do this in a hacky way rn to exclude super slow RTs
+allmotorData_withExclusions$rtStrict = NA
+allmotorData_withExclusions$rtStrict[allmotorData_withExclusions$rt < 900] = 1
+allmotorData_withExclusions_corr = allmotorData_withExclusions %>% filter(trialType %in% c('motor','postmotor'), corr == 1, !is.na(fingerSwitch))
+allmotorData_withExclusions_corr$rt_corr = allmotorData_withExclusions_corr$rt
+allmotorData_withExclusions_corr$rtz_corr = allmotorData_withExclusions_corr$rtz
+
+allmotorData_withExclusions_corr$rt_corr[allmotorData_withExclusions_corr$trialType == 'motorRepeat'] = NA
+allmotorData_withExclusions_corr$rtz_corr[allmotorData_withExclusions_corr$trialType == 'motorRepeat'] = NA
+
+# heatmap array for BOTH motor tasks
+heatmapData_allTrials_resp_m_both = data.frame(subject = allmotorData_withExclusions_corr$subject[2:length(allmotorData_withExclusions_corr$subject)],currResp = allmotorData_withExclusions_corr$key_press[2:length(allmotorData_withExclusions_corr$key_press)], prevResp = allmotorData_withExclusions_corr$key_press[1:length(allmotorData_withExclusions_corr$key_press)-1], trialNum = allmotorData_withExclusions_corr$trialNum[2:length(allmotorData_withExclusions_corr$trialNum)], rt = allmotorData_withExclusions_corr$rt_corr[2:length(allmotorData_withExclusions_corr$rt_corr)]) %>% filter(trialNum > 3, !is.na(currResp), !is.na(prevResp)) %>% group_by(subject,currResp, prevResp) %>% dplyr::summarize(meanRT = mean(rt, na.rm=TRUE),medianRT = median(rt, na.rm = TRUE))
+heatmapData_allTrials_resp_m_both$prevResp = factor(heatmapData_allTrials_resp_m_both$prevResp, levels = c(76,75,74,72,70,68,83,65))
+heatmapData_allTrials_resp_m_both$currResp = factor(heatmapData_allTrials_resp_m_both$currResp, levels = c(65,83,68,70,72,74,75,76))
+
+nCombos = ns^2
+motorTransitions = data.frame(matrix(nrow = nCombos*length(subjNums_included)))
+
+#initialize these columns
+motorTransitions$subject = NA
+motorTransitions$currResp = NA
+motorTransitions$prevResp = NA
+motorTransitions$rt = NA
+motorTransitions$rt_both = NA
+motorTransitions$rt_strict = NA
+motorTransitions$swapRT = NA
+
+#loop over subjects to set up empty array
+startidx = 1
+for(xi in 1:length(subjNums_included)){
+  motorTransitions$subject[startidx:(startidx+nCombos-1)] = subjNums_included[xi]
+  counter = startidx
+  for(yi in 1:ns){
+    for(zi in 1:ns){
+      motorTransitions$currResp[counter] = allResps_new[yi]
+      motorTransitions$prevResp[counter] = allResps_new[zi]
+      counter = counter+1
+    }
+  }
+  startidx = counter
+}
+
+# now put in the meanrts from the motor task
+for(mi in 1:dim(heatmapData_allTrials_resp_m_both)[1]){
+  subj = heatmapData_allTrials_resp_m_both$subject[mi]
+  currResp_m = heatmapData_allTrials_resp_m_both$currResp[mi]
+  prevResp_m = heatmapData_allTrials_resp_m_both$prevResp[mi]
+
+  motorTransitions$rt_both[motorTransitions$subject == subj & motorTransitions$currResp == currResp_m & motorTransitions$prevResp == prevResp_m] = heatmapData_allTrials_resp_m_both$meanRT[mi]
+  }
+
+# if there are missing transitions from the motor sequence, fill in with the transition in the opposite direction
+missingIdx = which(is.na(motorTransitions$rt))
+if(sum(missingIdx) != 0){
+  for(i in 1:length(missingIdx)){
+    swapPrev = motorTransitions$currResp[missingIdx[i]]
+    swapCurr = motorTransitions$prevResp[missingIdx[i]]
+
+    motorTransitions$rt_both[missingIdx[i]] = motorTransitions$rt_both[motorTransitions$currResp == swapPrev & motorTransitions$prevResp == swapCurr]
+
+    motorTransitions$rt_strict[missingIdx[i]] = motorTransitions$rt_strict[motorTransitions$currResp == swapPrev & motorTransitions$prevResp == swapCurr]
+
+    motorTransitions$swapRT[missingIdx[i]] = 1
+  }
+}
+
+ExperimentThree_withExclusions$rt_corrected = NA
+ExperimentThree_withExclusions$medRT_corrected = NA
+
+ExperimentThree_withExclusions$rt_corrected_both = NA
+ExperimentThree_withExclusions$medRT_corrected_both = NA
+
+for(i in 1:length(ExperimentThree_withExclusions$rt_corrected)){
+  if(ExperimentThree_withExclusions$trialNum[i] ==1){
+    ExperimentThree_withExclusions$rt_corrected[i] = NA
+  }else{
+    prev = ExperimentThree_withExclusions$corrrespAll_prev[i]
+    curr = ExperimentThree_withExclusions$finger_press[i]
+    subj = ExperimentThree_withExclusions$subject[i]
+
+
+    motorRT_both = motorTransitions$rt_both[motorTransitions$prevResp == allResps_new[prev] & motorTransitions$currResp == allResps_new[curr] & motorTransitions$subject == subj]
+
+    
+    ExperimentThree_withExclusions$rt_corrected_both[i] = ExperimentThree_withExclusions$rt[i] - motorRT_both
+  }
+}
+
+#### STREAK TRIALS #####
+ExperimentThree_withExclusions$streak = NA
+ExperimentThree_withExclusions$longStreak = NA
+for(ai in 2:length(ExperimentThree_withExclusions$corr)){
+  trial = ExperimentThree_withExclusions$trialNum[ai]
+ if(ExperimentThree_withExclusions$trialNum[ai-1]==(trial-1)){
+   if(ExperimentThree_withExclusions$corr[ai]==1 & ExperimentThree_withExclusions$corr[ai-1]==1){
+   ExperimentThree_withExclusions$streak[ai] = 1
+   }else{
+     ExperimentThree_withExclusions$streak[ai] = 0
+   }
+ }else{
+   ExperimentThree_withExclusions$streak[ai] = 0
+ }
+}
+
+for(ai in 2:length(ExperimentThree_withExclusions$corr)){
+  trial = ExperimentThree_withExclusions$trialNum[ai]
+ if(ExperimentThree_withExclusions$trialNum[ai-1]==(trial-1)){
+   if(ExperimentThree_withExclusions$streak[ai]==1 & ExperimentThree_withExclusions$streak[ai-1]==1){
+   ExperimentThree_withExclusions$longStreak[ai] = 1
+   }else{
+     ExperimentThree_withExclusions$longStreak[ai] = 0
+   }
+ }else{
+   ExperimentThree_withExclusions$longStreak[ai] = 0
+ }
+}
+ExperimentThree_withExclusions$streak[ExperimentThree_withExclusions$trialNum ==1] = NA
+
+######### WRITE DATA TO FILE ########
+write.csv(allmotorData_withExclusions, 'motorData_Experiment3_compiled.csv')
+write.csv(ExperimentThree_withExclusions, 'Experiment3_compiled.csv')
+
+```
+# Prep data for EXPERIMENT 4
+```{r, echo=F, message=F, warning=F, error=T, fig.width=6, fig.height=4, fig.align='center'}
+# set up workspace
+rm(list=ls(all=TRUE))
+setwd("~/Documents/GitHub/StructuredActionPrepVMDM/rawData")
+datadir = "~/Documents/GitHub/StructuredActionPrepVMDM/rawData/Experiment4"
+# load libraries
+library(ggplot2)
+library(gridExtra)
+library(ggpubr)
+library(reshape2)
+library(dplyr)
+library(tidyr)
+library(tidyverse)
+library(itsadug)
+library(RColorBrewer)
+library(knitr)
+library(extrafont)
+library(fs)
+library(fabricatr)
+library(Rmisc)
+library(lme4)
+library(rstatix)
+library(MuMIn)
+
+# read in data
+    file_paths = fs::dir_ls(datadir)
+  compiledData = data.frame()
+  for (i in seq_along(file_paths)){
+    newSubjData = read_csv(file = file_paths[[i]])
+    compiledData = rbind(compiledData, newSubjData)
+  }
+  
+  # clean up data
+  compiledData$rt = as.numeric(compiledData$rt)
+  compiledData$time_elapsed = as.numeric(compiledData$time_elapsed)
+  compiledData$key_press = as.numeric(compiledData$key_press)
+  compiledData$stim = as.numeric(compiledData$stim)
+  compiledData$corrresp = as.numeric(compiledData$corrresp)
+  
+  
+  
+  # sort data into prac and test
+  compiledData = filter(compiledData, trialType %in% c('rl','motor','motorRepeat','postmotor'))
+  pracData = filter(compiledData, phase == "prac")
+  testData_ExperimentFour = filter(compiledData, phase %in% c("motor","test","postmotor"))
+  
+  # get some variables
+  prolificNums = unique(testData_ExperimentFour$subject)
+  subjNums_all = unique(testData_ExperimentFour$subject)
+  N_all = length(prolificNums)
+  
+  allResps_new = c(65,83,68,70,72,74,75,76)
+  LH_new = c(65,83,68,70)
+  RH_new = c(72,74,75,76)
+  coupletOne_new = c(65,83,72,74)
+  coupletTwo_new = c(68,70,75,76)
+  
+  allResps = c(1,2,3,4,5,6,7,8)
+  
+  #make a column for recoded responses to make life easier
+  
+  testData_ExperimentFour$corrrespAll = NA
+  testData_ExperimentFour$finger_press = NA
+  testData_ExperimentFour$corrrespAll[testData_ExperimentFour$corrresp == 65] = 1
+  testData_ExperimentFour$corrrespAll[testData_ExperimentFour$corrresp == 83] = 2
+  testData_ExperimentFour$corrrespAll[testData_ExperimentFour$corrresp == 68] = 3
+  testData_ExperimentFour$corrrespAll[testData_ExperimentFour$corrresp == 70] = 4
+  testData_ExperimentFour$corrrespAll[testData_ExperimentFour$corrresp == 72] = 5
+  testData_ExperimentFour$corrrespAll[testData_ExperimentFour$corrresp == 74] = 6
+  testData_ExperimentFour$corrrespAll[testData_ExperimentFour$corrresp == 75] = 7
+  testData_ExperimentFour$corrrespAll[testData_ExperimentFour$corrresp == 76] = 8
+  
+  testData_ExperimentFour$finger_press[ testData_ExperimentFour$key_press == 65] = 1
+  testData_ExperimentFour$finger_press[testData_ExperimentFour$key_press == 83] = 2
+  testData_ExperimentFour$finger_press[testData_ExperimentFour$key_press == 68] = 3
+  testData_ExperimentFour$finger_press[testData_ExperimentFour$key_press == 70] = 4
+  testData_ExperimentFour$finger_press[testData_ExperimentFour$key_press == 72] = 5
+  testData_ExperimentFour$finger_press[testData_ExperimentFour$key_press == 74] = 6
+  testData_ExperimentFour$finger_press[testData_ExperimentFour$key_press == 75] = 7
+  testData_ExperimentFour$finger_press[testData_ExperimentFour$key_press == 76] = 8
+  
+  ns = length(allResps)
+  # add more info to trials before saving
+  testData_ExperimentFour$iter = NA
+  testData_ExperimentFour$zscoredRTs = NA
+  testData_ExperimentFour$logRTs = NA
+  testData_ExperimentFour$hand = NA
+  testData_ExperimentFour$couplet = NA
+  testData_ExperimentFour$handSwitch = NA
+  testData_ExperimentFour$coupletSwitch = NA
+  testData_ExperimentFour$fingerSwitch = NA
+  testData_ExperimentFour$handSwitch_actual = NA
+  testData_ExperimentFour$coupletSwitch_actual = NA
+  testData_ExperimentFour$fingerSwitch_actual = NA
+  testData_ExperimentFour$respHand = NA
+  testData_ExperimentFour$respCouplet = NA
+  testData_ExperimentFour$corrHand = NA
+  testData_ExperimentFour$corrCouplet = NA
+  for(ai in 1:N_all){
+    testData_ExperimentFour$zscoredRTs[testData_ExperimentFour$subject == subjNums_all[ai]] = scale(testData_ExperimentFour$rt[testData_ExperimentFour$subject == subjNums_all[ai]])
+    testData_ExperimentFour$logRTs[testData_ExperimentFour$subject == subjNums_all[ai]] = log(testData_ExperimentFour$rt[testData_ExperimentFour$subject == subjNums_all[ai]])
+    # add iteration numbers
+    for(bi in 1:ns){
+      idx = which(testData_ExperimentFour$subject == subjNums_all[ai]&testData_ExperimentFour$corrrespAll == allResps[bi] & testData_ExperimentFour$phase == 'test')
+      for (ci in 1:length(idx)){
+        testData_ExperimentFour$stimNum[idx[ci]] = bi
+        testData_ExperimentFour$iter[idx[ci]] = ci
+      }
+    }
+    trialNum_idx = which(testData_ExperimentFour$subject == subjNums_all[ai] & testData_ExperimentFour$trialType == 'rl')
+    testData_ExperimentFour$trialNum[trialNum_idx] = c(1:length(which(testData_ExperimentFour$subject == subjNums_all[ai] & testData_ExperimentFour$trialType == 'rl')))
+  }
+  for (xi in 1:dim(testData_ExperimentFour)[1]){
+    # put in correct hand and couplet
+    if(testData_ExperimentFour$corrresp[xi] %in% RH_new){
+      testData_ExperimentFour$hand[xi] = 'R'
+    }else if (testData_ExperimentFour$corrresp[xi] %in% LH_new){
+      testData_ExperimentFour$hand[xi] = 'L'
+    }
+    
+      if(testData_ExperimentFour$corrresp[xi] %in% coupletOne_new){
+      testData_ExperimentFour$couplet[xi] = 1
+    }else if (testData_ExperimentFour$corrresp[xi] %in% coupletTwo_new){
+      testData_ExperimentFour$couplet[xi] = 2
+    }
+    
+    # put in the hand and couplet of the response
+    if(testData_ExperimentFour$key_press[xi] %in% RH_new){
+      testData_ExperimentFour$respHand[xi] = 'R'
+    }else if (testData_ExperimentFour$key_press[xi] %in% LH_new){
+      testData_ExperimentFour$respHand[xi] = 'L'
+    }
+    
+    if(testData_ExperimentFour$key_press[xi] %in% coupletOne_new){
+      testData_ExperimentFour$respCouplet[xi] = 1
+    }else if (testData_ExperimentFour$key_press[xi] %in% coupletTwo_new){
+      testData_ExperimentFour$respCouplet[xi] = 2
+    }
+    
+    # 1 for correct hand, 0 for incorrect
+    if(is.na(testData_ExperimentFour$respHand[xi])){
+      testData_ExperimentFour$corrHand[xi] = 0
+    } else if(testData_ExperimentFour$hand[xi] == testData_ExperimentFour$respHand[xi]){
+      testData_ExperimentFour$corrHand[xi] = 1
+    }else if (testData_ExperimentFour$hand[xi] != testData_ExperimentFour$respHand[xi]){
+      testData_ExperimentFour$corrHand[xi] = 0
+    }
+     if(is.na(testData_ExperimentFour$respCouplet[xi])){
+      testData_ExperimentFour$corrCouplet[xi] = 0
+    }else if(testData_ExperimentFour$couplet[xi] == testData_ExperimentFour$respCouplet[xi]){
+      testData_ExperimentFour$corrCouplet[xi] = 1
+    }else if (testData_ExperimentFour$couplet[xi] != testData_ExperimentFour$respCouplet[xi]){
+      testData_ExperimentFour$corrCouplet[xi] = 0
+    }
+    
+  }
+  
+  for(di in 1:(dim(testData_ExperimentFour)[1]-1)){
+    #hand switches
+    if(testData_ExperimentFour$hand[di] == testData_ExperimentFour$hand[di+1]){
+      testData_ExperimentFour$handSwitch[di+1]= 0
+    } else if(testData_ExperimentFour$hand[di] != testData_ExperimentFour$hand[di+1]){
+      testData_ExperimentFour$handSwitch[di+1] = 1
+    }
+    if(testData_ExperimentFour$couplet[di] == testData_ExperimentFour$couplet[di+1]){
+      testData_ExperimentFour$coupletSwitch[di+1]= 0
+    } else if(testData_ExperimentFour$couplet[di] != testData_ExperimentFour$couplet[di+1]){
+      testData_ExperimentFour$coupletSwitch[di+1] = 1
+    }
+    #switches and repeats for finger
+    if(testData_ExperimentFour$corrresp[di] == testData_ExperimentFour$corrresp[di+1]){
+      testData_ExperimentFour$fingerSwitch[di+1] = 0
+    }else{
+      testData_ExperimentFour$fingerSwitch[di+1] = 1
+    }
+    
+    # same but with actual responses
+    if(is.na(testData_ExperimentFour$respHand[di]) | is.na(testData_ExperimentFour$respHand[di+1])){
+      testData_ExperimentFour$handSwitch_actual[di]= NA
+      testData_ExperimentFour$handSwitch_actual[di+1]=NA
+    }else if(testData_ExperimentFour$respHand[di] == testData_ExperimentFour$respHand[di+1]){
+      testData_ExperimentFour$handSwitch_actual[di+1]= 0
+    } else if(testData_ExperimentFour$respHand[di] != testData_ExperimentFour$respHand[di+1]){
+      testData_ExperimentFour$handSwitch_actual[di+1] = 1
+    }
+    if(is.na(testData_ExperimentFour$respCouplet[di]) | is.na(testData_ExperimentFour$respCouplet[di+1]) ){
+      testData_ExperimentFour$coupletSwitch_actual[di]= NA
+      testData_ExperimentFour$coupletSwitch_actual[di+1]= NA
+    }else if(testData_ExperimentFour$respCouplet[di] == testData_ExperimentFour$respCouplet[di+1]){
+      testData_ExperimentFour$coupletSwitch_actual[di+1]= 0
+    } else if(testData_ExperimentFour$respCouplet[di] != testData_ExperimentFour$respCouplet[di+1]){
+      testData_ExperimentFour$coupletSwitch_actual[di+1] = 1
+    }
+    #switches and repeats for finger
+    if(is.na(testData_ExperimentFour$key_press[di])| is.na(testData_ExperimentFour$key_press[di+1])){
+      testData_ExperimentFour$fingerSwitch_actual[di+1]= NA
+      testData_ExperimentFour$fingerSwitch_actual[di]= NA
+    }else if(testData_ExperimentFour$key_press[di] == testData_ExperimentFour$key_press[di+1]){
+      testData_ExperimentFour$fingerSwitch_actual[di+1] = 0
+    }else{
+      testData_ExperimentFour$fingerSwitch_actual[di+1] = 1
+    }
+    
+    if(is.na(testData_ExperimentFour$trialNum[di])){
+      testData_ExperimentFour$handSwitch[di] = testData_ExperimentFour$handSwitch[di-1]
+      testData_ExperimentFour$coupletSwitch[di] = testData_ExperimentFour$coupletSwitch[di-1]
+      testData_ExperimentFour$fingerSwitch[di] = testData_ExperimentFour$fingerSwitch[di-1]
+      testData_ExperimentFour$handSwitch_actual[di] = testData_ExperimentFour$handSwitch_actual[di-1]
+      testData_ExperimentFour$coupletSwitch_actual[di] = testData_ExperimentFour$coupletSwitch_actual[di-1]
+      testData_ExperimentFour$fingerSwitch_actual[di] = testData_ExperimentFour$fingerSwitch_actual[di-1]
+    }else if(testData_ExperimentFour$trialNum[di] == 1){
+      testData_ExperimentFour$handSwitch[di] = NA
+      testData_ExperimentFour$coupletSwitch[di] = NA
+      testData_ExperimentFour$fingerSwitch[di] = NA
+      testData_ExperimentFour$handSwitch_actual[di] = NA
+      testData_ExperimentFour$coupletSwitch_actual[di] = NA
+      testData_ExperimentFour$fingerSwitch_actual[di] = NA
+    }
+  }
+
+  testData_ExperimentFour$combinedType = NA
+testData_ExperimentFour$combinedType[testData_ExperimentFour$coupletSwitch_actual == 0&testData_ExperimentFour$handSwitch_actual == 0] = 'rep/rep/sw'
+testData_ExperimentFour$combinedType[testData_ExperimentFour$coupletSwitch_actual == 0&testData_ExperimentFour$handSwitch_actual == 1] = 'sw/rep/sw'
+testData_ExperimentFour$combinedType[testData_ExperimentFour$coupletSwitch_actual == 1&testData_ExperimentFour$handSwitch_actual == 0] = 'rep/sw/sw'
+testData_ExperimentFour$combinedType[testData_ExperimentFour$coupletSwitch_actual == 1&testData_ExperimentFour$handSwitch_actual == 1] = 'sw/sw/sw'
+testData_ExperimentFour$combinedType[testData_ExperimentFour$fingerSwitch_actual == 0] = 'rep/rep/rep'
+testData_ExperimentFour$combinedType[testData_ExperimentFour$trialNum == 1] = NA
+
+testData_ExperimentFour$treeDistance = NA
+testData_ExperimentFour$treeDistance[testData_ExperimentFour$coupletSwitch_actual == 0&testData_ExperimentFour$handSwitch_actual == 0] = 2
+testData_ExperimentFour$treeDistance[testData_ExperimentFour$coupletSwitch_actual == 0&testData_ExperimentFour$handSwitch_actual == 1] = 6
+testData_ExperimentFour$treeDistance[testData_ExperimentFour$coupletSwitch_actual == 1&testData_ExperimentFour$handSwitch_actual == 0] =4
+testData_ExperimentFour$treeDistance[testData_ExperimentFour$coupletSwitch_actual == 1&testData_ExperimentFour$handSwitch_actual == 1] = 6
+testData_ExperimentFour$treeDistance[testData_ExperimentFour$fingerSwitch_actual == 0] = 0
+testData_ExperimentFour$treeDistance[testData_ExperimentFour$trialNum == 1] = NA
+
+  # Fix issue with motorRepeat in postmotor phase classified in wrong phase
+  repeatIdx = which(testData_ExperimentFour$trialType == 'motorRepeat')
+
+
+# load in switch cost array 
+featureSwArray_all = read_csv("~/Documents/GitHub/StructuredActionPrepVMDM/rawData/flatLearn_scrambled_nFeatureSw.csv")
+ExperimentFour = testData_ExperimentFour %>% filter(trialType == 'rl', iter < 57)
+
+###### EXCLUSIONS ######
+accuracyExclusions = ExperimentFour %>% group_by(subject, stimNum) %>% dplyr::summarize(pCorStim = mean(corr,na.rm = TRUE))
+
+includeSub = NA
+includeSub_strict = NA
+
+for (ai in 1:length(subjNums_all)){
+  if(sum(accuracyExclusions$pCorStim[accuracyExclusions$subject == subjNums_all[ai]] >=.25) >4){
+    includeSub[ai] = 1
+  }else{
+    includeSub[ai] = 0
+  }
+  if(sum(accuracyExclusions$pCorStim[accuracyExclusions$subject == subjNums_all[ai]] >=.25) == 8){
+    includeSub_strict[ai] = 1
+  }else{
+    includeSub_strict[ai] = 0
+  }
+}
+subjNums_included = subjNums_all[includeSub ==1]
+subjNums_included_strict = subjNums_all[includeSub_strict ==1]
+#now filter for just these subjects that aren't excluded 
+testData_ExperimentFour_withExclusions = testData_ExperimentFour %>% filter(subject %in% subjNums_all[includeSub ==1])
+
+#Add a column for the strict exclusion criterion to see if that helps
+testData_ExperimentFour_withExclusions$includeStrict = NA
+testData_ExperimentFour_withExclusions$includeStrict[testData_ExperimentFour_withExclusions$subject %in% c(subjNums_included_strict)] = 1
+
+# Add finger distance column 
+testData_ExperimentFour_withExclusions$fingerDistance[1] = NA
+testData_ExperimentFour_withExclusions$fingerDistance[2:length(testData_ExperimentFour_withExclusions$fingerDistance)] = abs(testData_ExperimentFour_withExclusions$finger_press[2:length(testData_ExperimentFour_withExclusions$fingerDistance)]-testData_ExperimentFour_withExclusions$finger_press[1:length(testData_ExperimentFour_withExclusions$finger_press)-1])
+testData_ExperimentFour_withExclusions$fingerDistance[testData_ExperimentFour_withExclusions$trialNum == 1] = NA
+# Add previous corr response column 
+testData_ExperimentFour_withExclusions$corrrespAll_prev[1] = NA
+testData_ExperimentFour_withExclusions$corrrespAll_prev[2:length(testData_ExperimentFour_withExclusions$corrresp)] = testData_ExperimentFour_withExclusions$corrrespAll[1:length(testData_ExperimentFour_withExclusions$corrresp)-1]
+testData_ExperimentFour_withExclusions$corrrespAll_prev[testData_ExperimentFour_withExclusions$trialNum == 1] = NA
+# Add previous ACTUAL response column 
+testData_ExperimentFour_withExclusions$finger_press_prev[1] = NA
+testData_ExperimentFour_withExclusions$finger_press_prev[2:length(testData_ExperimentFour_withExclusions$finger_press)] = testData_ExperimentFour_withExclusions$finger_press[1:length(testData_ExperimentFour_withExclusions$corrresp)-1]
+testData_ExperimentFour_withExclusions$finger_press_prev[testData_ExperimentFour_withExclusions$trialNum == 1] = NA
+
+
+treeDistanceArray = array(c(0,2,4,4,6,6,6,6,2,0,4,4,6,6,6,6,4,4,0,2,6,6,6,6,4,4,2,0,6,6,6,6,6,6,6,6,0,2,4,4,6,6,6,6,2,0,4,4,6,6,6,6,4,4,0,2,6,6,6,6,4,4,2,0),dim = c(8,8))
+#add feature sw column
+testData_ExperimentFour_withExclusions$nFeatureSwitch[1] = NA
+for(ai in 1:length(testData_ExperimentFour_withExclusions$nFeatureSwitch)){
+  subj = testData_ExperimentFour_withExclusions$subject[ai]
+  featureSwArray_subj = array(featureSwArray_all[[subj]],dim = c(8,8))
+  prev = testData_ExperimentFour_withExclusions$corrrespAll_prev[ai]
+  curr = testData_ExperimentFour_withExclusions$corrrespAll[ai]
+  testData_ExperimentFour_withExclusions$nFeatureSwitch[ai] = featureSwArray_subj[prev,curr]
+}
+testData_ExperimentFour_withExclusions$nFeatureSwitch[testData_ExperimentFour_withExclusions$trialNum == 1] = NA
+testData_ExperimentFour_withExclusions = testData_ExperimentFour_withExclusions %>% filter(trialNum > 3)
+ExperimentFour_withExclusions = testData_ExperimentFour_withExclusions %>% filter(trialType == 'rl')
+## add switch/rep for each level of hierarchy
+ExperimentFour_withExclusions$topType = NA
+ExperimentFour_withExclusions$midType = NA
+ExperimentFour_withExclusions$lowType = NA
+#top level
+ExperimentFour_withExclusions$topType[ExperimentFour_withExclusions$handSwitch ==1] = 1
+ExperimentFour_withExclusions$topType[ExperimentFour_withExclusions$handSwitch ==0] = 0
+#mid level
+ExperimentFour_withExclusions$midType[ExperimentFour_withExclusions$coupletSwitch ==1] = 1
+ExperimentFour_withExclusions$midType[ExperimentFour_withExclusions$coupletSwitch ==0] = 0
+
+ExperimentFour_withExclusions = ExperimentFour_withExclusions %>% group_by(subject) %>% filter(rt > 200, rt < mean(rt,na.rm = TRUE)+(sd(rt,na.rm = TRUE) * 3), trialNum > 3)
+
+
+#### MOTOR CORRECTION #####
+motorData_withExclusions_allRT = testData_ExperimentFour_withExclusions %>% filter(phase == 'motor', trialType == 'motor', corr == 1) 
+motorData_withExclusions = motorData_withExclusions_allRT %>% group_by(subject) %>% filter(rt > mean(rt,na.rm = TRUE)-(sd(rt,na.rm = TRUE) * 3),rt < mean(rt,na.rm = TRUE)+(sd(rt,na.rm = TRUE) * 3), trialNum > 3)
+motorUpperBound = mean(motorData_withExclusions_allRT$rt,na.rm = TRUE)+sd(motorData_withExclusions_allRT$rt,na.rm = TRUE)*3
+
+motorStats = motorData_withExclusions %>% group_by(subject) %>% dplyr::summarise(avg = mean(rt,na.rm = TRUE),maxi = max(rt,na.rm = TRUE),mini = min(rt,na.rm =TRUE), trip = avg+3*sd(rt,na.rm = TRUE),tooFast = sum(rt < 150), tooSlow = sum(rt>motorUpperBound))
+
+# do this in a hacky way rn to exclude super slow RTs
+motorData_withExclusions$rtStrict = NA
+motorData_withExclusions$rtStrict[motorData_withExclusions$rt < motorUpperBound] = 1
+
+
+motorData_withExclusions_corr = motorData_withExclusions %>% filter(corr == 1)
+motorData_withExclusions_corr$rt_corr[motorData_withExclusions_corr$trialType == 'motorRepeat'] = NA
+
+heatmapData_allTrials_resp_m_both = data.frame(subject = motorData_withExclusions_corr$subject[2:length(motorData_withExclusions_corr$subject)],currResp = motorData_withExclusions_corr$key_press[2:length(motorData_withExclusions_corr$key_press)], prevResp = motorData_withExclusions_corr$key_press[1:length(motorData_withExclusions_corr$key_press)-1], trialNum = motorData_withExclusions_corr$trialNum[2:length(motorData_withExclusions_corr$trialNum)], rt = motorData_withExclusions_corr$rt[2:length(motorData_withExclusions_corr$rt_corr)]) %>% filter(trialNum > 3, !is.na(currResp), !is.na(prevResp)) %>% group_by(subject,currResp, prevResp) %>% dplyr::summarize(meanRT = mean(rt, na.rm=TRUE),medianRT = median(rt, na.rm = TRUE))
+heatmapData_allTrials_resp_m_both$prevResp = factor(heatmapData_allTrials_resp_m_both$prevResp, levels = c(76,75,74,72,70,68,83,65))
+heatmapData_allTrials_resp_m_both$currResp = factor(heatmapData_allTrials_resp_m_both$currResp, levels = c(65,83,68,70,72,74,75,76))
+
+nCombos = ns^2
+motorTransitions = data.frame(matrix(nrow = nCombos*length(subjNums_included)))
+
+#initialize these columns
+motorTransitions$subject = NA
+motorTransitions$currResp = NA
+motorTransitions$prevResp = NA
+
+motorTransitions$rt_both = NA
+motorTransitions$medRT_both = NA
+
+motorTransitions$swapRT = NA
+
+#loop over subjects to set up empty array
+startidx = 1
+for(xi in 1:length(subjNums_included)){
+  motorTransitions$subject[startidx:(startidx+nCombos-1)] = subjNums_included[xi]
+  counter = startidx
+  for(yi in 1:ns){
+    for(zi in 1:ns){
+      motorTransitions$currResp[counter] = allResps_new[yi]
+      motorTransitions$prevResp[counter] = allResps_new[zi]
+      counter = counter+1
+    }
+  }
+  startidx = counter
+}
+
+# now put in the meanrts from the motor task
+for(mi in 1:dim(heatmapData_allTrials_resp_m_both)[1]){
+  subj = heatmapData_allTrials_resp_m_both$subject[mi]
+  currResp_m = heatmapData_allTrials_resp_m_both$currResp[mi]
+  prevResp_m = heatmapData_allTrials_resp_m_both$prevResp[mi]
+
+  motorTransitions$rt_both[motorTransitions$subject == subj & motorTransitions$currResp == currResp_m & motorTransitions$prevResp == prevResp_m] = heatmapData_allTrials_resp_m_both$meanRT[mi]
+
+
+  }
+
+# if there are missing transitions from the motor sequence, fill in with the transition in the opposite direction
+missingIdx = which(is.na(motorTransitions$rt))
+if(sum(missingIdx) != 0){
+  for(i in 1:length(missingIdx)){
+    swapPrev = motorTransitions$currResp[missingIdx[i]]
+    swapCurr = motorTransitions$prevResp[missingIdx[i]]
+    motorTransitions$rt_both[missingIdx[i]] = motorTransitions$rt_both[motorTransitions$currResp == swapPrev & motorTransitions$prevResp == swapCurr]
+    motorTransitions$medRT_both[missingIdx[i]] = motorTransitions$medRT_both[motorTransitions$currResp == swapPrev & motorTransitions$prevResp == swapCurr]
+    motorTransitions$swapRT[missingIdx[i]] = 1
+  }
+}
+
+ExperimentFour_withExclusions$rt_corrected_both = NA
+
+ExperimentFour_withExclusions$rt_strict_corrected = NA
+
+for(i in 1:length(ExperimentFour_withExclusions$rt_corrected_both)){
+  if(ExperimentFour_withExclusions$trialNum[i] ==1){
+    ExperimentFour_withExclusions$rt_corrected_both[i] = NA
+  }else{
+    prev = ExperimentFour_withExclusions$corrrespAll_prev[i]
+    curr = ExperimentFour_withExclusions$finger_press[i]
+
+    motorRT_both = motorTransitions$rt_both[motorTransitions$prevResp == allResps_new[prev] & motorTransitions$currResp == allResps_new[curr]]
+
+    
+    ExperimentFour_withExclusions$rt_corrected_both[i] = ExperimentFour_withExclusions$rt[i] - motorRT_both
+
+  }
+}
+zscoredRT = ExperimentFour_withExclusions %>% group_by(subject) %>% dplyr::summarise(rt_corrected_both_z = scale(rt))
+ExperimentFour_withExclusions$rt_corrected_both_z = zscoredRT$rt_corrected_both_z
+
+##### STREAK TRIALS #####
+ExperimentFour_withExclusions$streak = NA
+ExperimentFour_withExclusions$longStreak = NA
+for(ai in 2:length(ExperimentFour_withExclusions$corr)){
+  trial = ExperimentFour_withExclusions$trialNum[ai]
+ if(ExperimentFour_withExclusions$trialNum[ai-1]==(trial-1)){
+   if(ExperimentFour_withExclusions$corr[ai]==1 & ExperimentFour_withExclusions$corr[ai-1]==1){
+   ExperimentFour_withExclusions$streak[ai] = 1
+   }else{
+     ExperimentFour_withExclusions$streak[ai] = 0
+   }
+ }else{
+   ExperimentFour_withExclusions$streak[ai] = 0
+ }
+}
+
+for(ai in 2:length(ExperimentFour_withExclusions$corr)){
+  trial = ExperimentFour_withExclusions$trialNum[ai]
+ if(ExperimentFour_withExclusions$trialNum[ai-1]==(trial-1)){
+   if(ExperimentFour_withExclusions$streak[ai]==1 & ExperimentFour_withExclusions$streak[ai-1]==1){
+   ExperimentFour_withExclusions$longStreak[ai] = 1
+   }else{
+     ExperimentFour_withExclusions$longStreak[ai] = 0
+   }
+ }else{
+   ExperimentFour_withExclusions$longStreak[ai] = 0
+ }
+}
+ExperimentFour_withExclusions$streak[ExperimentFour_withExclusions$trialNum ==1] = NA
+
+######### WRITE DATA TO FILE ########
+write.csv(motorData_withExclusions_corr, 'motorData_Experiment4_compiled.csv')
+write.csv(ExperimentFour_withExclusions, 'Experiment4_compiled.csv')
+
+```
+
+# Prepare data for Experiment 5
+```{r, echo=F, message=F, warning=F, error=T, fig.width=6, fig.height=4, fig.align='center'}
+## LEARNING DATA ##
+rm(list=ls(all=TRUE))
+
+setwd("~/Documents/GitHub/StructuredActionPrepVMDM/rawData")
+datadir = "~/Documents/GitHub/StructuredActionPrepVMDM/rawData/Experiment5/free"
+# load libraries
+library(ggplot2)
+library(gridExtra)
+library(ggpubr)
+library(reshape2)
+library(dplyr)
+library(tidyr)
+library(tidyverse)
+library(itsadug)
+library(RColorBrewer)
+library(knitr)
+library(extrafont)
+library(fs)
+library(fabricatr)
+library(Rmisc)
+library(lme4)
+library(rstatix)
+library(MuMIn)
+
+
+# read in data
+  file_paths = fs::dir_ls(datadir)
+  compiledData = data.frame()
+  for (i in seq_along(file_paths)){
+    newSubjData = read_csv(file = file_paths[[i]])
+    compiledData = rbind(compiledData, newSubjData)
+  }
+  
+  compiledData$subject[compiledData$subject]
+  #set columns names to be closer to my normal code
+  colnames(compiledData) = c('subject','group','taskType','block','trial','phase','stim','resp','corr','rtS','attemptNum','iter')
+
+
+  # sort data into prac and test
+  compiledData = filter(compiledData, phase %in% c('learn','motor'))
+  testData_ExperimentFive = filter(compiledData, taskType %in% c("free"))
+  
+  # fix weird participant names
+  testData_ExperimentFive$subject[testData_ExperimentFive$subject == '29a'] = '30'
+  testData_ExperimentFive$subject[testData_ExperimentFive$subject == 'test'] = '33'
+  
+  # get some variables
+  subjNums_all = unique(testData_ExperimentFive$subject)
+  N_all = length(subjNums_all)
+  
+  allResps_new = c(1,2,3,4,5,6,7,8)
+  LH_new = c(1,2,3,4)
+  RH_new = c(5,6,7,8)
+  
+  # changed couplets to finger space
+  coupletOne_new = c(1,2,5,6)
+  coupletTwo_new = c(3,4,7,8)
+  
+  allResps = c(1,2,3,4,5,6,7,8)
+  ns = length(allResps)
+  # add more info to trials before saving
+  testData_ExperimentFive$iter = NA
+  testData_ExperimentFive$zscoredRTs = NA
+  testData_ExperimentFive$logRTs = NA
+  testData_ExperimentFive$hand = NA
+  testData_ExperimentFive$couplet = NA
+  testData_ExperimentFive$handSwitch = NA
+  testData_ExperimentFive$coupletSwitch = NA
+  testData_ExperimentFive$fingerSwitch = NA
+  testData_ExperimentFive$handSwitch_actual = NA
+  testData_ExperimentFive$coupletSwitch_actual = NA
+  testData_ExperimentFive$fingerSwitch_actual = NA
+  testData_ExperimentFive$respHand = NA
+  testData_ExperimentFive$respCouplet = NA
+  testData_ExperimentFive$corrHand = NA
+  testData_ExperimentFive$corrCouplet = NA
+
+  # Make a column of rt in ms
+  testData_ExperimentFive$rt = testData_ExperimentFive$rtS * 1000
+  # and a corrresp column
+  testData_ExperimentFive$corrresp = testData_ExperimentFive$stim
+  #and a trialNum one
+  testData_ExperimentFive$trialNum = testData_ExperimentFive$trial
+  for(ai in 1:N_all){
+    testData_ExperimentFive$zscoredRTs[testData_ExperimentFive$subject == subjNums_all[ai]] = scale(testData_ExperimentFive$rt[testData_ExperimentFive$subject == subjNums_all[ai]])
+    testData_ExperimentFive$logRTs[testData_ExperimentFive$subject == subjNums_all[ai]] = log(testData_ExperimentFive$rt[testData_ExperimentFive$subject == subjNums_all[ai]])
+    # add iteration numbers
+    for(bi in 1:ns){
+      idx = which(testData_ExperimentFive$subject == subjNums_all[ai]&testData_ExperimentFive$stim == allResps[bi] & testData_ExperimentFive$phase == 'learn')
+      for (ci in 1:length(idx)){
+        testData_ExperimentFive$iter[idx[ci]] = ci
+      }
+    }
+  }
+  for (xi in 1:dim(testData_ExperimentFive)[1]){
+    # put in correct hand and couplet
+    if(testData_ExperimentFive$stim[xi] %in% RH_new){
+      testData_ExperimentFive$hand[xi] = 'R'
+    }else if (testData_ExperimentFive$stim[xi] %in% LH_new){
+      testData_ExperimentFive$hand[xi] = 'L'
+    }
+    
+      if(testData_ExperimentFive$stim[xi] %in% coupletOne_new){
+      testData_ExperimentFive$couplet[xi] = 1
+    }else if (testData_ExperimentFive$stim[xi] %in% coupletTwo_new){
+      testData_ExperimentFive$couplet[xi] = 2
+    }
+    
+    # put in the hand and couplet of the response
+    if(testData_ExperimentFive$resp[xi] %in% RH_new){
+      testData_ExperimentFive$respHand[xi] = 'R'
+    }else if (testData_ExperimentFive$resp[xi] %in% LH_new){
+      testData_ExperimentFive$respHand[xi] = 'L'
+    }
+    
+    if(testData_ExperimentFive$resp[xi] %in% coupletOne_new){
+      testData_ExperimentFive$respCouplet[xi] = 1
+    }else if (testData_ExperimentFive$resp[xi] %in% coupletTwo_new){
+      testData_ExperimentFive$respCouplet[xi] = 2
+    }
+    
+    # 1 for correct hand, 0 for incorrect
+    if(is.na(testData_ExperimentFive$respHand[xi])){
+      testData_ExperimentFive$corrHand[xi] = 0
+    } else if(testData_ExperimentFive$hand[xi] == testData_ExperimentFive$respHand[xi]){
+      testData_ExperimentFive$corrHand[xi] = 1
+    }else if (testData_ExperimentFive$hand[xi] != testData_ExperimentFive$respHand[xi]){
+      testData_ExperimentFive$corrHand[xi] = 0
+    }
+     if(is.na(testData_ExperimentFive$respCouplet[xi])){
+      testData_ExperimentFive$corrCouplet[xi] = 0
+    }else if(testData_ExperimentFive$couplet[xi] == testData_ExperimentFive$respCouplet[xi]){
+      testData_ExperimentFive$corrCouplet[xi] = 1
+    }else if (testData_ExperimentFive$couplet[xi] != testData_ExperimentFive$respCouplet[xi]){
+      testData_ExperimentFive$corrCouplet[xi] = 0
+    }
+    
+  }
+  
+  for(di in 1:(dim(testData_ExperimentFive)[1]-1)){
+    #hand switches
+    if(testData_ExperimentFive$hand[di] == testData_ExperimentFive$hand[di+1]){
+      testData_ExperimentFive$handSwitch[di+1]= 0
+    } else if(testData_ExperimentFive$hand[di] != testData_ExperimentFive$hand[di+1]){
+      testData_ExperimentFive$handSwitch[di+1] = 1
+    }
+    if(testData_ExperimentFive$couplet[di] == testData_ExperimentFive$couplet[di+1]){
+      testData_ExperimentFive$coupletSwitch[di+1]= 0
+    } else if(testData_ExperimentFive$couplet[di] != testData_ExperimentFive$couplet[di+1]){
+      testData_ExperimentFive$coupletSwitch[di+1] = 1
+    }
+    #switches and repeats for finger
+    if(testData_ExperimentFive$corrresp[di] == testData_ExperimentFive$corrresp[di+1]){
+      testData_ExperimentFive$fingerSwitch[di+1] = 0
+    }else{
+      testData_ExperimentFive$fingerSwitch[di+1] = 1
+    }
+    
+    # same but with actual responses
+    if(is.na(testData_ExperimentFive$respHand[di]) | is.na(testData_ExperimentFive$respHand[di+1])){
+      testData_ExperimentFive$handSwitch_actual[di]= NA
+      testData_ExperimentFive$handSwitch_actual[di+1]=NA
+    }else if(testData_ExperimentFive$respHand[di] == testData_ExperimentFive$respHand[di+1]){
+      testData_ExperimentFive$handSwitch_actual[di+1]= 0
+    } else if(testData_ExperimentFive$respHand[di] != testData_ExperimentFive$respHand[di+1]){
+      testData_ExperimentFive$handSwitch_actual[di+1] = 1
+    }
+    if(is.na(testData_ExperimentFive$respCouplet[di]) | is.na(testData_ExperimentFive$respCouplet[di+1]) ){
+      testData_ExperimentFive$coupletSwitch_actual[di]= NA
+      testData_ExperimentFive$coupletSwitch_actual[di+1]= NA
+    }else if(testData_ExperimentFive$respCouplet[di] == testData_ExperimentFive$respCouplet[di+1]){
+      testData_ExperimentFive$coupletSwitch_actual[di+1]= 0
+    } else if(testData_ExperimentFive$respCouplet[di] != testData_ExperimentFive$respCouplet[di+1]){
+      testData_ExperimentFive$coupletSwitch_actual[di+1] = 1
+    }
+    #switches and repeats for finger
+    if(is.na(testData_ExperimentFive$resp[di])| is.na(testData_ExperimentFive$resp[di+1])){
+      testData_ExperimentFive$fingerSwitch_actual[di+1]= NA
+      testData_ExperimentFive$fingerSwitch_actual[di]= NA
+    }else if(testData_ExperimentFive$resp[di] == testData_ExperimentFive$resp[di+1]){
+      testData_ExperimentFive$fingerSwitch_actual[di+1] = 0
+    }else{
+      testData_ExperimentFive$fingerSwitch_actual[di+1] = 1
+    }
+    
+    if(is.na(testData_ExperimentFive$trial[di])){
+      testData_ExperimentFive$handSwitch[di] = testData_ExperimentFive$handSwitch[di-1]
+      testData_ExperimentFive$coupletSwitch[di] = testData_ExperimentFive$coupletSwitch[di-1]
+      testData_ExperimentFive$fingerSwitch[di] = testData_ExperimentFive$fingerSwitch[di-1]
+      testData_ExperimentFive$handSwitch_actual[di] = testData_ExperimentFive$handSwitch_actual[di-1]
+      testData_ExperimentFive$coupletSwitch_actual[di] = testData_ExperimentFive$coupletSwitch_actual[di-1]
+      testData_ExperimentFive$fingerSwitch_actual[di] = testData_ExperimentFive$fingerSwitch_actual[di-1]
+    }else if(testData_ExperimentFive$trial[di] == 1){
+      testData_ExperimentFive$handSwitch[di] = NA
+      testData_ExperimentFive$coupletSwitch[di] = NA
+      testData_ExperimentFive$fingerSwitch[di] = NA
+            testData_ExperimentFive$handSwitch_actual[di] = NA
+      testData_ExperimentFive$coupletSwitch_actual[di] = NA
+      testData_ExperimentFive$fingerSwitch_actual[di] = NA
+    }
+  }
+  testData_ExperimentFive$combinedType = NA
+testData_ExperimentFive$combinedType[testData_ExperimentFive$coupletSwitch_actual == 0&testData_ExperimentFive$handSwitch_actual == 0] = 'rep/rep/sw'
+testData_ExperimentFive$combinedType[testData_ExperimentFive$coupletSwitch_actual == 0&testData_ExperimentFive$handSwitch_actual == 1] = 'sw/rep/sw'
+testData_ExperimentFive$combinedType[testData_ExperimentFive$coupletSwitch_actual == 1&testData_ExperimentFive$handSwitch_actual == 0] = 'rep/sw/sw'
+testData_ExperimentFive$combinedType[testData_ExperimentFive$coupletSwitch_actual == 1&testData_ExperimentFive$handSwitch_actual == 1] = 'sw/sw/sw'
+testData_ExperimentFive$combinedType[testData_ExperimentFive$fingerSwitch_actual == 0] = 'rep/rep/rep'
+testData_ExperimentFive$combinedType[testData_ExperimentFive$trialNum == 1] = NA
+
+  testData_ExperimentFive$treeDistance = NA
+testData_ExperimentFive$treeDistance[testData_ExperimentFive$coupletSwitch_actual == 0&testData_ExperimentFive$handSwitch_actual == 0] = 2
+testData_ExperimentFive$treeDistance[testData_ExperimentFive$coupletSwitch_actual == 0&testData_ExperimentFive$handSwitch_actual == 1] = 6
+testData_ExperimentFive$treeDistance[testData_ExperimentFive$coupletSwitch_actual == 1&testData_ExperimentFive$handSwitch_actual == 0] =4
+testData_ExperimentFive$treeDistance[testData_ExperimentFive$coupletSwitch_actual == 1&testData_ExperimentFive$handSwitch_actual == 1] = 6
+testData_ExperimentFive$treeDistance[testData_ExperimentFive$fingerSwitch_actual == 0] = 0
+testData_ExperimentFive$treeDistance[testData_ExperimentFive$trialNum == 1] = NA
+
+ExperimentFive = testData_ExperimentFive %>% filter(phase == 'learn', iter < 56)
+
+##### EXCLUSIONS #####
+accuracyExclusions = ExperimentFive %>% group_by(subject, stim) %>% dplyr::summarize(pCorStim = mean(corr,na.rm = TRUE))
+
+includeSub = NA
+includeSub_strict = NA
+
+for (ai in 1:length(subjNums_all)){
+  if(sum(accuracyExclusions$pCorStim[accuracyExclusions$subject == subjNums_all[ai]] >=.25) >4){
+    includeSub[ai] = 1
+  }else{
+    includeSub[ai] = 0
+  }
+  if(sum(accuracyExclusions$pCorStim[accuracyExclusions$subject == subjNums_all[ai]] >=.25) == 8){
+    includeSub_strict[ai] = 1
+  }else{
+    includeSub_strict[ai] = 0
+  }
+}
+subjNums_included = subjNums_all[includeSub ==1]
+subjNums_included_strict = subjNums_all[includeSub_strict ==1]
+#now filter for just these subjects that aren't excluded 
+testData_ExperimentFive_withExclusions = testData_ExperimentFive %>% filter(subject %in% subjNums_all[includeSub ==1])
+
+#Add a column for the strict exclusion criterion to see if that helps
+testData_ExperimentFive_withExclusions$includeStrict = NA
+testData_ExperimentFive_withExclusions$includeStrict[testData_ExperimentFive_withExclusions$subject %in% c(subjNums_included_strict)] = 1
+
+
+# Add finger distance column 
+testData_ExperimentFive_withExclusions$fingerDistance[1] = NA
+testData_ExperimentFive_withExclusions$fingerDistance[2:length(testData_ExperimentFive_withExclusions$fingerDistance)] = abs(testData_ExperimentFive_withExclusions$resp[2:length(testData_ExperimentFive_withExclusions$fingerDistance)]-testData_ExperimentFive_withExclusions$resp[1:length(testData_ExperimentFive_withExclusions$fingerDistance)-1])
+testData_ExperimentFive_withExclusions$fingerDistance[testData_ExperimentFive_withExclusions$trialNum == 1] = NA
+# Add previous corr response column 
+testData_ExperimentFive_withExclusions$corrrespAll_prev[1] = NA
+testData_ExperimentFive_withExclusions$corrrespAll_prev[2:length(testData_ExperimentFive_withExclusions$stim)] = testData_ExperimentFive_withExclusions$stim[1:length(testData_ExperimentFive_withExclusions$stim)-1]
+testData_ExperimentFive_withExclusions$corrrespAll_prev[testData_ExperimentFive_withExclusions$trialNum == 1] = NA
+# Add previous ACTUAL response column 
+testData_ExperimentFive_withExclusions$finger_press_prev[1] = NA
+testData_ExperimentFive_withExclusions$finger_press_prev[2:length(testData_ExperimentFive_withExclusions$resp)] = testData_ExperimentFive_withExclusions$resp[1:length(testData_ExperimentFive_withExclusions$stim)-1]
+testData_ExperimentFive_withExclusions$finger_press_prev[testData_ExperimentFive_withExclusions$trialNum == 1] = NA
+
+#add feature sw column
+featureSwitchArray = array(c(0,1,1,2,1,2,2,3,1,0,2,1,2,1,3,2,1,2,0,1,2,3,1,2,2,1,1,0,3,2,2,1,1,2,2,3,0,1,1,2,2,1,3,2,1,0,2,1,2,3,1,2,1,2,0,1,3,2,2,1,2,1,1,0),dim = c(8,8))
+treeDistanceArray = array(c(0,2,4,4,6,6,6,6,2,0,4,4,6,6,6,6,4,4,0,2,6,6,6,6,4,4,2,0,6,6,6,6,6,6,6,6,0,2,4,4,6,6,6,6,2,0,4,4,6,6,6,6,4,4,0,2,6,6,6,6,4,4,2,0),dim = c(8,8))
+
+testData_ExperimentFive_withExclusions$nFeatureSwitch[1] = NA
+for(ai in 1:length(testData_ExperimentFive_withExclusions$nFeatureSwitch)){
+  prev = testData_ExperimentFive_withExclusions$corrrespAll_prev[ai]
+  curr = testData_ExperimentFive_withExclusions$stim[ai]
+  testData_ExperimentFive_withExclusions$nFeatureSwitch[ai] = featureSwitchArray[prev,curr]
+}
+testData_ExperimentFive_withExclusions$nFeatureSwitch[testData_ExperimentFive_withExclusions$trialNum == 1] = NA
+
+ExperimentFive_withExclusions = testData_ExperimentFive_withExclusions %>% filter(phase == 'learn')
+## add switch/rep for each level of hierarchy
+ExperimentFive_withExclusions$topType = NA
+ExperimentFive_withExclusions$midType = NA
+ExperimentFive_withExclusions$lowType = NA
+#top level
+ExperimentFive_withExclusions$topType[ExperimentFive_withExclusions$handSwitch ==1] = 1
+ExperimentFive_withExclusions$topType[ExperimentFive_withExclusions$handSwitch ==0] = 0
+#mid level
+ExperimentFive_withExclusions$midType[ExperimentFive_withExclusions$coupletSwitch ==1] = 1
+ExperimentFive_withExclusions$midType[ExperimentFive_withExclusions$coupletSwitch ==0] = 0
+#low level
+for(bi in 2:length(ExperimentFive_withExclusions$lowType)){
+  prev = ExperimentFive_withExclusions$corrrespAll_prev[bi]
+  curr = ExperimentFive_withExclusions$stim[bi]
+  if(ExperimentFive_withExclusions$trialNum[bi] == 1){
+   ExperimentFive_withExclusions$lowType[bi] = NA 
+  }else if(((prev %% 2 == 0) & (curr %%2 == 0)) | ((prev %% 2 != 0) & (curr %% 2 != 0))){
+    ExperimentFive_withExclusions$lowType[bi] = 0
+  }else{
+    ExperimentFive_withExclusions$lowType[bi] = 1
+  }
+}
+
+ExperimentFive_withExclusions$fifty = NA
+pCorAll = ExperimentFive_withExclusions %>% group_by(subject) %>% dplyr::summarise(accu = mean(corr,na.rm = TRUE))
+badSubs_accu = pCorAll$subject[pCorAll$accu<.5]
+ExperimentFive_withExclusions$fifty[ExperimentFive_withExclusions$subject %in% badSubs_accu] = 1
+ExperimentFive_withExclusions = ExperimentFive_withExclusions %>% group_by(subject) %>% filter(rt > 200, rt < mean(rt,na.rm = TRUE)+(sd(rt,na.rm = TRUE) * 3), trialNum > 3)
+
+###### MOTOR CORRECTION #####
+allmotorData_withExclusions = testData_ExperimentFive_withExclusions %>% filter(phase %in% c('motor'), corr == 1, attemptNum == 1) %>% group_by(subject) %>% filter(rt > mean(rt,na.rm = TRUE)-(sd(rt,na.rm = TRUE) * 3),rt < mean(rt,na.rm = TRUE)+(sd(rt,na.rm = TRUE) * 3), trialNum > 3)
+motorUpperBound = mean(allmotorData_withExclusions$rt,na.rm = TRUE)+sd(allmotorData_withExclusions$rt,na.rm = TRUE)*3
+
+motorStats = allmotorData_withExclusions %>% group_by(subject) %>% dplyr::summarise(avg = mean(rt,na.rm = TRUE),maxi = max(rt,na.rm = TRUE),mini = min(rt,na.rm =TRUE), trip = avg+3*sd(rt,na.rm = TRUE),tooFast = sum(rt < 150), tooSlow = sum(rt>900))
+
+allmotorData_withExclusions = allmotorData_withExclusions %>% filter(rt < motorUpperBound)
+# do this in a hacky way rn to exclude super slow RTs
+allmotorData_withExclusions$rtStrict = NA
+allmotorData_withExclusions$rtStrict[allmotorData_withExclusions$rt < 900] = 1
+allmotorData_withExclusions_corr = allmotorData_withExclusions %>% filter(corr == 1, !is.na(fingerSwitch))
+allmotorData_withExclusions_corr$rt_corr = allmotorData_withExclusions_corr$rt
+
+
+# heatmap array for BOTH motor tasks
+heatmapData_allTrials_resp_m_both = data.frame(subject = allmotorData_withExclusions_corr$subject[2:length(allmotorData_withExclusions_corr$subject)],currResp = allmotorData_withExclusions_corr$resp[2:length(allmotorData_withExclusions_corr$resp)], prevResp = allmotorData_withExclusions_corr$resp[1:length(allmotorData_withExclusions_corr$resp)-1], trialNum = allmotorData_withExclusions_corr$trialNum[2:length(allmotorData_withExclusions_corr$trialNum)], rt = allmotorData_withExclusions_corr$rt_corr[2:length(allmotorData_withExclusions_corr$rt_corr)]) %>% filter(trialNum > 3, !is.na(currResp), !is.na(prevResp)) %>% group_by(subject,currResp, prevResp) %>% dplyr::summarize(meanRT = mean(rt, na.rm=TRUE),medianRT = median(rt, na.rm = TRUE))
+heatmapData_allTrials_resp_m_both$prevResp = factor(heatmapData_allTrials_resp_m_both$prevResp, levels = c(1,2,3,4,5,6,7,8))
+heatmapData_allTrials_resp_m_both$currResp = factor(heatmapData_allTrials_resp_m_both$currResp, levels = c(8,7,6,5,4,3,2,1))
+
+# ok, so we want add a column onto the main RL dataframe we're working with that has the baseline corrected rts
+# first let's make the motor dataframe easier to use by creating a dataframe with all of the possible combinations
+nCombos = ns^2
+motorTransitions = data.frame(matrix(nrow = nCombos*length(subjNums_included)))
+
+#initialize these columns
+motorTransitions$subject = NA
+motorTransitions$currResp = NA
+motorTransitions$prevResp = NA
+
+motorTransitions$rt_both = NA
+motorTransitions$medRT_both = NA
+
+motorTransitions$swapRT = NA
+
+#loop over subjects to set up empty array
+startidx = 1
+for(xi in 1:length(subjNums_included)){
+  motorTransitions$subject[startidx:(startidx+nCombos-1)] = subjNums_included[xi]
+  counter = startidx
+  for(yi in 1:ns){
+    for(zi in 1:ns){
+      motorTransitions$currResp[counter] = allResps_new[yi]
+      motorTransitions$prevResp[counter] = allResps_new[zi]
+      counter = counter+1
+    }
+  }
+  startidx = counter
+}
+
+# now put in the meanrts from the motor task
+for(mi in 1:dim(heatmapData_allTrials_resp_m_both)[1]){
+  subj = heatmapData_allTrials_resp_m_both$subject[mi]
+  currResp_m = heatmapData_allTrials_resp_m_both$currResp[mi]
+  prevResp_m = heatmapData_allTrials_resp_m_both$prevResp[mi]
+
+  motorTransitions$rt_both[motorTransitions$subject == subj & motorTransitions$currResp == currResp_m & motorTransitions$prevResp == prevResp_m] = heatmapData_allTrials_resp_m_both$meanRT[mi]
+  motorTransitions$medRT_both[motorTransitions$subject == subj & motorTransitions$currResp == currResp_m & motorTransitions$prevResp == prevResp_m] = heatmapData_allTrials_resp_m_both$medianRT[mi]
+
+
+  }
+
+# if there are missing transitions from the motor sequence, fill in with the transition in the opposite direction
+missingIdx = which(is.na(motorTransitions$rt))
+if(sum(missingIdx) != 0){
+  for(i in 1:length(missingIdx)){
+    swapPrev = motorTransitions$currResp[missingIdx[i]]
+    swapCurr = motorTransitions$prevResp[missingIdx[i]]
+    motorTransitions$rt_both[missingIdx[i]] = motorTransitions$rt_both[motorTransitions$currResp == swapPrev & motorTransitions$prevResp == swapCurr]
+    motorTransitions$medRT_both[missingIdx[i]] = motorTransitions$medRT_both[motorTransitions$currResp == swapPrev & motorTransitions$prevResp == swapCurr]
+    motorTransitions$swapRT[missingIdx[i]] = 1
+  }
+}
+
+ExperimentFive_withExclusions$rt_corrected_both = NA
+ExperimentFive_withExclusions$medRT_corrected_both = NA
+
+ExperimentFive_withExclusions$rt_strict_corrected = NA
+ExperimentFive_withExclusions$medRT_strict_corrected = NA
+
+for(i in 1:length(ExperimentFive_withExclusions$rt_corrected_both)){
+  if(ExperimentFive_withExclusions$trialNum[i] ==1){
+    ExperimentFive_withExclusions$rt_corrected[i] = NA
+  }else{
+    prev = ExperimentFive_withExclusions$finger_press_prev[i]
+    curr = ExperimentFive_withExclusions$resp[i]
+
+    motorRT_both = motorTransitions$rt_both[motorTransitions$prevResp == allResps_new[prev] & motorTransitions$currResp == allResps_new[curr]]
+    motorRT_med_both = motorTransitions$medRT_both[motorTransitions$prevResp == allResps_new[prev] & motorTransitions$currResp == allResps_new[curr]]
+
+    
+    ExperimentFive_withExclusions$rt_corrected_both[i] = ExperimentFive_withExclusions$rt[i] - motorRT_both
+    ExperimentFive_withExclusions$medRT_corrected_both[i] = ExperimentFive_withExclusions$rt[i] - motorRT_med_both
+
+  }
+}
+
+
+#### STREAK TRIALS #####
+ExperimentFive_withExclusions$streak = NA
+ExperimentFive_withExclusions$longStreak = NA
+for(ai in 2:length(ExperimentFive_withExclusions$corr)){
+  trial = ExperimentFive_withExclusions$trialNum[ai]
+ if(ExperimentFive_withExclusions$trialNum[ai-1]==(trial-1)){
+   if(ExperimentFive_withExclusions$corr[ai]==1 & ExperimentFive_withExclusions$corr[ai-1]==1){
+   ExperimentFive_withExclusions$streak[ai] = 1
+   }else{
+     ExperimentFive_withExclusions$streak[ai] = 0
+   }
+ }else{
+   ExperimentFive_withExclusions$streak[ai] = 0
+ }
+}
+
+for(ai in 2:length(ExperimentFive_withExclusions$corr)){
+  trial = ExperimentFive_withExclusions$trialNum[ai]
+ if(ExperimentFive_withExclusions$trialNum[ai-1]==(trial-1)){
+   if(ExperimentFive_withExclusions$streak[ai]==1 & ExperimentFive_withExclusions$streak[ai-1]==1){
+   ExperimentFive_withExclusions$longStreak[ai] = 1
+   }else{
+     ExperimentFive_withExclusions$longStreak[ai] = 0
+   }
+ }else{
+   ExperimentFive_withExclusions$longStreak[ai] = 0
+ }
+}
+
+ExperimentFive_withExclusions$streak[ExperimentFive_withExclusions$trialNum ==1] = NA
+
+######### WRITE DATA TO FILE ########
+write.csv(allmotorData_withExclusions, 'motorData_Experiment5_compiled.csv')
+write.csv(ExperimentFive_withExclusions, 'Experiment5_learn_compiled.csv')
+```
+
+```{r, echo=F, message=F, warning=F, error=T, fig.width=6, fig.height=4, fig.align='center'}
+## FORCED RESPONSE ##
+
+#where is the data
+forceddir = "~/Documents/GitHub/StructuredActionPrepVMDM/rawData/Experiment5/forced"
+
+# read in data
+  file_paths = fs::dir_ls(forceddir)
+  compiledData_forced = data.frame()
+  for (i in 1:length(file_paths)){
+    newSubjData = read_csv(file = file_paths[[i]])
+    compiledData_forced = rbind(compiledData_forced, newSubjData)
+  }
+  
+  #set columns names to be closer to my normal code
+  colnames(compiledData_forced) = c('subject','group','taskType','block','trial','phase','stim','resp','corr','timing','PT_planned','PT_actual','missed_stim_deadline')
+  
+  
+  # sort data into prac and test
+  ExperimentFive_forced = filter(compiledData_forced,phase == 'learn')
+
+  # fix weird participant names
+  ExperimentFive_forced$subject[ExperimentFive_forced$subject == '29a'] = '30'
+  ExperimentFive_forced$subject[ExperimentFive_forced$subject == 'test'] = '33'
+
+  # get some variables
+  subjNums_forced = unique(ExperimentFive_forced$subject)
+  N_all_forced = length(subjNums_forced)
+  
+  allResps_new = c(1,2,3,4,5,6,7,8)
+  LH_new = c(1,2,3,4)
+  RH_new = c(5,6,7,8)
+  
+  # changed couplets to finger space
+  coupletOne_new = c(1,2,5,6)
+  coupletTwo_new = c(3,4,7,8)
+  
+  allResps = c(1,2,3,4,5,6,7,8)
+  ns = length(allResps)
+  # add more info to trials before saving
+  ExperimentFive_forced$iter = NA
+  ExperimentFive_forced$hand = NA
+  ExperimentFive_forced$couplet = NA
+  ExperimentFive_forced$handSwitch = NA
+  ExperimentFive_forced$coupletSwitch = NA
+  ExperimentFive_forced$fingerSwitch = NA
+  ExperimentFive_forced$handSwitch_actual = NA
+  ExperimentFive_forced$coupletSwitch_actual = NA
+  ExperimentFive_forced$fingerSwitch_actual = NA
+  ExperimentFive_forced$respHand = NA
+  ExperimentFive_forced$respCouplet = NA
+  ExperimentFive_forced$corrHand = NA
+  ExperimentFive_forced$corrCouplet = NA
+
+  # and a corrresp column
+  ExperimentFive_forced$corrresp = ExperimentFive_forced$stim
+  #and a trialNum one
+  ExperimentFive_forced$trialNum = ExperimentFive_forced$trial
+  for(ai in 1:N_all){
+    # add iteration numbers
+    for(bi in 1:ns){
+      idx = which(ExperimentFive_forced$subject == subjNums_all[ai]&ExperimentFive_forced$stim == allResps[bi] & ExperimentFive_forced$phase == 'learn')
+      for (ci in 1:length(idx)){
+        ExperimentFive_forced$iter[idx[ci]] = ci
+      }
+    }
+  }
+  for (xi in 1:dim(ExperimentFive_forced)[1]){
+    # put in correct hand and couplet
+    if(ExperimentFive_forced$stim[xi] %in% RH_new){
+      ExperimentFive_forced$hand[xi] = 'R'
+    }else if (ExperimentFive_forced$stim[xi] %in% LH_new){
+      ExperimentFive_forced$hand[xi] = 'L'
+    }
+    
+      if(ExperimentFive_forced$stim[xi] %in% coupletOne_new){
+      ExperimentFive_forced$couplet[xi] = 1
+    }else if (ExperimentFive_forced$stim[xi] %in% coupletTwo_new){
+      ExperimentFive_forced$couplet[xi] = 2
+    }
+    
+    # put in the hand and couplet of the response
+    if(ExperimentFive_forced$resp[xi] %in% RH_new){
+      ExperimentFive_forced$respHand[xi] = 'R'
+    }else if (ExperimentFive_forced$resp[xi] %in% LH_new){
+      ExperimentFive_forced$respHand[xi] = 'L'
+    }
+    
+    if(ExperimentFive_forced$resp[xi] %in% coupletOne_new){
+      ExperimentFive_forced$respCouplet[xi] = 1
+    }else if (ExperimentFive_forced$resp[xi] %in% coupletTwo_new){
+      ExperimentFive_forced$respCouplet[xi] = 2
+    }
+    
+    # 1 for correct hand, 0 for incorrect
+    if(is.na(ExperimentFive_forced$respHand[xi])){
+      ExperimentFive_forced$corrHand[xi] = 0
+    } else if(ExperimentFive_forced$hand[xi] == ExperimentFive_forced$respHand[xi]){
+      ExperimentFive_forced$corrHand[xi] = 1
+    }else if (ExperimentFive_forced$hand[xi] != ExperimentFive_forced$respHand[xi]){
+      ExperimentFive_forced$corrHand[xi] = 0
+    }
+     if(is.na(ExperimentFive_forced$respCouplet[xi])){
+      ExperimentFive_forced$corrCouplet[xi] = 0
+    }else if(ExperimentFive_forced$couplet[xi] == ExperimentFive_forced$respCouplet[xi]){
+      ExperimentFive_forced$corrCouplet[xi] = 1
+    }else if (ExperimentFive_forced$couplet[xi] != ExperimentFive_forced$respCouplet[xi]){
+      ExperimentFive_forced$corrCouplet[xi] = 0
+    }
+    
+  }
+  
+  for(di in 1:(dim(ExperimentFive_forced)[1]-1)){
+    #hand switches
+    if(ExperimentFive_forced$hand[di] == ExperimentFive_forced$hand[di+1]){
+      ExperimentFive_forced$handSwitch[di+1]= 0
+    } else if(ExperimentFive_forced$hand[di] != ExperimentFive_forced$hand[di+1]){
+      ExperimentFive_forced$handSwitch[di+1] = 1
+    }
+    if(ExperimentFive_forced$couplet[di] == ExperimentFive_forced$couplet[di+1]){
+      ExperimentFive_forced$coupletSwitch[di+1]= 0
+    } else if(ExperimentFive_forced$couplet[di] != ExperimentFive_forced$couplet[di+1]){
+      ExperimentFive_forced$coupletSwitch[di+1] = 1
+    }
+    #switches and repeats for finger
+    if(ExperimentFive_forced$corrresp[di] == ExperimentFive_forced$corrresp[di+1]){
+      ExperimentFive_forced$fingerSwitch[di+1] = 0
+    }else{
+      ExperimentFive_forced$fingerSwitch[di+1] = 1
+    }
+    
+    # same but with actual responses
+    if(is.na(ExperimentFive_forced$respHand[di]) | is.na(ExperimentFive_forced$respHand[di+1])){
+      ExperimentFive_forced$handSwitch_actual[di]= NA
+      ExperimentFive_forced$handSwitch_actual[di+1]=NA
+    }else if(ExperimentFive_forced$respHand[di] == ExperimentFive_forced$respHand[di+1]){
+      ExperimentFive_forced$handSwitch_actual[di+1]= 0
+    } else if(ExperimentFive_forced$respHand[di] != ExperimentFive_forced$respHand[di+1]){
+      ExperimentFive_forced$handSwitch_actual[di+1] = 1
+    }
+    if(is.na(ExperimentFive_forced$respCouplet[di]) | is.na(ExperimentFive_forced$respCouplet[di+1]) ){
+      ExperimentFive_forced$coupletSwitch_actual[di]= NA
+      ExperimentFive_forced$coupletSwitch_actual[di+1]= NA
+    }else if(ExperimentFive_forced$respCouplet[di] == ExperimentFive_forced$respCouplet[di+1]){
+      ExperimentFive_forced$coupletSwitch_actual[di+1]= 0
+    } else if(ExperimentFive_forced$respCouplet[di] != ExperimentFive_forced$respCouplet[di+1]){
+      ExperimentFive_forced$coupletSwitch_actual[di+1] = 1
+    }
+    #switches and repeats for finger
+    if(is.na(ExperimentFive_forced$resp[di])| is.na(ExperimentFive_forced$resp[di+1])){
+      ExperimentFive_forced$fingerSwitch_actual[di+1]= NA
+      ExperimentFive_forced$fingerSwitch_actual[di]= NA
+    }else if(ExperimentFive_forced$resp[di] == ExperimentFive_forced$resp[di+1]){
+      ExperimentFive_forced$fingerSwitch_actual[di+1] = 0
+    }else{
+      ExperimentFive_forced$fingerSwitch_actual[di+1] = 1
+    }
+    
+    if(is.na(ExperimentFive_forced$trial[di])){
+      ExperimentFive_forced$handSwitch[di] = ExperimentFive_forced$handSwitch[di-1]
+      ExperimentFive_forced$coupletSwitch[di] = ExperimentFive_forced$coupletSwitch[di-1]
+      ExperimentFive_forced$fingerSwitch[di] = ExperimentFive_forced$fingerSwitch[di-1]
+      ExperimentFive_forced$handSwitch_actual[di] = ExperimentFive_forced$handSwitch_actual[di-1]
+      ExperimentFive_forced$coupletSwitch_actual[di] = ExperimentFive_forced$coupletSwitch_actual[di-1]
+      ExperimentFive_forced$fingerSwitch_actual[di] = ExperimentFive_forced$fingerSwitch_actual[di-1]
+    }else if(ExperimentFive_forced$trial[di] == 1){
+      ExperimentFive_forced$handSwitch[di] = NA
+      ExperimentFive_forced$coupletSwitch[di] = NA
+      ExperimentFive_forced$fingerSwitch[di] = NA
+      ExperimentFive_forced$handSwitch_actual[di] = NA
+      ExperimentFive_forced$coupletSwitch_actual[di] = NA
+      ExperimentFive_forced$fingerSwitch_actual[di] = NA
+    }
+  }
+  #first change the corr column to be more useful
+ExperimentFive_forced$corr[ExperimentFive_forced$resp == ExperimentFive_forced$stim] = 1
+ExperimentFive_forced$corr[ExperimentFive_forced$resp != ExperimentFive_forced$stim] = 0
+ExperimentFive_forced$corr[is.na(ExperimentFive_forced$resp)] = NA
+
+#calculate RTs
+ExperimentFive_forced$rt = ExperimentFive_forced$PT_actual-ExperimentFive_forced$PT_planned
+
+# filter out RTs that are too fast
+ExperimentFive_forced = ExperimentFive_forced %>% filter(PT_actual >= 0)
+
+# add bins for PT analyses
+ExperimentFive_forced = ExperimentFive_forced %>% mutate(PT_actual_bins = split_quantile(PT_actual,12)) # ok weirdly 12 bins of one and 10 of the other whoops
+ExperimentFive_forced = ExperimentFive_forced %>% mutate(PT_planned_bins = split_quantile(PT_planned,10))
+ 
+
+
+
+ExperimentFive_forced$combinedType = NA
+ExperimentFive_forced$combinedType[ExperimentFive_forced$coupletSwitch_actual == 0&ExperimentFive_forced$handSwitch_actual == 0] = 'rep/rep/sw'
+ExperimentFive_forced$combinedType[ExperimentFive_forced$coupletSwitch_actual == 0&ExperimentFive_forced$handSwitch_actual == 1] = 'sw/rep/sw'
+ExperimentFive_forced$combinedType[ExperimentFive_forced$coupletSwitch_actual == 1&ExperimentFive_forced$handSwitch_actual == 0] = 'rep/sw/sw'
+ExperimentFive_forced$combinedType[ExperimentFive_forced$coupletSwitch_actual == 1&ExperimentFive_forced$handSwitch_actual == 1] = 'sw/sw/sw'
+ExperimentFive_forced$combinedType[ExperimentFive_forced$fingerSwitch_actual == 0] = 'rep/rep/rep'
+ExperimentFive_forced$combinedType[ExperimentFive_forced$trialNum == 1] = NA
+
+  ExperimentFive_forced$treeDistance = NA
+ExperimentFive_forced$treeDistance[ExperimentFive_forced$coupletSwitch_actual == 0&ExperimentFive_forced$handSwitch_actual == 0] = 2
+ExperimentFive_forced$treeDistance[ExperimentFive_forced$coupletSwitch_actual == 0&ExperimentFive_forced$handSwitch_actual == 1] = 6
+ExperimentFive_forced$treeDistance[ExperimentFive_forced$coupletSwitch_actual == 1&ExperimentFive_forced$handSwitch_actual == 0] =4
+ExperimentFive_forced$treeDistance[ExperimentFive_forced$coupletSwitch_actual == 1&ExperimentFive_forced$handSwitch_actual == 1] = 6
+ExperimentFive_forced$treeDistance[ExperimentFive_forced$fingerSwitch_actual == 0] = 0
+ExperimentFive_forced$treeDistance[ExperimentFive_forced$trialNum == 1] = NA
+
+ExperimentFive_forced$corrresp_prev = NA
+ExperimentFive_forced$corrresp_prev[2:length(ExperimentFive_forced$corrresp_prev)] = ExperimentFive_forced$corrresp[1:(length(ExperimentFive_forced$corrresp_prev)-1)]
+featureSwitchArray = array(c(0,1,1,2,3,2,2,1, 
+                             1,0,2,1,2,3,1,2,
+                             1,2,0,1,2,1,3,2,
+                             2,1,1,0,1,2,2,3,
+                             3,2,2,1,0,1,1,2,
+                             2,3,1,2,1,0,2,1,
+                             2,1,3,2,1,2,0,1,
+                             1,2,2,3,2,1,1,0),dim = c(8,8))
+ExperimentFive_forced$nFeatureSwitch[1] = NA
+for(ai in 1:length(ExperimentFive_forced$nFeatureSwitch)){
+  prev = ExperimentFive_forced$corrresp_prev[ai]
+  curr = ExperimentFive_forced$corrresp[ai]
+  ExperimentFive_forced$nFeatureSwitch[ai] = featureSwitchArray[prev,curr]
+}
+ExperimentFive_forced$nFeatureSwitch[ExperimentFive_forced$trialNum == 1] = NA
+
+# Add column for error type
+ExperimentFive_forced$errorType = NA
+ExperimentFive_forced$errorType[ExperimentFive_forced$corr == 1] = '1/1/1'
+ExperimentFive_forced$errorType[ExperimentFive_forced$corr == 0 & ExperimentFive_forced$corrHand == 1 & ExperimentFive_forced$corrCouplet == 1] = '1/1/0'
+ExperimentFive_forced$errorType[ExperimentFive_forced$corr == 0 & ExperimentFive_forced$corrHand == 1 & ExperimentFive_forced$corrCouplet == 0] = '1/0/0'
+ExperimentFive_forced$errorType[ExperimentFive_forced$corr == 0 & ExperimentFive_forced$corrHand == 0 & ExperimentFive_forced$corrCouplet == 1] = '0/1/0'
+ExperimentFive_forced$errorType[ExperimentFive_forced$corr == 0 & ExperimentFive_forced$corrHand == 0 & ExperimentFive_forced$corrCouplet == 0] = '0/0/0'
+
+#set up corr finger column
+ExperimentFive_forced$corrFinger = NA
+ExperimentFive_forced$corrFinger[ExperimentFive_forced$corrresp %in% c(1,3,5,7) & ExperimentFive_forced$resp %in% c(1,3,5,7)] = 1
+ExperimentFive_forced$corrFinger[ExperimentFive_forced$corrresp %in% c(2,4,6,8) & ExperimentFive_forced$resp %in% c(2,4,6,8)] = 1
+ExperimentFive_forced$corrFinger[ExperimentFive_forced$corrresp %in% c(1,3,5,7) & ExperimentFive_forced$resp %in% c(2,4,6,8)] = 0
+ExperimentFive_forced$corrFinger[ExperimentFive_forced$corrresp %in% c(2,4,6,8) & ExperimentFive_forced$resp %in% c(1,3,5,7)] = 0
+
+ExperimentFive_forced$errorType2 = NA
+ExperimentFive_forced$errorType2[ExperimentFive_forced$corrHand == 1 & ExperimentFive_forced$corrCouplet == 1 & ExperimentFive_forced$corrFinger == 1] = '1/1/1'
+ExperimentFive_forced$errorType2[ExperimentFive_forced$corrHand == 1 & ExperimentFive_forced$corrCouplet == 1 & ExperimentFive_forced$corrFinger == 0] = '1/1/0'
+ExperimentFive_forced$errorType2[ExperimentFive_forced$corrHand == 1 & ExperimentFive_forced$corrCouplet == 0 & ExperimentFive_forced$corrFinger == 1] = '1/0/1'
+ExperimentFive_forced$errorType2[ExperimentFive_forced$corrHand == 1 & ExperimentFive_forced$corrCouplet == 0 & ExperimentFive_forced$corrFinger == 0] = '1/0/0'
+
+ExperimentFive_forced$errorType2[ExperimentFive_forced$corrHand == 0 & ExperimentFive_forced$corrCouplet == 1 & ExperimentFive_forced$corrFinger == 1] = '0/1/1'
+ExperimentFive_forced$errorType2[ExperimentFive_forced$corrHand == 0 & ExperimentFive_forced$corrCouplet == 1 & ExperimentFive_forced$corrFinger == 0] = '0/1/0'
+ExperimentFive_forced$errorType2[ExperimentFive_forced$corrHand == 0 & ExperimentFive_forced$corrCouplet == 0 & ExperimentFive_forced$corrFinger == 1] = '0/0/1'
+ExperimentFive_forced$errorType2[ExperimentFive_forced$corrHand == 0 & ExperimentFive_forced$corrCouplet == 0 & ExperimentFive_forced$corrFinger == 0] = '0/0/0'
+
+
+#convert what you need into factors to stop from droppipng in groups
+ExperimentFive_forced$subject = as.factor(ExperimentFive_forced$subject)
+ExperimentFive_forced$errorType = as.factor(ExperimentFive_forced$errorType)
+ExperimentFive_forced$treeDistance = as.factor(ExperimentFive_forced$treeDistance)
+ExperimentFive_forced$PT_actual_bins = as.factor(ExperimentFive_forced$PT_actual_bins)
+ExperimentFive_forced$PT_planned_bins = as.factor(ExperimentFive_forced$PT_planned_bins)
+ExperimentFive_forced$combinedType = as.factor(ExperimentFive_forced$combinedType)
+
+### Exclusions ####
+# mark subjects that shoudl be inlcuded from the learnign sample
+ExperimentFive_forced$includeLearn = NA
+ExperimentFive_forced$includeLearn[ExperimentFive_forced$subject %in% subjNums_included] = 1
+
+ExperimentFive_forced$timing_chill = NA
+ExperimentFive_forced$timing_chill[abs(ExperimentFive_forced$rt)<=.25] = 1
+
+
+# filter out PT_actual of over 1.75s
+ExperimentFive_forced_withExclusions = ExperimentFive_forced %>% filter(PT_actual <= 1.75, includeLearn == 1)
+
+## Add bins of PTs
+#method one
+ExperimentFive_forced_withExclusions$eml = NA
+ExperimentFive_forced_withExclusions$eml[ExperimentFive_forced_withExclusions$PT_actual <= .4] = 'a_early'
+ExperimentFive_forced_withExclusions$eml[ExperimentFive_forced_withExclusions$PT_actual > .4 & ExperimentFive_forced_withExclusions$PT_actual <= .8] = 'b_mid'
+ExperimentFive_forced_withExclusions$eml[ExperimentFive_forced_withExclusions$PT_actual > .8] = 'c_late'
+#method 2
+ExperimentFive_forced_withExclusions$eml2 = NA
+ExperimentFive_forced_withExclusions$eml2[ExperimentFive_forced_withExclusions$PT_actual <= .5] = 'a_early'
+ExperimentFive_forced_withExclusions$eml2[ExperimentFive_forced_withExclusions$PT_actual > .5 & ExperimentFive_forced_withExclusions$PT_actual <= .9] = 'b_mid'
+ExperimentFive_forced_withExclusions$eml2[ExperimentFive_forced_withExclusions$PT_actual > .9] = 'c_late'
+# method 3
+ExperimentFive_forced_withExclusions$eml3 = NA
+ExperimentFive_forced_withExclusions$eml3[ExperimentFive_forced_withExclusions$PT_actual <= .3] = 'a_early1'
+ExperimentFive_forced_withExclusions$eml3[ExperimentFive_forced_withExclusions$PT_actual  > .3 & ExperimentFive_forced_withExclusions$PT_actual <= .5] = 'a_early2'
+ExperimentFive_forced_withExclusions$eml3[ExperimentFive_forced_withExclusions$PT_actual > .5 & ExperimentFive_forced_withExclusions$PT_actual <= .7] = 'b_mid1'
+ExperimentFive_forced_withExclusions$eml3[ExperimentFive_forced_withExclusions$PT_actual > .7 & ExperimentFive_forced_withExclusions$PT_actual <= .9] = 'b_mid2'
+ExperimentFive_forced_withExclusions$eml3[ExperimentFive_forced_withExclusions$PT_actual > .9& ExperimentFive_forced_withExclusions$PT_actual <= 1.1] = 'c_late1'
+ExperimentFive_forced_withExclusions$eml3[ExperimentFive_forced_withExclusions$PT_actual > 1.1] = 'c_late2'
+
+
+ExperimentFive_forced_withExclusions$corrFinger = NA
+ExperimentFive_forced_withExclusions$corrFinger[ExperimentFive_forced_withExclusions$corrresp %in% c(1,3,5,7) & ExperimentFive_forced_withExclusions$resp %in% c(1,3,5,7)] = 1
+ExperimentFive_forced_withExclusions$corrFinger[ExperimentFive_forced_withExclusions$corrresp %in% c(2,4,6,8) & ExperimentFive_forced_withExclusions$resp %in% c(2,4,6,8)] = 1
+ExperimentFive_forced_withExclusions$corrFinger[ExperimentFive_forced_withExclusions$corrresp %in% c(1,3,5,7) & ExperimentFive_forced_withExclusions$resp %in% c(2,4,6,8)] = 0
+ExperimentFive_forced_withExclusions$corrFinger[ExperimentFive_forced_withExclusions$corrresp %in% c(2,4,6,8) & ExperimentFive_forced_withExclusions$resp %in% c(1,3,5,7)] = 0
+
+ExperimentFive_forced_withExclusions$errorType2 = NA
+ExperimentFive_forced_withExclusions$errorType2[ExperimentFive_forced_withExclusions$corrHand == 1 & ExperimentFive_forced_withExclusions$corrCouplet == 1 & ExperimentFive_forced_withExclusions$corrFinger == 1] = '1/1/1'
+ExperimentFive_forced_withExclusions$errorType2[ExperimentFive_forced_withExclusions$corrHand == 1 & ExperimentFive_forced_withExclusions$corrCouplet == 1 & ExperimentFive_forced_withExclusions$corrFinger == 0] = '1/1/0'
+ExperimentFive_forced_withExclusions$errorType2[ExperimentFive_forced_withExclusions$corrHand == 1 & ExperimentFive_forced_withExclusions$corrCouplet == 0 & ExperimentFive_forced_withExclusions$corrFinger == 1] = '1/0/1'
+ExperimentFive_forced_withExclusions$errorType2[ExperimentFive_forced_withExclusions$corrHand == 1 & ExperimentFive_forced_withExclusions$corrCouplet == 0 & ExperimentFive_forced_withExclusions$corrFinger == 0] = '1/0/0'
+
+ExperimentFive_forced_withExclusions$errorType2[ExperimentFive_forced_withExclusions$corrHand == 0 & ExperimentFive_forced_withExclusions$corrCouplet == 1 & ExperimentFive_forced_withExclusions$corrFinger == 1] = '0/1/1'
+ExperimentFive_forced_withExclusions$errorType2[ExperimentFive_forced_withExclusions$corrHand == 0 & ExperimentFive_forced_withExclusions$corrCouplet == 1 & ExperimentFive_forced_withExclusions$corrFinger == 0] = '0/1/0'
+ExperimentFive_forced_withExclusions$errorType2[ExperimentFive_forced_withExclusions$corrHand == 0 & ExperimentFive_forced_withExclusions$corrCouplet == 0 & ExperimentFive_forced_withExclusions$corrFinger == 1] = '0/0/1'
+ExperimentFive_forced_withExclusions$errorType2[ExperimentFive_forced_withExclusions$corrHand == 0 & ExperimentFive_forced_withExclusions$corrCouplet == 0 & ExperimentFive_forced_withExclusions$corrFinger == 0] = '0/0/0'
+
+ExperimentFive_forced_withExclusions$errorType2 = as.factor(ExperimentFive_forced_withExclusions$errorType2)
+
+######### WRITE DATA TO FILE ########
+write.csv(ExperimentFive_forced_withExclusions, 'Experiment5_forced_compiled.csv')
+```
+# Prepare data for EXPERIMENT 6
+```{r, echo=F, message=F, warning=F, error=T, fig.width=6, fig.height=4, fig.align='center'}
+## LEARN DATA ##
+rm(list=ls(all=TRUE))
+setwd("~/Documents/GitHub/StructuredActionPrepVMDM/rawData")
+datadir = "~/Documents/GitHub/StructuredActionPrepVMDM/rawData/Experiment6/free"
+
+# load libraries
+library(ggplot2)
+library(gridExtra)
+library(ggpubr)
+library(reshape2)
+library(dplyr)
+library(tidyr)
+library(tidyverse)
+library(itsadug)
+library(RColorBrewer)
+library(knitr)
+library(extrafont)
+library(fs)
+library(fabricatr)
+library(Rmisc)
+library(lme4)
+library(rstatix)
+library(MuMIn)
+
+  file_paths = fs::dir_ls(datadir)
+  compiledData = data.frame()
+  for (i in seq_along(file_paths)){
+    newSubjData = read_csv(file = file_paths[[i]])
+    compiledData = rbind(compiledData, newSubjData)
+  }
+  
+  compiledData$subject[compiledData$subject]
+  #set columns names to be closer to my normal code
+  colnames(compiledData) = c('subject','group','taskType','block','trial','phase','stim','resp','corr','rtS','attemptNum','iter')
+
+
+  # sort data into prac and test
+  compiledData = filter(compiledData, phase %in% c('learn','motor'))
+  testData_ExperimentSix = filter(compiledData, taskType %in% c("free"))
+  
+  # get some variables
+  subjNums_all = unique(testData_ExperimentSix$subject)
+  N_all = length(subjNums_all)
+  
+  allResps_new = c(1,2,3,4,5,6,7,8)
+  LH_new = c(1,2,3,4)
+  RH_new = c(5,6,7,8)
+  
+  # changed couplets to finger space
+  coupletOne_new = c(1,2,5,6)
+  coupletTwo_new = c(3,4,7,8)
+  
+  allResps = c(1,2,3,4,5,6,7,8)
+  ns = length(allResps)
+  # add more info to trials before saving
+  testData_ExperimentSix$iter = NA
+  testData_ExperimentSix$zscoredRTs = NA
+  testData_ExperimentSix$logRTs = NA
+  testData_ExperimentSix$hand = NA
+  testData_ExperimentSix$couplet = NA
+  testData_ExperimentSix$handSwitch = NA
+  testData_ExperimentSix$coupletSwitch = NA
+  testData_ExperimentSix$fingerSwitch = NA
+  testData_ExperimentSix$handSwitch_actual = NA
+  testData_ExperimentSix$coupletSwitch_actual = NA
+  testData_ExperimentSix$fingerSwitch_actual = NA
+  testData_ExperimentSix$respHand = NA
+  testData_ExperimentSix$respCouplet = NA
+  testData_ExperimentSix$corrHand = NA
+  testData_ExperimentSix$corrCouplet = NA
+
+  # Make a column of rt in ms
+  testData_ExperimentSix$rt = testData_ExperimentSix$rtS * 1000
+  # and a corrresp column
+  testData_ExperimentSix$corrresp = testData_ExperimentSix$stim
+  #and a trialNum one
+  testData_ExperimentSix$trialNum = testData_ExperimentSix$trial
+  for(ai in 1:N_all){
+    testData_ExperimentSix$zscoredRTs[testData_ExperimentSix$subject == subjNums_all[ai]] = scale(testData_ExperimentSix$rt[testData_ExperimentSix$subject == subjNums_all[ai]])
+    testData_ExperimentSix$logRTs[testData_ExperimentSix$subject == subjNums_all[ai]] = log(testData_ExperimentSix$rt[testData_ExperimentSix$subject == subjNums_all[ai]])
+    # add iteration numbers
+    for(bi in 1:ns){
+      idx = which(testData_ExperimentSix$subject == subjNums_all[ai]&testData_ExperimentSix$stim == allResps[bi] & testData_ExperimentSix$phase == 'learn')
+      for (ci in 1:length(idx)){
+        testData_ExperimentSix$iter[idx[ci]] = ci
+      }
+    }
+  }
+  for (xi in 1:dim(testData_ExperimentSix)[1]){
+    # put in correct hand and couplet
+    if(testData_ExperimentSix$stim[xi] %in% RH_new){
+      testData_ExperimentSix$hand[xi] = 'R'
+    }else if (testData_ExperimentSix$stim[xi] %in% LH_new){
+      testData_ExperimentSix$hand[xi] = 'L'
+    }
+    
+      if(testData_ExperimentSix$stim[xi] %in% coupletOne_new){
+      testData_ExperimentSix$couplet[xi] = 1
+    }else if (testData_ExperimentSix$stim[xi] %in% coupletTwo_new){
+      testData_ExperimentSix$couplet[xi] = 2
+    }
+    
+    # put in the hand and couplet of the response
+    if(testData_ExperimentSix$resp[xi] %in% RH_new){
+      testData_ExperimentSix$respHand[xi] = 'R'
+    }else if (testData_ExperimentSix$resp[xi] %in% LH_new){
+      testData_ExperimentSix$respHand[xi] = 'L'
+    }
+    
+    if(testData_ExperimentSix$resp[xi] %in% coupletOne_new){
+      testData_ExperimentSix$respCouplet[xi] = 1
+    }else if (testData_ExperimentSix$resp[xi] %in% coupletTwo_new){
+      testData_ExperimentSix$respCouplet[xi] = 2
+    }
+    
+    # 1 for correct hand, 0 for incorrect
+    if(is.na(testData_ExperimentSix$respHand[xi])){
+      testData_ExperimentSix$corrHand[xi] = 0
+    } else if(testData_ExperimentSix$hand[xi] == testData_ExperimentSix$respHand[xi]){
+      testData_ExperimentSix$corrHand[xi] = 1
+    }else if (testData_ExperimentSix$hand[xi] != testData_ExperimentSix$respHand[xi]){
+      testData_ExperimentSix$corrHand[xi] = 0
+    }
+     if(is.na(testData_ExperimentSix$respCouplet[xi])){
+      testData_ExperimentSix$corrCouplet[xi] = 0
+    }else if(testData_ExperimentSix$couplet[xi] == testData_ExperimentSix$respCouplet[xi]){
+      testData_ExperimentSix$corrCouplet[xi] = 1
+    }else if (testData_ExperimentSix$couplet[xi] != testData_ExperimentSix$respCouplet[xi]){
+      testData_ExperimentSix$corrCouplet[xi] = 0
+    }
+    
+  }
+  
+  for(di in 1:(dim(testData_ExperimentSix)[1]-1)){
+    #hand switches
+    if(testData_ExperimentSix$hand[di] == testData_ExperimentSix$hand[di+1]){
+      testData_ExperimentSix$handSwitch[di+1]= 0
+    } else if(testData_ExperimentSix$hand[di] != testData_ExperimentSix$hand[di+1]){
+      testData_ExperimentSix$handSwitch[di+1] = 1
+    }
+    if(testData_ExperimentSix$couplet[di] == testData_ExperimentSix$couplet[di+1]){
+      testData_ExperimentSix$coupletSwitch[di+1]= 0
+    } else if(testData_ExperimentSix$couplet[di] != testData_ExperimentSix$couplet[di+1]){
+      testData_ExperimentSix$coupletSwitch[di+1] = 1
+    }
+    #switches and repeats for finger
+    if(testData_ExperimentSix$corrresp[di] == testData_ExperimentSix$corrresp[di+1]){
+      testData_ExperimentSix$fingerSwitch[di+1] = 0
+    }else{
+      testData_ExperimentSix$fingerSwitch[di+1] = 1
+    }
+    
+    # same but with actual responses
+    if(is.na(testData_ExperimentSix$respHand[di]) | is.na(testData_ExperimentSix$respHand[di+1])){
+      testData_ExperimentSix$handSwitch_actual[di]= NA
+      testData_ExperimentSix$handSwitch_actual[di+1]=NA
+    }else if(testData_ExperimentSix$respHand[di] == testData_ExperimentSix$respHand[di+1]){
+      testData_ExperimentSix$handSwitch_actual[di+1]= 0
+    } else if(testData_ExperimentSix$respHand[di] != testData_ExperimentSix$respHand[di+1]){
+      testData_ExperimentSix$handSwitch_actual[di+1] = 1
+    }
+    if(is.na(testData_ExperimentSix$respCouplet[di]) | is.na(testData_ExperimentSix$respCouplet[di+1]) ){
+      testData_ExperimentSix$coupletSwitch_actual[di]= NA
+      testData_ExperimentSix$coupletSwitch_actual[di+1]= NA
+    }else if(testData_ExperimentSix$respCouplet[di] == testData_ExperimentSix$respCouplet[di+1]){
+      testData_ExperimentSix$coupletSwitch_actual[di+1]= 0
+    } else if(testData_ExperimentSix$respCouplet[di] != testData_ExperimentSix$respCouplet[di+1]){
+      testData_ExperimentSix$coupletSwitch_actual[di+1] = 1
+    }
+    #switches and repeats for finger
+    if(is.na(testData_ExperimentSix$resp[di])| is.na(testData_ExperimentSix$resp[di+1])){
+      testData_ExperimentSix$fingerSwitch_actual[di+1]= NA
+      testData_ExperimentSix$fingerSwitch_actual[di]= NA
+    }else if(testData_ExperimentSix$resp[di] == testData_ExperimentSix$resp[di+1]){
+      testData_ExperimentSix$fingerSwitch_actual[di+1] = 0
+    }else{
+      testData_ExperimentSix$fingerSwitch_actual[di+1] = 1
+    }
+    
+    if(is.na(testData_ExperimentSix$trial[di])){
+      testData_ExperimentSix$handSwitch[di] = testData_ExperimentSix$handSwitch[di-1]
+      testData_ExperimentSix$coupletSwitch[di] = testData_ExperimentSix$coupletSwitch[di-1]
+      testData_ExperimentSix$fingerSwitch[di] = testData_ExperimentSix$fingerSwitch[di-1]
+      testData_ExperimentSix$handSwitch_actual[di] = testData_ExperimentSix$handSwitch_actual[di-1]
+      testData_ExperimentSix$coupletSwitch_actual[di] = testData_ExperimentSix$coupletSwitch_actual[di-1]
+      testData_ExperimentSix$fingerSwitch_actual[di] = testData_ExperimentSix$fingerSwitch_actual[di-1]
+    }else if(testData_ExperimentSix$trial[di] == 1){
+      testData_ExperimentSix$handSwitch[di] = NA
+      testData_ExperimentSix$coupletSwitch[di] = NA
+      testData_ExperimentSix$fingerSwitch[di] = NA
+            testData_ExperimentSix$handSwitch_actual[di] = NA
+      testData_ExperimentSix$coupletSwitch_actual[di] = NA
+      testData_ExperimentSix$fingerSwitch_actual[di] = NA
+    }
+  }
+  testData_ExperimentSix$combinedType = NA
+testData_ExperimentSix$combinedType[testData_ExperimentSix$coupletSwitch_actual == 0&testData_ExperimentSix$handSwitch_actual == 0] = 'rep/rep/sw'
+testData_ExperimentSix$combinedType[testData_ExperimentSix$coupletSwitch_actual == 0&testData_ExperimentSix$handSwitch_actual == 1] = 'sw/rep/sw'
+testData_ExperimentSix$combinedType[testData_ExperimentSix$coupletSwitch_actual == 1&testData_ExperimentSix$handSwitch_actual == 0] = 'rep/sw/sw'
+testData_ExperimentSix$combinedType[testData_ExperimentSix$coupletSwitch_actual == 1&testData_ExperimentSix$handSwitch_actual == 1] = 'sw/sw/sw'
+testData_ExperimentSix$combinedType[testData_ExperimentSix$fingerSwitch_actual == 0] = 'rep/rep/rep'
+testData_ExperimentSix$combinedType[testData_ExperimentSix$trialNum == 1] = NA
+
+  testData_ExperimentSix$treeDistance = NA
+testData_ExperimentSix$treeDistance[testData_ExperimentSix$coupletSwitch_actual == 0&testData_ExperimentSix$handSwitch_actual == 0] = 2
+testData_ExperimentSix$treeDistance[testData_ExperimentSix$coupletSwitch_actual == 0&testData_ExperimentSix$handSwitch_actual == 1] = 6
+testData_ExperimentSix$treeDistance[testData_ExperimentSix$coupletSwitch_actual == 1&testData_ExperimentSix$handSwitch_actual == 0] =4
+testData_ExperimentSix$treeDistance[testData_ExperimentSix$coupletSwitch_actual == 1&testData_ExperimentSix$handSwitch_actual == 1] = 6
+testData_ExperimentSix$treeDistance[testData_ExperimentSix$fingerSwitch_actual == 0] = 0
+testData_ExperimentSix$treeDistance[testData_ExperimentSix$trialNum == 1] = NA
+
+ExperimentSix = testData_ExperimentSix %>% filter(phase == 'learn', iter < 56)
+
+#### EXCLUSIONS ####
+
+accuracyExclusions = ExperimentSix %>% group_by(subject, stim) %>% dplyr::summarize(pCorStim = mean(corr,na.rm = TRUE))
+
+includeSub = NA
+includeSub_strict = NA
+
+for (ai in 1:length(subjNums_all)){
+  if(sum(accuracyExclusions$pCorStim[accuracyExclusions$subject == subjNums_all[ai]] >=.25) >4){
+    includeSub[ai] = 1
+  }else{
+    includeSub[ai] = 0
+  }
+  if(sum(accuracyExclusions$pCorStim[accuracyExclusions$subject == subjNums_all[ai]] >=.25) == 8){
+    includeSub_strict[ai] = 1
+  }else{
+    includeSub_strict[ai] = 0
+  }
+}
+subjNums_included = subjNums_all[includeSub ==1]
+subjNums_included_strict = subjNums_all[includeSub_strict ==1]
+#now filter for just these subjects that aren't excluded 
+testData_ExperimentSix_withExclusions = testData_ExperimentSix %>% filter(subject %in% subjNums_all[includeSub ==1])
+
+#Add a column for the strict exclusion criterion to see if that helps
+testData_ExperimentSix_withExclusions$includeStrict = NA
+testData_ExperimentSix_withExclusions$includeStrict[testData_ExperimentSix_withExclusions$subject %in% c(subjNums_included_strict)] = 1
+
+
+# Add finger distance column 
+testData_ExperimentSix_withExclusions$fingerDistance[1] = NA
+testData_ExperimentSix_withExclusions$fingerDistance[2:length(testData_ExperimentSix_withExclusions$fingerDistance)] = abs(testData_ExperimentSix_withExclusions$resp[2:length(testData_ExperimentSix_withExclusions$fingerDistance)]-testData_ExperimentSix_withExclusions$resp[1:length(testData_ExperimentSix_withExclusions$fingerDistance)-1])
+testData_ExperimentSix_withExclusions$fingerDistance[testData_ExperimentSix_withExclusions$trialNum == 1] = NA
+# Add previous corr response column 
+testData_ExperimentSix_withExclusions$corrrespAll_prev[1] = NA
+testData_ExperimentSix_withExclusions$corrrespAll_prev[2:length(testData_ExperimentSix_withExclusions$stim)] = testData_ExperimentSix_withExclusions$stim[1:length(testData_ExperimentSix_withExclusions$stim)-1]
+testData_ExperimentSix_withExclusions$corrrespAll_prev[testData_ExperimentSix_withExclusions$trialNum == 1] = NA
+# Add previous ACTUAL response column 
+testData_ExperimentSix_withExclusions$finger_press_prev[1] = NA
+testData_ExperimentSix_withExclusions$finger_press_prev[2:length(testData_ExperimentSix_withExclusions$resp)] = testData_ExperimentSix_withExclusions$resp[1:length(testData_ExperimentSix_withExclusions$stim)-1]
+testData_ExperimentSix_withExclusions$finger_press_prev[testData_ExperimentSix_withExclusions$trialNum == 1] = NA
+
+#add feature sw column
+featureSwitchArray = array(c(0,1,1,2,1,2,2,3,1,0,2,1,2,1,3,2,1,2,0,1,2,3,1,2,2,1,1,0,3,2,2,1,1,2,2,3,0,1,1,2,2,1,3,2,1,0,2,1,2,3,1,2,1,2,0,1,3,2,2,1,2,1,1,0),dim = c(8,8))
+treeDistanceArray = array(c(0,2,4,4,6,6,6,6,2,0,4,4,6,6,6,6,4,4,0,2,6,6,6,6,4,4,2,0,6,6,6,6,6,6,6,6,0,2,4,4,6,6,6,6,2,0,4,4,6,6,6,6,4,4,0,2,6,6,6,6,4,4,2,0),dim = c(8,8))
+
+testData_ExperimentSix_withExclusions$nFeatureSwitch[1] = NA
+for(ai in 1:length(testData_ExperimentSix_withExclusions$nFeatureSwitch)){
+  prev = testData_ExperimentSix_withExclusions$corrrespAll_prev[ai]
+  curr = testData_ExperimentSix_withExclusions$stim[ai]
+  testData_ExperimentSix_withExclusions$nFeatureSwitch[ai] = featureSwitchArray[prev,curr]
+}
+testData_ExperimentSix_withExclusions$nFeatureSwitch[testData_ExperimentSix_withExclusions$trialNum == 1] = NA
+
+ExperimentSix_withExclusions = testData_ExperimentSix_withExclusions %>% filter(phase == 'learn')
+
+## add switch/rep for each level of hierarchy
+ExperimentSix_withExclusions$topType = NA
+ExperimentSix_withExclusions$midType = NA
+ExperimentSix_withExclusions$lowType = NA
+#top level
+ExperimentSix_withExclusions$topType[ExperimentSix_withExclusions$handSwitch ==1] = 1
+ExperimentSix_withExclusions$topType[ExperimentSix_withExclusions$handSwitch ==0] = 0
+#mid level
+ExperimentSix_withExclusions$midType[ExperimentSix_withExclusions$coupletSwitch ==1] = 1
+ExperimentSix_withExclusions$midType[ExperimentSix_withExclusions$coupletSwitch ==0] = 0
+#low level
+for(bi in 2:length(ExperimentSix_withExclusions$lowType)){
+  prev = ExperimentSix_withExclusions$corrrespAll_prev[bi]
+  curr = ExperimentSix_withExclusions$stim[bi]
+  if(ExperimentSix_withExclusions$trialNum[bi] == 1){
+   ExperimentSix_withExclusions$lowType[bi] = NA 
+  }else if(((prev %% 2 == 0) & (curr %%2 == 0)) | ((prev %% 2 != 0) & (curr %% 2 != 0))){
+    ExperimentSix_withExclusions$lowType[bi] = 0
+  }else{
+    ExperimentSix_withExclusions$lowType[bi] = 1
+  }
+}
+
+ExperimentSix_withExclusions$fifty = NA
+pCorAll = ExperimentSix_withExclusions %>% group_by(subject) %>% dplyr::summarise(accu = mean(corr,na.rm = TRUE))
+badSubs_accu = pCorAll$subject[pCorAll$accu<.5]
+ExperimentSix_withExclusions$fifty[ExperimentSix_withExclusions$subject %in% badSubs_accu] = 1
+
+ExperimentSix_withExclusions = ExperimentSix_withExclusions %>% group_by(subject) %>% filter(rt > 200, rt < mean(rt,na.rm = TRUE)+(sd(rt,na.rm = TRUE) * 3), trialNum > 3)
+
+#### MOTOR CORRECTION ####
+allmotorData_withExclusions = testData_ExperimentSix_withExclusions %>% filter(phase %in% c('motor'), corr == 1, attemptNum == 1) %>% group_by(subject) %>% filter(rt > mean(rt,na.rm = TRUE)-(sd(rt,na.rm = TRUE) * 3),rt < mean(rt,na.rm = TRUE)+(sd(rt,na.rm = TRUE) * 3), trialNum > 3)
+motorUpperBound = mean(allmotorData_withExclusions$rt,na.rm = TRUE)+sd(allmotorData_withExclusions$rt,na.rm = TRUE)*3
+
+motorStats = allmotorData_withExclusions %>% group_by(subject) %>% dplyr::summarise(avg = mean(rt,na.rm = TRUE),maxi = max(rt,na.rm = TRUE),mini = min(rt,na.rm =TRUE), trip = avg+3*sd(rt,na.rm = TRUE),tooFast = sum(rt < 150), tooSlow = sum(rt>900))
+
+allmotorData_withExclusions = allmotorData_withExclusions %>% filter(rt < motorUpperBound)
+
+allmotorData_withExclusions$rtStrict = NA
+allmotorData_withExclusions$rtStrict[allmotorData_withExclusions$rt < 900] = 1
+
+allmotorData_withExclusions_corr = allmotorData_withExclusions %>% filter(corr == 1, !is.na(fingerSwitch))
+allmotorData_withExclusions_corr$rt_corr = allmotorData_withExclusions_corr$rt
+
+heatmapData_allTrials_resp_m_both = data.frame(subject = allmotorData_withExclusions_corr$subject[2:length(allmotorData_withExclusions_corr$subject)],currResp = allmotorData_withExclusions_corr$resp[2:length(allmotorData_withExclusions_corr$resp)], prevResp = allmotorData_withExclusions_corr$resp[1:length(allmotorData_withExclusions_corr$resp)-1], trialNum = allmotorData_withExclusions_corr$trialNum[2:length(allmotorData_withExclusions_corr$trialNum)], rt = allmotorData_withExclusions_corr$rt_corr[2:length(allmotorData_withExclusions_corr$rt_corr)]) %>% filter(trialNum > 3, !is.na(currResp), !is.na(prevResp)) %>% group_by(subject,currResp, prevResp) %>% dplyr::summarize(meanRT = mean(rt, na.rm=TRUE),medianRT = median(rt, na.rm = TRUE))
+heatmapData_allTrials_resp_m_both$prevResp = factor(heatmapData_allTrials_resp_m_both$prevResp, levels = c(1,2,3,4,5,6,7,8))
+heatmapData_allTrials_resp_m_both$currResp = factor(heatmapData_allTrials_resp_m_both$currResp, levels = c(8,7,6,5,4,3,2,1))
+
+nCombos = ns^2
+motorTransitions = data.frame(matrix(nrow = nCombos*length(subjNums_included)))
+
+#initialize these columns
+motorTransitions$subject = NA
+motorTransitions$currResp = NA
+motorTransitions$prevResp = NA
+
+motorTransitions$rt_both = NA
+motorTransitions$medRT_both = NA
+
+motorTransitions$swapRT = NA
+
+#loop over subjects to set up empty array
+startidx = 1
+for(xi in 1:length(subjNums_included)){
+  motorTransitions$subject[startidx:(startidx+nCombos-1)] = subjNums_included[xi]
+  counter = startidx
+  for(yi in 1:ns){
+    for(zi in 1:ns){
+      motorTransitions$currResp[counter] = allResps_new[yi]
+      motorTransitions$prevResp[counter] = allResps_new[zi]
+      counter = counter+1
+    }
+  }
+  startidx = counter
+}
+
+# now put in the meanrts from the motor task
+for(mi in 1:dim(heatmapData_allTrials_resp_m_both)[1]){
+  subj = heatmapData_allTrials_resp_m_both$subject[mi]
+  currResp_m = heatmapData_allTrials_resp_m_both$currResp[mi]
+  prevResp_m = heatmapData_allTrials_resp_m_both$prevResp[mi]
+
+  motorTransitions$rt_both[motorTransitions$subject == subj & motorTransitions$currResp == currResp_m & motorTransitions$prevResp == prevResp_m] = heatmapData_allTrials_resp_m_both$meanRT[mi]
+  motorTransitions$medRT_both[motorTransitions$subject == subj & motorTransitions$currResp == currResp_m & motorTransitions$prevResp == prevResp_m] = heatmapData_allTrials_resp_m_both$medianRT[mi]
+
+
+  }
+
+# if there are missing transitions from the motor sequence, fill in with the transition in the opposite direction
+missingIdx = which(is.na(motorTransitions$rt))
+if(sum(missingIdx) != 0){
+  for(i in 1:length(missingIdx)){
+    swapPrev = motorTransitions$currResp[missingIdx[i]]
+    swapCurr = motorTransitions$prevResp[missingIdx[i]]
+    motorTransitions$rt_both[missingIdx[i]] = motorTransitions$rt_both[motorTransitions$currResp == swapPrev & motorTransitions$prevResp == swapCurr]
+    motorTransitions$medRT_both[missingIdx[i]] = motorTransitions$medRT_both[motorTransitions$currResp == swapPrev & motorTransitions$prevResp == swapCurr]
+    motorTransitions$swapRT[missingIdx[i]] = 1
+  }
+}
+
+ExperimentSix_withExclusions$rt_corrected_both = NA
+ExperimentSix_withExclusions$medRT_corrected_both = NA
+
+ExperimentSix_withExclusions$rt_strict_corrected = NA
+ExperimentSix_withExclusions$medRT_strict_corrected = NA
+
+for(i in 1:length(ExperimentSix_withExclusions$rt_corrected_both)){
+  if(ExperimentSix_withExclusions$trialNum[i] ==1){
+    ExperimentSix_withExclusions$rt_corrected[i] = NA
+  }else{
+    prev = ExperimentSix_withExclusions$finger_press_prev[i]
+    curr = ExperimentSix_withExclusions$resp[i]
+
+    motorRT_both = motorTransitions$rt_both[motorTransitions$prevResp == allResps_new[prev] & motorTransitions$currResp == allResps_new[curr]]
+    motorRT_med_both = motorTransitions$medRT_both[motorTransitions$prevResp == allResps_new[prev] & motorTransitions$currResp == allResps_new[curr]]
+
+    
+    ExperimentSix_withExclusions$rt_corrected_both[i] = ExperimentSix_withExclusions$rt[i] - motorRT_both
+    ExperimentSix_withExclusions$medRT_corrected_both[i] = ExperimentSix_withExclusions$rt[i] - motorRT_med_both
+
+  }
+}
+
+
+#### STREAK TRIALS ####
+ExperimentSix_withExclusions$streak = NA
+ExperimentSix_withExclusions$longStreak = NA
+for(ai in 2:length(ExperimentSix_withExclusions$corr)){
+  trial = ExperimentSix_withExclusions$trialNum[ai]
+ if(ExperimentSix_withExclusions$trialNum[ai-1]==(trial-1)){
+   if(ExperimentSix_withExclusions$corr[ai]==1 & ExperimentSix_withExclusions$corr[ai-1]==1){
+   ExperimentSix_withExclusions$streak[ai] = 1
+   }else{
+     ExperimentSix_withExclusions$streak[ai] = 0
+   }
+ }else{
+   ExperimentSix_withExclusions$streak[ai] = 0
+ }
+}
+
+for(ai in 2:length(ExperimentSix_withExclusions$corr)){
+  trial = ExperimentSix_withExclusions$trialNum[ai]
+ if(ExperimentSix_withExclusions$trialNum[ai-1]==(trial-1)){
+   if(ExperimentSix_withExclusions$streak[ai]==1 & ExperimentSix_withExclusions$streak[ai-1]==1){
+   ExperimentSix_withExclusions$longStreak[ai] = 1
+   }else{
+     ExperimentSix_withExclusions$longStreak[ai] = 0
+   }
+ }else{
+   ExperimentSix_withExclusions$longStreak[ai] = 0
+ }
+}
+
+ExperimentSix_withExclusions$streak[ExperimentSix_withExclusions$trialNum ==1] = NA
+
+######### WRITE DATA TO FILE ########
+write.csv(allmotorData_withExclusions_corr, 'motorData_Experiment6_compiled.csv')
+write.csv(ExperimentSix_withExclusions, 'Experiment6_learn_compiled.csv')
+
+```
+
+\newpage
+# FORCED RT ANALYSES
+```{r, echo=F, message=F, warning=F, error=T, fig.width=6, fig.height=4, fig.align='center'}
+## FORCED RESPONSE
+#where is the data
+forceddir = "~/Documents/GitHub/StructuredActionPrepVMDM/rawData/Experiment6/forced"
+
+# read in data
+  file_paths = fs::dir_ls(forceddir)
+  compiledData_forced = data.frame()
+  for (i in 1:length(file_paths)){
+    newSubjData = read_csv(file = file_paths[[i]])
+    compiledData_forced = rbind(compiledData_forced, newSubjData)
+  }
+  
+  #set columns names to be closer to my normal code
+  colnames(compiledData_forced) = c('subject','group','taskType','block','trial','phase','stim','resp','corr','timing','PT_planned','PT_actual','missed_stim_deadline')
+  
+  
+  # sort data into prac and test
+  ExperimentSix_forced = filter(compiledData_forced,phase == 'learn')
+
+  # get some variables
+  subjNums_forced = unique(ExperimentSix_forced$subject)
+  N_all_forced = length(subjNums_forced)
+  
+  allResps_new = c(1,2,3,4,5,6,7,8)
+  LH_new = c(1,2,3,4)
+  RH_new = c(5,6,7,8)
+  
+  # changed couplets to finger space
+  coupletOne_new = c(1,2,5,6)
+  coupletTwo_new = c(3,4,7,8)
+  
+  allResps = c(1,2,3,4,5,6,7,8)
+  ns = length(allResps)
+  # add more info to trials before saving
+  ExperimentSix_forced$iter = NA
+  ExperimentSix_forced$hand = NA
+  ExperimentSix_forced$couplet = NA
+  ExperimentSix_forced$handSwitch = NA
+  ExperimentSix_forced$coupletSwitch = NA
+  ExperimentSix_forced$fingerSwitch = NA
+  ExperimentSix_forced$handSwitch_actual = NA
+  ExperimentSix_forced$coupletSwitch_actual = NA
+  ExperimentSix_forced$fingerSwitch_actual = NA
+  ExperimentSix_forced$respHand = NA
+  ExperimentSix_forced$respCouplet = NA
+  ExperimentSix_forced$corrHand = NA
+  ExperimentSix_forced$corrCouplet = NA
+
+  # and a corrresp column
+  ExperimentSix_forced$corrresp = ExperimentSix_forced$stim
+  #and a trialNum one
+  ExperimentSix_forced$trialNum = ExperimentSix_forced$trial
+  for(ai in 1:N_all){
+    # add iteration numbers
+    for(bi in 1:ns){
+      idx = which(ExperimentSix_forced$subject == subjNums_all[ai]&ExperimentSix_forced$stim == allResps[bi] & ExperimentSix_forced$phase == 'learn')
+      for (ci in 1:length(idx)){
+        ExperimentSix_forced$iter[idx[ci]] = ci
+      }
+    }
+  }
+  for (xi in 1:dim(ExperimentSix_forced)[1]){
+    # put in correct hand and couplet
+    if(ExperimentSix_forced$stim[xi] %in% RH_new){
+      ExperimentSix_forced$hand[xi] = 'R'
+    }else if (ExperimentSix_forced$stim[xi] %in% LH_new){
+      ExperimentSix_forced$hand[xi] = 'L'
+    }
+    
+      if(ExperimentSix_forced$stim[xi] %in% coupletOne_new){
+      ExperimentSix_forced$couplet[xi] = 1
+    }else if (ExperimentSix_forced$stim[xi] %in% coupletTwo_new){
+      ExperimentSix_forced$couplet[xi] = 2
+    }
+    
+    # put in the hand and couplet of the response
+    if(ExperimentSix_forced$resp[xi] %in% RH_new){
+      ExperimentSix_forced$respHand[xi] = 'R'
+    }else if (ExperimentSix_forced$resp[xi] %in% LH_new){
+      ExperimentSix_forced$respHand[xi] = 'L'
+    }
+    
+    if(ExperimentSix_forced$resp[xi] %in% coupletOne_new){
+      ExperimentSix_forced$respCouplet[xi] = 1
+    }else if (ExperimentSix_forced$resp[xi] %in% coupletTwo_new){
+      ExperimentSix_forced$respCouplet[xi] = 2
+    }
+    
+    # 1 for correct hand, 0 for incorrect
+    if(is.na(ExperimentSix_forced$respHand[xi])){
+      ExperimentSix_forced$corrHand[xi] = 0
+    } else if(ExperimentSix_forced$hand[xi] == ExperimentSix_forced$respHand[xi]){
+      ExperimentSix_forced$corrHand[xi] = 1
+    }else if (ExperimentSix_forced$hand[xi] != ExperimentSix_forced$respHand[xi]){
+      ExperimentSix_forced$corrHand[xi] = 0
+    }
+     if(is.na(ExperimentSix_forced$respCouplet[xi])){
+      ExperimentSix_forced$corrCouplet[xi] = 0
+    }else if(ExperimentSix_forced$couplet[xi] == ExperimentSix_forced$respCouplet[xi]){
+      ExperimentSix_forced$corrCouplet[xi] = 1
+    }else if (ExperimentSix_forced$couplet[xi] != ExperimentSix_forced$respCouplet[xi]){
+      ExperimentSix_forced$corrCouplet[xi] = 0
+    }
+    
+  }
+  
+  for(di in 1:(dim(ExperimentSix_forced)[1]-1)){
+    #hand switches
+    if(ExperimentSix_forced$hand[di] == ExperimentSix_forced$hand[di+1]){
+      ExperimentSix_forced$handSwitch[di+1]= 0
+    } else if(ExperimentSix_forced$hand[di] != ExperimentSix_forced$hand[di+1]){
+      ExperimentSix_forced$handSwitch[di+1] = 1
+    }
+    if(ExperimentSix_forced$couplet[di] == ExperimentSix_forced$couplet[di+1]){
+      ExperimentSix_forced$coupletSwitch[di+1]= 0
+    } else if(ExperimentSix_forced$couplet[di] != ExperimentSix_forced$couplet[di+1]){
+      ExperimentSix_forced$coupletSwitch[di+1] = 1
+    }
+    #switches and repeats for finger
+    if(ExperimentSix_forced$corrresp[di] == ExperimentSix_forced$corrresp[di+1]){
+      ExperimentSix_forced$fingerSwitch[di+1] = 0
+    }else{
+      ExperimentSix_forced$fingerSwitch[di+1] = 1
+    }
+    
+    # same but with actual responses
+    if(is.na(ExperimentSix_forced$respHand[di]) | is.na(ExperimentSix_forced$respHand[di+1])){
+      ExperimentSix_forced$handSwitch_actual[di]= NA
+      ExperimentSix_forced$handSwitch_actual[di+1]=NA
+    }else if(ExperimentSix_forced$respHand[di] == ExperimentSix_forced$respHand[di+1]){
+      ExperimentSix_forced$handSwitch_actual[di+1]= 0
+    } else if(ExperimentSix_forced$respHand[di] != ExperimentSix_forced$respHand[di+1]){
+      ExperimentSix_forced$handSwitch_actual[di+1] = 1
+    }
+    if(is.na(ExperimentSix_forced$respCouplet[di]) | is.na(ExperimentSix_forced$respCouplet[di+1]) ){
+      ExperimentSix_forced$coupletSwitch_actual[di]= NA
+      ExperimentSix_forced$coupletSwitch_actual[di+1]= NA
+    }else if(ExperimentSix_forced$respCouplet[di] == ExperimentSix_forced$respCouplet[di+1]){
+      ExperimentSix_forced$coupletSwitch_actual[di+1]= 0
+    } else if(ExperimentSix_forced$respCouplet[di] != ExperimentSix_forced$respCouplet[di+1]){
+      ExperimentSix_forced$coupletSwitch_actual[di+1] = 1
+    }
+    #switches and repeats for finger
+    if(is.na(ExperimentSix_forced$resp[di])| is.na(ExperimentSix_forced$resp[di+1])){
+      ExperimentSix_forced$fingerSwitch_actual[di+1]= NA
+      ExperimentSix_forced$fingerSwitch_actual[di]= NA
+    }else if(ExperimentSix_forced$resp[di] == ExperimentSix_forced$resp[di+1]){
+      ExperimentSix_forced$fingerSwitch_actual[di+1] = 0
+    }else{
+      ExperimentSix_forced$fingerSwitch_actual[di+1] = 1
+    }
+    
+    if(is.na(ExperimentSix_forced$trial[di])){
+      ExperimentSix_forced$handSwitch[di] = ExperimentSix_forced$handSwitch[di-1]
+      ExperimentSix_forced$coupletSwitch[di] = ExperimentSix_forced$coupletSwitch[di-1]
+      ExperimentSix_forced$fingerSwitch[di] = ExperimentSix_forced$fingerSwitch[di-1]
+      ExperimentSix_forced$handSwitch_actual[di] = ExperimentSix_forced$handSwitch_actual[di-1]
+      ExperimentSix_forced$coupletSwitch_actual[di] = ExperimentSix_forced$coupletSwitch_actual[di-1]
+      ExperimentSix_forced$fingerSwitch_actual[di] = ExperimentSix_forced$fingerSwitch_actual[di-1]
+    }else if(ExperimentSix_forced$trial[di] == 1){
+      ExperimentSix_forced$handSwitch[di] = NA
+      ExperimentSix_forced$coupletSwitch[di] = NA
+      ExperimentSix_forced$fingerSwitch[di] = NA
+      ExperimentSix_forced$handSwitch_actual[di] = NA
+      ExperimentSix_forced$coupletSwitch_actual[di] = NA
+      ExperimentSix_forced$fingerSwitch_actual[di] = NA
+    }
+  }
+  #first change the corr column to be more useful
+ExperimentSix_forced$corr[ExperimentSix_forced$resp == ExperimentSix_forced$stim] = 1
+ExperimentSix_forced$corr[ExperimentSix_forced$resp != ExperimentSix_forced$stim] = 0
+ExperimentSix_forced$corr[is.na(ExperimentSix_forced$resp)] = NA
+
+#calculate RTs
+ExperimentSix_forced$rt = ExperimentSix_forced$PT_actual-ExperimentSix_forced$PT_planned
+
+# filter out RTs that are too fast
+ExperimentSix_forced = ExperimentSix_forced %>% filter(PT_actual >= 0)
+
+# add bins for PT analyses
+ExperimentSix_forced = ExperimentSix_forced %>% mutate(PT_actual_bins = split_quantile(PT_actual,12)) # ok weirdly 12 bins of one and 10 of the other whoops
+ExperimentSix_forced = ExperimentSix_forced %>% mutate(PT_planned_bins = split_quantile(PT_planned,10))
+ 
+
+
+
+ExperimentSix_forced$combinedType = NA
+ExperimentSix_forced$combinedType[ExperimentSix_forced$coupletSwitch_actual == 0&ExperimentSix_forced$handSwitch_actual == 0] = 'rep/rep/sw'
+ExperimentSix_forced$combinedType[ExperimentSix_forced$coupletSwitch_actual == 0&ExperimentSix_forced$handSwitch_actual == 1] = 'sw/rep/sw'
+ExperimentSix_forced$combinedType[ExperimentSix_forced$coupletSwitch_actual == 1&ExperimentSix_forced$handSwitch_actual == 0] = 'rep/sw/sw'
+ExperimentSix_forced$combinedType[ExperimentSix_forced$coupletSwitch_actual == 1&ExperimentSix_forced$handSwitch_actual == 1] = 'sw/sw/sw'
+ExperimentSix_forced$combinedType[ExperimentSix_forced$fingerSwitch_actual == 0] = 'rep/rep/rep'
+ExperimentSix_forced$combinedType[ExperimentSix_forced$trialNum == 1] = NA
+
+  ExperimentSix_forced$treeDistance = NA
+ExperimentSix_forced$treeDistance[ExperimentSix_forced$coupletSwitch_actual == 0&ExperimentSix_forced$handSwitch_actual == 0] = 2
+ExperimentSix_forced$treeDistance[ExperimentSix_forced$coupletSwitch_actual == 0&ExperimentSix_forced$handSwitch_actual == 1] = 6
+ExperimentSix_forced$treeDistance[ExperimentSix_forced$coupletSwitch_actual == 1&ExperimentSix_forced$handSwitch_actual == 0] =4
+ExperimentSix_forced$treeDistance[ExperimentSix_forced$coupletSwitch_actual == 1&ExperimentSix_forced$handSwitch_actual == 1] = 6
+ExperimentSix_forced$treeDistance[ExperimentSix_forced$fingerSwitch_actual == 0] = 0
+ExperimentSix_forced$treeDistance[ExperimentSix_forced$trialNum == 1] = NA
+
+ExperimentSix_forced$corrresp_prev = NA
+ExperimentSix_forced$corrresp_prev[2:length(ExperimentSix_forced$corrresp_prev)] = ExperimentSix_forced$corrresp[1:(length(ExperimentSix_forced$corrresp_prev)-1)]
+featureSwitchArray = array(c(0,1,1,2,3,2,2,1, 
+                             1,0,2,1,2,3,1,2,
+                             1,2,0,1,2,1,3,2,
+                             2,1,1,0,1,2,2,3,
+                             3,2,2,1,0,1,1,2,
+                             2,3,1,2,1,0,2,1,
+                             2,1,3,2,1,2,0,1,
+                             1,2,2,3,2,1,1,0),dim = c(8,8))
+ExperimentSix_forced$nFeatureSwitch[1] = NA
+for(ai in 1:length(ExperimentSix_forced$nFeatureSwitch)){
+  prev = ExperimentSix_forced$corrresp_prev[ai]
+  curr = ExperimentSix_forced$corrresp[ai]
+  ExperimentSix_forced$nFeatureSwitch[ai] = featureSwitchArray[prev,curr]
+}
+ExperimentSix_forced$nFeatureSwitch[ExperimentSix_forced$trialNum == 1] = NA
+
+# Add column for error type
+ExperimentSix_forced$errorType = NA
+ExperimentSix_forced$errorType[ExperimentSix_forced$corr == 1] = '1/1/1'
+ExperimentSix_forced$errorType[ExperimentSix_forced$corr == 0 & ExperimentSix_forced$corrHand == 1 & ExperimentSix_forced$corrCouplet == 1] = '1/1/0'
+ExperimentSix_forced$errorType[ExperimentSix_forced$corr == 0 & ExperimentSix_forced$corrHand == 1 & ExperimentSix_forced$corrCouplet == 0] = '1/0/0'
+ExperimentSix_forced$errorType[ExperimentSix_forced$corr == 0 & ExperimentSix_forced$corrHand == 0 & ExperimentSix_forced$corrCouplet == 1] = '0/1/0'
+ExperimentSix_forced$errorType[ExperimentSix_forced$corr == 0 & ExperimentSix_forced$corrHand == 0 & ExperimentSix_forced$corrCouplet == 0] = '0/0/0'
+
+#set up corr finger column
+ExperimentSix_forced$corrFinger = NA
+ExperimentSix_forced$corrFinger[ExperimentSix_forced$corrresp %in% c(1,3,5,7) & ExperimentSix_forced$resp %in% c(1,3,5,7)] = 1
+ExperimentSix_forced$corrFinger[ExperimentSix_forced$corrresp %in% c(2,4,6,8) & ExperimentSix_forced$resp %in% c(2,4,6,8)] = 1
+ExperimentSix_forced$corrFinger[ExperimentSix_forced$corrresp %in% c(1,3,5,7) & ExperimentSix_forced$resp %in% c(2,4,6,8)] = 0
+ExperimentSix_forced$corrFinger[ExperimentSix_forced$corrresp %in% c(2,4,6,8) & ExperimentSix_forced$resp %in% c(1,3,5,7)] = 0
+
+ExperimentSix_forced$errorType2 = NA
+ExperimentSix_forced$errorType2[ExperimentSix_forced$corrHand == 1 & ExperimentSix_forced$corrCouplet == 1 & ExperimentSix_forced$corrFinger == 1] = '1/1/1'
+ExperimentSix_forced$errorType2[ExperimentSix_forced$corrHand == 1 & ExperimentSix_forced$corrCouplet == 1 & ExperimentSix_forced$corrFinger == 0] = '1/1/0'
+ExperimentSix_forced$errorType2[ExperimentSix_forced$corrHand == 1 & ExperimentSix_forced$corrCouplet == 0 & ExperimentSix_forced$corrFinger == 1] = '1/0/1'
+ExperimentSix_forced$errorType2[ExperimentSix_forced$corrHand == 1 & ExperimentSix_forced$corrCouplet == 0 & ExperimentSix_forced$corrFinger == 0] = '1/0/0'
+
+ExperimentSix_forced$errorType2[ExperimentSix_forced$corrHand == 0 & ExperimentSix_forced$corrCouplet == 1 & ExperimentSix_forced$corrFinger == 1] = '0/1/1'
+ExperimentSix_forced$errorType2[ExperimentSix_forced$corrHand == 0 & ExperimentSix_forced$corrCouplet == 1 & ExperimentSix_forced$corrFinger == 0] = '0/1/0'
+ExperimentSix_forced$errorType2[ExperimentSix_forced$corrHand == 0 & ExperimentSix_forced$corrCouplet == 0 & ExperimentSix_forced$corrFinger == 1] = '0/0/1'
+ExperimentSix_forced$errorType2[ExperimentSix_forced$corrHand == 0 & ExperimentSix_forced$corrCouplet == 0 & ExperimentSix_forced$corrFinger == 0] = '0/0/0'
+
+
+#convert what you need into factors to stop from droppipng in groups
+ExperimentSix_forced$subject = as.factor(ExperimentSix_forced$subject)
+ExperimentSix_forced$errorType = as.factor(ExperimentSix_forced$errorType)
+ExperimentSix_forced$treeDistance = as.factor(ExperimentSix_forced$treeDistance)
+ExperimentSix_forced$PT_actual_bins = as.factor(ExperimentSix_forced$PT_actual_bins)
+ExperimentSix_forced$PT_planned_bins = as.factor(ExperimentSix_forced$PT_planned_bins)
+ExperimentSix_forced$combinedType = as.factor(ExperimentSix_forced$combinedType)
+
+
+# mark subjects that shoudl be inlcuded from the learnign sample
+ExperimentSix_forced$includeLearn = NA
+ExperimentSix_forced$includeLearn[ExperimentSix_forced$subject %in% subjNums_included] = 1
+
+ExperimentSix_forced$timing_chill = NA
+ExperimentSix_forced$timing_chill[abs(ExperimentSix_forced$rt)<=.25] = 1
+
+# filter out PT_actual of over 1.75s
+ExperimentSix_forced_withExclusions = ExperimentSix_forced %>% filter(PT_actual <= 1.75, includeLearn == 1)
+
+# Add bins of time for analysis
+# method one
+ExperimentSix_forced_withExclusions$eml = NA
+ExperimentSix_forced_withExclusions$eml[ExperimentSix_forced_withExclusions$PT_actual <= .4] = 'a_early'
+ExperimentSix_forced_withExclusions$eml[ExperimentSix_forced_withExclusions$PT_actual > .4 & ExperimentSix_forced_withExclusions$PT_actual <= .8] = 'b_mid'
+ExperimentSix_forced_withExclusions$eml[ExperimentSix_forced_withExclusions$PT_actual > .8] = 'c_late'
+# method two
+ExperimentSix_forced_withExclusions$eml2 = NA
+ExperimentSix_forced_withExclusions$eml2[ExperimentSix_forced_withExclusions$PT_actual <= .5] = 'a_early'
+ExperimentSix_forced_withExclusions$eml2[ExperimentSix_forced_withExclusions$PT_actual > .5 & ExperimentSix_forced_withExclusions$PT_actual <= .9] = 'b_mid'
+ExperimentSix_forced_withExclusions$eml2[ExperimentSix_forced_withExclusions$PT_actual > .9] = 'c_late'
+# method three
+ExperimentSix_forced_withExclusions$eml3 = NA
+ExperimentSix_forced_withExclusions$eml3[ExperimentSix_forced_withExclusions$PT_actual <= .3] = 'a_early1'
+ExperimentSix_forced_withExclusions$eml3[ExperimentSix_forced_withExclusions$PT_actual > .5 & ExperimentSix_forced_withExclusions$PT_actual <= .7] = 'b_mid1'
+ExperimentSix_forced_withExclusions$eml3[ExperimentSix_forced_withExclusions$PT_actual > .7 & ExperimentSix_forced_withExclusions$PT_actual <= .9] = 'b_mid2'
+ExperimentSix_forced_withExclusions$eml3[ExperimentSix_forced_withExclusions$PT_actual > .9& ExperimentSix_forced_withExclusions$PT_actual <= 1.1] = 'c_late1'
+ExperimentSix_forced_withExclusions$eml3[ExperimentSix_forced_withExclusions$PT_actual > 1.1] = 'c_late2'
+
+ExperimentSix_forced_withExclusions$corrFinger = NA
+ExperimentSix_forced_withExclusions$corrFinger[ExperimentSix_forced_withExclusions$corrresp %in% c(1,3,5,7) & ExperimentSix_forced_withExclusions$resp %in% c(1,3,5,7)] = 1
+ExperimentSix_forced_withExclusions$corrFinger[ExperimentSix_forced_withExclusions$corrresp %in% c(2,4,6,8) & ExperimentSix_forced_withExclusions$resp %in% c(2,4,6,8)] = 1
+ExperimentSix_forced_withExclusions$corrFinger[ExperimentSix_forced_withExclusions$corrresp %in% c(1,3,5,7) & ExperimentSix_forced_withExclusions$resp %in% c(2,4,6,8)] = 0
+ExperimentSix_forced_withExclusions$corrFinger[ExperimentSix_forced_withExclusions$corrresp %in% c(2,4,6,8) & ExperimentSix_forced_withExclusions$resp %in% c(1,3,5,7)] = 0
+
+ExperimentSix_forced_withExclusions$errorType2 = NA
+ExperimentSix_forced_withExclusions$errorType2[ExperimentSix_forced_withExclusions$corrHand == 1 & ExperimentSix_forced_withExclusions$corrCouplet == 1 & ExperimentSix_forced_withExclusions$corrFinger == 1] = '1/1/1'
+ExperimentSix_forced_withExclusions$errorType2[ExperimentSix_forced_withExclusions$corrHand == 1 & ExperimentSix_forced_withExclusions$corrCouplet == 1 & ExperimentSix_forced_withExclusions$corrFinger == 0] = '1/1/0'
+ExperimentSix_forced_withExclusions$errorType2[ExperimentSix_forced_withExclusions$corrHand == 1 & ExperimentSix_forced_withExclusions$corrCouplet == 0 & ExperimentSix_forced_withExclusions$corrFinger == 1] = '1/0/1'
+ExperimentSix_forced_withExclusions$errorType2[ExperimentSix_forced_withExclusions$corrHand == 1 & ExperimentSix_forced_withExclusions$corrCouplet == 0 & ExperimentSix_forced_withExclusions$corrFinger == 0] = '1/0/0'
+
+ExperimentSix_forced_withExclusions$errorType2[ExperimentSix_forced_withExclusions$corrHand == 0 & ExperimentSix_forced_withExclusions$corrCouplet == 1 & ExperimentSix_forced_withExclusions$corrFinger == 1] = '0/1/1'
+ExperimentSix_forced_withExclusions$errorType2[ExperimentSix_forced_withExclusions$corrHand == 0 & ExperimentSix_forced_withExclusions$corrCouplet == 1 & ExperimentSix_forced_withExclusions$corrFinger == 0] = '0/1/0'
+ExperimentSix_forced_withExclusions$errorType2[ExperimentSix_forced_withExclusions$corrHand == 0 & ExperimentSix_forced_withExclusions$corrCouplet == 0 & ExperimentSix_forced_withExclusions$corrFinger == 1] = '0/0/1'
+ExperimentSix_forced_withExclusions$errorType2[ExperimentSix_forced_withExclusions$corrHand == 0 & ExperimentSix_forced_withExclusions$corrCouplet == 0 & ExperimentSix_forced_withExclusions$corrFinger == 0] = '0/0/0'
+
+ExperimentSix_forced_withExclusions$errorType2 = as.factor(ExperimentSix_forced_withExclusions$errorType2)
+
+######### WRITE DATA TO FILE ########
+write.csv(ExperimentSix_forced_withExclusions, 'Experiment6_forced_compiled.csv')
+```
