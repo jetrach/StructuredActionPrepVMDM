@@ -321,7 +321,7 @@ ggplot(flatDyn_learningCurve_across,aes(x=iter))+
   scale_color_manual(values = c("hand" = "blue","couplet" = "red","overall accuracy" = "black"),limits=c("hand","couplet","overall accuracy"))
 ```
 \newpage
-# tree distance figs
+# Path distance figs
 ```{r, echo=F, message=F, warning=F, error=T, fig.width=3, fig.height=3, fig.align='center' }
 hierDyn_tree_streak= hierDyn %>% filter(streak == 1) %>%group_by(subject, treeDistance) %>% filter(!is.na(treeDistance))%>% dplyr::summarize(avgRT = mean(rt_corrected_both,na.rm = TRUE))
 t.test(hierDyn_tree_streak$avgRT[hierDyn_tree_streak$treeDistance == 6],hierDyn_tree_streak$avgRT[hierDyn_tree_streak$treeDistance == 4], paired = TRUE)
@@ -396,7 +396,7 @@ ggplot(flatDyn_tree_streak_summaryStats, aes(x = as.factor(treeDistance), y = av
 ```
 
 \newpage
-# mMEM of streak trials
+# MEM of streak trials
 ```{r, echo=F, message=F, warning=F, error=T, fig.width=3.5, fig.height=3, fig.align='center'}
 #models
 #tree
@@ -625,7 +625,7 @@ FL_smoothedData_errorType2_plotting_summary_trimmed = FL_smoothedData_errorType2
 
 # PLOT Experiment 5
 HL_smoothedData_errorType2_plotting_summary_trimmed = HL_smoothedData_errorType2_plotting_summary %>% filter(tp %in% seq(.1,1.2,step))
-ggplot(HL_smoothedData_errorType2_plotting_summary_trimmed, aes(x =tp,y = prop, group = errorType2_num,color = errorType2_num)) + geom_line()+geom_ribbon(data=HL_smoothedData_errorType2_plotting_summary_trimmed,aes(x = tp,ymin = prop - se, ymax = prop + se, fill = errorType2_num), inherit.aes = TRUE, alpha = alpha)+scale_x_discrete(name = 'prep time', breaks = c(0,.1,.2,.3,.4,.5,.6,.7,.8,.9,1,1.1,1.2))+scale_y_continuous(expand = c(0,0),limits = c(0,1), breaks = c(0,.2,.4,.6,.8,1))+
+ggplot(HL_smoothedData_errorType2_plotting_summary_trimmed, aes(x =tp,y = prop, group = errorType2_num,color = errorType2_num)) + geom_line()+geom_ribbon(data=HL_smoothedData_errorType2_plotting_summary_trimmed,aes(x = tp,ymin = prop - se, ymax = prop + se, fill = errorType2_num), inherit.aes = TRUE)+scale_x_discrete(name = 'prep time', breaks = c(0,.1,.2,.3,.4,.5,.6,.7,.8,.9,1,1.1,1.2))+scale_y_continuous(expand = c(0,0),limits = c(0,1), breaks = c(0,.2,.4,.6,.8,1))+
   theme(axis.line=element_line(),
         panel.grid = element_blank(),
         panel.background = element_rect(fill = "white", colour = "black")
@@ -645,7 +645,7 @@ ggplot(HL_smoothedData_errorType2_plotting_summary_trimmed, aes(x =tp,y = prop, 
 
 # Plot Experiment 6
 FL_smoothedData_errorType2_plotting_summary_trimmed = FL_smoothedData_errorType2_plotting_summary %>% filter(tp %in% seq(.1,1.2,step))
-ggplot(FL_smoothedData_errorType2_plotting_summary_trimmed, aes(x =tp,y = prop, group = errorType2_num,color = errorType2_num)) + geom_line()+geom_ribbon(data=FL_smoothedData_errorType2_plotting_summary_trimmed,aes(x = tp,ymin = prop - se, ymax = prop + se, fill = errorType2_num), inherit.aes = TRUE, alpha = alpha)+scale_x_discrete(name = 'prep time', breaks = c(0,.1,.2,.3,.4,.5,.6,.7,.8,.9,1,1.1,1.2))+scale_y_continuous(expand = c(0,0),limits = c(0,1), breaks = c(0,.2,.4,.6,.8,1))+
+ggplot(FL_smoothedData_errorType2_plotting_summary_trimmed, aes(x =tp,y = prop, group = errorType2_num,color = errorType2_num)) + geom_line()+geom_ribbon(data=FL_smoothedData_errorType2_plotting_summary_trimmed,aes(x = tp,ymin = prop - se, ymax = prop + se, fill = errorType2_num), inherit.aes = TRUE)+scale_x_discrete(name = 'prep time', breaks = c(0,.1,.2,.3,.4,.5,.6,.7,.8,.9,1,1.1,1.2))+scale_y_continuous(expand = c(0,0),limits = c(0,1), breaks = c(0,.2,.4,.6,.8,1))+
   theme(axis.line=element_line(),
         panel.grid = element_blank(),
         panel.background = element_rect(fill = "white", colour = "black")
@@ -708,8 +708,14 @@ ggplot(FL_smoothedData_errorType2_plotting_summary_trimmed_nocorr, aes(x =tp,y =
         axis.ticks = element_line(colour = axisColor, size = tickWidth), 
         axis.ticks.length = unit(tickLength,"cm"))
 ```
-# P(response level) x PT (all 8 response types)
+# P(response level) x PT (by error level)
 ```{r, echo=F, message=F, warning=F, error=T, fig.width=12, fig.height=6, fig.align='center'}
+compiledData_forced_trimmed$errorLevel = NA
+compiledData_forced_trimmed$errorLevel[compiledData_forced_trimmed$errorType2 %in% c('1/1/0')] = 'bbottom'
+compiledData_forced_trimmed$errorLevel[compiledData_forced_trimmed$errorType2 %in% c('1/0/1','1/0/0')] = 'cmid'
+compiledData_forced_trimmed$errorLevel[compiledData_forced_trimmed$errorType2 %in% c('0/1/1','0/1/0','0/0/1','0/0/0')] = 'dtop'
+compiledData_forced_trimmed$errorLevel[compiledData_forced_trimmed$errorType2 == '1/1/1'] = 'acorr'
+
 # HIERDYN
 # set up the dataframe
 HL_smoothedData_errorLevel = data.frame(matrix(NA, ncol = 6,nrow = length(timepoints)*length(subjNums_hierDyn)))
@@ -826,12 +832,6 @@ ggplot(FL_smoothedData_errorLevel_plotting_summary_trimmed, aes(x =tp,y = prop_c
 \newpage
 # top mid low level errors (corrected probabilities)
 ```{r, echo=F, message=F, warning=F, error=T,fig.width=6, fig.height=6, fig.align='center'}
-
-compiledData_forced_trimmed$errorLevel = NA
-compiledData_forced_trimmed$errorLevel[compiledData_forced_trimmed$errorType2 %in% c('1/1/0')] = 'bbottom'
-compiledData_forced_trimmed$errorLevel[compiledData_forced_trimmed$errorType2 %in% c('1/0/1','1/0/0')] = 'cmid'
-compiledData_forced_trimmed$errorLevel[compiledData_forced_trimmed$errorType2 %in% c('0/1/1','0/1/0','0/0/1','0/0/0')] = 'dtop'
-compiledData_forced_trimmed$errorLevel[compiledData_forced_trimmed$errorType2 == '1/1/1'] = 'acorr'
 
 errorLevel_eml2 = compiledData_forced_trimmed %>% filter(timing == 1,!is.na(eml),!is.na(errorType2),!is.na(eml2)) %>% group_by(expt,subject,eml2,errorLevel, .drop = FALSE) %>% dplyr::summarize(counts = n()) %>% filter(!is.na(errorLevel)) %>% group_by(expt,subject, eml2,.drop = FALSE) %>% dplyr::mutate(prop = counts/sum(counts))
 
