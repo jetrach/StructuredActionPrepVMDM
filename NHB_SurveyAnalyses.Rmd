@@ -1,0 +1,59 @@
+---
+title: "SurveyResults_NHB"
+author: "JET"
+date: "2024-11-12"
+output: html_document
+---
+
+```{r, echo=F, message=F, warning=F, error=T,fig.width=8, fig.height=4, fig.align='center'}
+rm(list=ls(all=TRUE))
+library(dplyr)
+library(tidyverse)
+library(ggplot2)
+surveyData_all <- read.csv("~/Documents/GitHub/StructuredActionPrepVMDM/structureIntuitions.csv")
+surveyData = tail(surveyData_all, -2)
+surveyData = surveyData[,18:ncol(surveyData)]
+
+```
+
+# Ranking question results
+```{r, echo=F, message=F, warning=F, error=T,fig.width=8, fig.height=4, fig.align='center'}
+surveyData_ranking = surveyData %>% select(c('Q4', 'Q4_1', 'Q4_2', 'Q4_3', 'Q4_4', 'Q4_5', 'Q4_6', 'Q4_7', 'Q4_8'))
+colnames(surveyData_ranking) = c('subject','scp','spc','csp','cps','pcs','psc','unB','unA')
+surveyData_ranking_long = surveyData_ranking %>% pivot_longer(cols = c('scp','spc','csp','cps','pcs','psc','unB','unA'), names_to = 'struct',values_to = 'ranking')
+surveyData_ranking_long$topFeature = NA
+surveyData_ranking_long$topFeature[surveyData_ranking_long$struct %in% c('csp','cps')] = 'color'
+surveyData_ranking_long$topFeature[surveyData_ranking_long$struct %in% c('scp','spc')] = 'shape'
+surveyData_ranking_long$topFeature[surveyData_ranking_long$struct %in% c('pcs','psc')] = 'pattern'
+
+byRank_struct = surveyData_ranking_long %>% group_by(ranking,struct) %>% dplyr::summarise(counts = n())
+ggplot(byRank_struct, aes(x = ranking, y = counts, fill = struct))+geom_bar(stat = 'identity')+
+  scale_y_continuous(expand = c(0,0))+theme(axis.line=element_line(),
+        panel.grid = element_blank(),
+        panel.background = element_rect(fill = "white")
+        ,panel.border = element_rect(fill = NA, colour = "white"))
+#ggsave('surveyResults_hierarchy.eps')
+byRank_top = surveyData_ranking_long %>% group_by(ranking,topFeature) %>% dplyr::summarise(counts = n())
+ggplot(byRank_top, aes(x = ranking, y = counts, fill = topFeature))+geom_bar(stat = 'identity')+
+  scale_y_continuous(expand = c(0,0))+theme(axis.line=element_line(),
+        panel.grid = element_blank(),
+        panel.background = element_rect(fill = "white")
+        ,panel.border = element_rect(fill = NA, colour = "white"))
+#ggsave('surveyResults_topFeature.eps')
+
+byRank_struct_first = surveyData_ranking_long %>% filter(ranking == 1) %>% group_by(ranking,struct) %>% dplyr::summarise(counts = n())
+ggplot(byRank_struct_first, aes(x = ranking, y = counts, fill = struct))+geom_bar(stat = 'identity')
+byRank_top_first = surveyData_ranking_long %>% filter(ranking == 1) %>% group_by(ranking,topFeature) %>% dplyr::summarise(counts = n())
+ggplot(byRank_top_first, aes(x = ranking, y = counts, fill = topFeature))+geom_bar(stat = 'identity')
+
+
+byRank_struct_last = surveyData_ranking_long %>% filter(ranking == 8) %>% group_by(ranking,struct) %>% dplyr::summarise(counts = n())
+ggplot(byRank_struct_last, aes(x = ranking, y = counts, fill = struct))+geom_bar(stat = 'identity')
+byRank_top_last = surveyData_ranking_long %>% filter(ranking == 8) %>% group_by(ranking,topFeature) %>% dplyr::summarise(counts = n())
+ggplot(byRank_top_last, aes(x = ranking, y = counts, fill = topFeature))+geom_bar(stat = 'identity')
+
+structureLast_subjNums = surveyData_ranking_long %>% filter(ranking == 8, !is.na(topFeature))
+structureLast_rankings = surveyData_ranking_long %>% filter(subject %in% c(structureLast_subjNums$subject))
+ggplot(structureLast_rankings, aes(x = ranking, y = 1, fill = struct))+geom_bar(stat = 'identity')+facet_wrap(~subject)
+```
+

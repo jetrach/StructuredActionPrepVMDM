@@ -1,0 +1,1022 @@
+---
+title: "Experiment 6 - Multiday, free response task analyses"
+author: "Juliana E Trach"
+date: "`r Sys.Date()`"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+# set up workspace
+rm(list=ls(all=TRUE))
+setwd("~/Documents/GitHub/StructuredActionPrepVMDM")
+#datadir_first_wforced = '~/Documents/GitHub/StructuredActionPrepVMDM/rawData/Experiment6_multiday/data/first/wforced'
+#datadir_first_woforced = '~/Documents/GitHub/StructuredActionPrepVMDM/rawData/Experiment6_multiday/data/first/woforced'
+#datadir_mid = '~/Documents/GitHub/StructuredActionPrepVMDM/rawData/Experiment6_multiday/data/mid'
+#datadir_last_wforced = '~/Documents/GitHub/StructuredActionPrepVMDM/rawData/Experiment6_multiday/data/last/wforced'
+#datadir_last_woforced = '~/Documents/GitHub/StructuredActionPrepVMDM/rawData/Experiment6_multiday/data/last/woforced'
+
+# load libraries
+library(ggplot2)
+library(gridExtra)
+library(ggpubr)
+library(reshape2)
+library(dplyr)
+library(tidyr)
+library(tidyverse)
+library(itsadug)
+library(RColorBrewer)
+library(knitr)
+library(extrafont)
+library(fs)
+library(fabricatr)
+library(Rmisc)
+library(lme4)
+library(rstatix)
+library(MuMIn)
+
+rlData_withExclusions = read_csv("~/Documents/Github/StructuredActionPrepVMDM/rawData/Experiment6_multiday/data/Experiment6_multiday_wexclusions.csv")
+motorData_withExclusions = read_csv("~/Documents/Github/StructuredActionPrepVMDM/rawData/Experiment6_multiday/data/Experiment6_multiday_motor.csv")
+
+subjNums_included = unique(rlData_withExclusions$subject)
+# set up better plotting
+axisTitleSize = 25
+ribbonAlpha = 1
+textColor = "black"
+axisColor = "black"
+axisTitleSize = 20
+axisTextSize = 18
+axisWidth = 1
+tickWidth = 1
+lineWidth = 1
+tickLength = .25
+
+## Load in ONE DAY LEARNIGN DATA FROM DYN EXPTS
+# learnData
+hierDyn = read_csv(file = 'compiledData/Experiment5_learn.csv')
+hierDyn <- hierDyn[ -c(1) ]
+
+# fix subnums and add expt info
+hierDyn$subject = paste(hierDyn$subject,'hier',sep = '_')
+hierDyn$expt = 'hierDyn'
+hierDyn$struct = 'hier'
+zscored = hierDyn%>% group_by(subject) %>% dplyr::summarize(z = scale(rt_corrected_both))
+hierDyn$rt_corrected_both_z = zscored$z
+
+hierDyn_forced = read_csv(file = 'compiledData/Experiment5_forced.csv')
+hierDyn_forced <- hierDyn_forced[ -c(1) ]
+
+hierDyn_forced$subject = paste(hierDyn_forced$subject,'hier',sep = '_')
+hierDyn_forced$expt = 'hierDyn'
+hierDyn_forced$struct = 'hier'
+
+subjNums_hierDyn = unique(hierDyn$subject)
+
+## FlatDyn ##
+#learnData
+flatDyn = read_csv(file = 'compiledData/Experiment6_learn.csv')
+flatDyn <- flatDyn[ -c(1) ]
+flatDyn$subject = paste(flatDyn$subject,'flat',sep = '_')
+flatDyn$expt = 'flatDyn'
+flatDyn$struct = 'flat'
+#fill columns that should be filled
+flatDyn$rt_corrected_both_z = NA
+zscored = flatDyn%>% group_by(subject) %>% dplyr::summarize(z = scale(rt_corrected_both))
+flatDyn$rt_corrected_both_z = zscored$z
+
+flatDyn_forced = read_csv(file = 'compiledData/Experiment6_forced.csv')
+flatDyn_forced <- flatDyn_forced[ -c(1) ]
+flatDyn_forced$subject = paste(flatDyn_forced$subject,'flat',sep = '_')
+flatDyn_forced$expt = 'flatDyn'
+flatDyn_forced$struct = 'flat'
+
+subjNums_flatDyn = unique(flatDyn$subject)
+
+
+# bind the data frames together
+compiledData = rbind(hierDyn, flatDyn)
+compiledData_forced = rbind(hierDyn_forced,flatDyn_forced)
+# add a finger_press_prev column for forced
+compiledData_forced$finger_press_prev = NA
+compiledData_forced$finger_press_prev[2:length(compiledData_forced$finger_press_prev)] = compiledData_forced$resp[1:length(compiledData_forced$finger_press_prev)-1]
+compiledData_forced$finger_press_prev[compiledData_forced$trialNum == 1] = NA
+
+compiledData_forced$corr_prev = NA
+compiledData_forced$corr_prev[2:length(compiledData_forced$corr_prev)] = compiledData_forced$corr[1:length(compiledData_forced$corr_prev)-1]
+compiledData_forced$corr_prev[compiledData_forced$trialNum == 1] = NA
+
+# add transition type column
+compiledData$transitionType = NA
+typeCounter = 0
+for(ai in 1:max(compiledData$finger_press_prev, na.rm = TRUE)){
+  for(bi in ai:max(compiledData$resp, na.rm = TRUE)){
+    typeCounter = typeCounter+1
+    compiledData$transitionType[compiledData$finger_press_prev == ai & compiledData$resp == bi] = typeCounter
+    compiledData$transitionType[compiledData$finger_press_prev == bi & compiledData$resp == ai] = typeCounter
+  }
+  }
+compiledData$transitionType[compiledData$trialNum == 1] = NA
+
+# add transition type column
+compiledData_forced$transitionType = NA
+typeCounter = 0
+for(ai in 1:max(compiledData_forced$finger_press_prev, na.rm = TRUE)){
+  for(bi in ai:max(compiledData_forced$resp, na.rm = TRUE)){
+    typeCounter = typeCounter+1
+    compiledData_forced$transitionType[compiledData_forced$finger_press_prev == ai & compiledData_forced$resp == bi] = typeCounter
+    compiledData_forced$transitionType[compiledData_forced$finger_press_prev == bi & compiledData_forced$resp == ai] = typeCounter
+  }
+  }
+compiledData_forced$transitionType[compiledData_forced$trialNum == 1] = NA
+
+# add some comlumns to LEARNDATA
+compiledData = compiledData %>% filter(iter < 56)
+compiledData$treeDistance = as.factor(compiledData$treeDistance)
+compiledData$nFeatureSwitch = as.factor(compiledData$nFeatureSwitch)
+compiledData$fingerDistance = as.factor(compiledData$fingerDistance)
+
+compiledData$corrHand_factor = as.factor(compiledData$corrHand)
+compiledData$corrCouplet_factor = as.factor(compiledData$corrCouplet)
+compiledData$corrFinger = NA
+compiledData$errorType = NA
+compiledData$errorType2 = NA
+
+
+compiledData$corrFinger[compiledData$resp %in% c(1,3,5,7) & compiledData$corrresp %in% c(1,3,5,7)] = 1
+compiledData$corrFinger[compiledData$resp %in% c(1,3,5,7) & compiledData$corrresp %in% c(2,4,6,8)] = 0
+compiledData$corrFinger[compiledData$resp %in% c(2,4,6,8) & compiledData$corrresp %in% c(2,4,6,8)] = 1
+compiledData$corrFinger[compiledData$resp %in% c(2,4,6,8) & compiledData$corrresp %in% c(1,3,5,7)] = 0
+
+compiledData$errorType[compiledData$corrHand == 1 & compiledData$corrCouplet == 1 & compiledData$corr == 0] = '1/1/0'
+compiledData$errorType[compiledData$corrHand == 1 & compiledData$corrCouplet == 1 & compiledData$corr == 1] = '1/1/1'
+compiledData$errorType[compiledData$corrHand == 0 & compiledData$corrCouplet == 1] = '0/1/0'
+compiledData$errorType[compiledData$corrHand == 0 & compiledData$corrCouplet == 0] = '0/0/0'
+
+
+# add some columns to FORCED DATA
+compiledData_forced$treeDistance_factor = as.factor(compiledData_forced$treeDistance)
+compiledData_forced$nFeatureSwitch_factor = as.factor(compiledData_forced$nFeatureSwitch)
+compiledData_forced$errorType = as.factor(compiledData_forced$errorType)
+compiledData_forced$errorType2 = as.factor(compiledData_forced$errorType2)
+
+compiledData_forced$corrHand_factor = as.factor(compiledData_forced$corrHand)
+compiledData_forced$corrCouplet_factor = as.factor(compiledData_forced$corrCouplet)
+compiledData_forced$corrFinger_factor = as.factor(compiledData_forced$corrFinger)
+
+compiledData_forced$eml3 = NA
+compiledData_forced$eml3[compiledData_forced$PT_actual <= .3] = 'a_early1'
+compiledData_forced$eml3[compiledData_forced$PT_actual  > .3 & compiledData_forced$PT_actual <= .5] = 'a_early2'
+compiledData_forced$eml3[compiledData_forced$PT_actual > .5 & compiledData_forced$PT_actual <= .7] = 'b_mid1'
+compiledData_forced$eml3[compiledData_forced$PT_actual > .7 & compiledData_forced$PT_actual <= .9] = 'b_mid2'
+compiledData_forced$eml3[compiledData_forced$PT_actual > .9& compiledData_forced$PT_actual <= 1.1] = 'c_late1'
+compiledData_forced$eml3[compiledData_forced$PT_actual > 1.1] = 'c_late2'
+
+compiledData_forced$errorDiff = NA
+compiledData_forced$errorDiff = abs(compiledData_forced$corrresp-compiledData_forced$resp)
+
+compiledData_forced$errorLevel = NA # hand/couplet/finger error based on cogsci description hand = 0/1/1;0/1/0;0/0/1;0/0/0 || couplet = 1/0/1;1/0/0 || finger = 1/1/0
+compiledData_forced$errorLevel[compiledData_forced$errorType2 %in% c('1/1/0')] = 'finger'
+compiledData_forced$errorLevel[compiledData_forced$errorType2 %in% c('1/0/1','1/0/0')] = 'couplet'
+compiledData_forced$errorLevel[compiledData_forced$errorType2 %in% c('0/1/1','0/1/0','0/0/1','0/0/0')] = 'hand'
+
+compiledData_forced$resp_dist = NA
+compiledData_forced$resp_dist = abs(compiledData_forced$resp - compiledData_forced$finger_press_prev)
+
+# add the UP information (i.e. relative to the previous response)
+compiledData_forced$errorType2_up = NA
+compiledData_forced$sameHand_up = NA
+compiledData_forced$sameCouplet_up = NA
+compiledData_forced$sameFinger_up = NA
+
+compiledData_forced$sameHand_up[compiledData_forced$finger_press_prev %in% c(1,2,3,4) & compiledData_forced$resp %in% c(1,2,3,4)] = 1
+compiledData_forced$sameHand_up[compiledData_forced$finger_press_prev %in% c(1,2,3,4) & compiledData_forced$resp %in% c(5,6,7,8)] = 0
+compiledData_forced$sameHand_up[compiledData_forced$finger_press_prev %in% c(5,6,7,8) & compiledData_forced$resp %in% c(5,6,7,8)] = 1
+compiledData_forced$sameHand_up[compiledData_forced$finger_press_prev %in% c(5,6,7,8) & compiledData_forced$resp %in% c(1,2,3,4)] = 0
+
+compiledData_forced$sameCouplet_up[compiledData_forced$finger_press_prev %in% c(1,2,5,6) & compiledData_forced$resp %in% c(1,2,5,6)] = 1
+compiledData_forced$sameCouplet_up[compiledData_forced$finger_press_prev %in% c(1,2,5,6) & compiledData_forced$resp %in% c(3,4,7,8)] = 0
+compiledData_forced$sameCouplet_up[compiledData_forced$finger_press_prev %in% c(3,4,7,8) & compiledData_forced$resp %in% c(3,4,7,8)] = 1
+compiledData_forced$sameCouplet_up[compiledData_forced$finger_press_prev %in% c(3,4,7,8) & compiledData_forced$resp %in% c(1,2,5,6)] = 0
+
+compiledData_forced$sameFinger_up[compiledData_forced$finger_press_prev %in% c(1,3,5,7) & compiledData_forced$resp %in% c(1,3,5,7)] = 1
+compiledData_forced$sameFinger_up[compiledData_forced$finger_press_prev %in% c(1,3,5,7) & compiledData_forced$resp %in% c(2,4,6,8)] = 0
+compiledData_forced$sameFinger_up[compiledData_forced$finger_press_prev %in% c(2,4,6,8) & compiledData_forced$resp %in% c(2,4,6,8)] = 1
+compiledData_forced$sameFinger_up[compiledData_forced$finger_press_prev %in% c(2,4,6,8) & compiledData_forced$resp %in% c(1,3,5,7)] = 0
+
+compiledData_forced$errorType2_up[compiledData_forced$sameHand_up == 1 & compiledData_forced$sameCouplet_up == 1 & compiledData_forced$sameFinger_up == 1] = '1/1/1'
+compiledData_forced$errorType2_up[compiledData_forced$sameHand_up == 1 & compiledData_forced$sameCouplet_up == 1 & compiledData_forced$sameFinger_up == 0] = '1/1/0'
+compiledData_forced$errorType2_up[compiledData_forced$sameHand_up == 1 & compiledData_forced$sameCouplet_up == 0 & compiledData_forced$sameFinger_up == 1] = '1/0/1'
+compiledData_forced$errorType2_up[compiledData_forced$sameHand_up == 1 & compiledData_forced$sameCouplet_up == 0 & compiledData_forced$sameFinger_up == 0] = '1/0/0'
+compiledData_forced$errorType2_up[compiledData_forced$sameHand_up == 0 & compiledData_forced$sameCouplet_up == 1 & compiledData_forced$sameFinger_up == 1] = '0/1/1'
+compiledData_forced$errorType2_up[compiledData_forced$sameHand_up == 0 & compiledData_forced$sameCouplet_up == 1 & compiledData_forced$sameFinger_up == 0] = '0/1/0'
+compiledData_forced$errorType2_up[compiledData_forced$sameHand_up == 0 & compiledData_forced$sameCouplet_up == 0 & compiledData_forced$sameFinger_up == 1] = '0/0/1'
+compiledData_forced$errorType2_up[compiledData_forced$sameHand_up == 0 & compiledData_forced$sameCouplet_up == 0 & compiledData_forced$sameFinger_up == 0] = '0/0/0'
+
+compiledData_forced$treeDistance_stim = NA
+compiledData_forced$treeDistance_stim[compiledData_forced$stim %in% c(1,2,3,4) & compiledData_forced$corrresp_prev %in% c(5,6,7,8)] = 6
+compiledData_forced$treeDistance_stim[compiledData_forced$stim %in% c(5,6,7,8) & compiledData_forced$corrresp_prev %in% c(1,2,3,4)] = 6
+
+compiledData_forced$treeDistance_stim[compiledData_forced$stim %in% c(1,2,3,4) & compiledData_forced$corrresp_prev %in% c(1,2,3,4)] = 4
+compiledData_forced$treeDistance_stim[compiledData_forced$stim %in% c(5,6,7,8) & compiledData_forced$corrresp_prev %in% c(5,6,7,8)] = 4
+
+compiledData_forced$treeDistance_stim[compiledData_forced$stim %in% c(1,2) & compiledData_forced$corrresp_prev %in% c(1,2)] = 2
+compiledData_forced$treeDistance_stim[compiledData_forced$stim %in% c(3,4) & compiledData_forced$corrresp_prev %in% c(3,4)] = 2
+compiledData_forced$treeDistance_stim[compiledData_forced$stim %in% c(5,6) & compiledData_forced$corrresp_prev %in% c(5,6)] = 2
+compiledData_forced$treeDistance_stim[compiledData_forced$stim %in% c(7,8) & compiledData_forced$corrresp_prev %in% c(7,8)] = 2
+
+compiledData_forced$treeDistance_stim[compiledData_forced$stim == compiledData_forced$corrresp_prev] = 0
+
+compiledData_forced$treeDistance_stim[compiledData_forced$trialNum == 1] = NA
+
+# add bins for preliminary analyses
+compiledData_forced_trimmed = compiledData_forced %>% filter(PT_actual < 1.4)
+compiledData_forced_trimmed$PT_bins = NA
+compiledData_forced_trimmed$PT_bins[compiledData_forced_trimmed$PT_actual < .1] = 0
+compiledData_forced_trimmed$PT_bins[compiledData_forced_trimmed$PT_actual >= .1 & compiledData_forced_trimmed$PT_actual < .2] = .1
+compiledData_forced_trimmed$PT_bins[compiledData_forced_trimmed$PT_actual >= .2 & compiledData_forced_trimmed$PT_actual < .3] = .2
+compiledData_forced_trimmed$PT_bins[compiledData_forced_trimmed$PT_actual >= .3 & compiledData_forced_trimmed$PT_actual < .4] = .3
+compiledData_forced_trimmed$PT_bins[compiledData_forced_trimmed$PT_actual >= .4 & compiledData_forced_trimmed$PT_actual < .5] = .4
+compiledData_forced_trimmed$PT_bins[compiledData_forced_trimmed$PT_actual >= .5 & compiledData_forced_trimmed$PT_actual < .6] = .5
+compiledData_forced_trimmed$PT_bins[compiledData_forced_trimmed$PT_actual >= .6 & compiledData_forced_trimmed$PT_actual < .7] = .6
+compiledData_forced_trimmed$PT_bins[compiledData_forced_trimmed$PT_actual >= .7 & compiledData_forced_trimmed$PT_actual < .8] = .7
+compiledData_forced_trimmed$PT_bins[compiledData_forced_trimmed$PT_actual >= .8 & compiledData_forced_trimmed$PT_actual < .9] = .8
+compiledData_forced_trimmed$PT_bins[compiledData_forced_trimmed$PT_actual >= .9 & compiledData_forced_trimmed$PT_actual < 1] = .9
+compiledData_forced_trimmed$PT_bins[compiledData_forced_trimmed$PT_actual >= 1 & compiledData_forced_trimmed$PT_actual < 1.1] = 1
+compiledData_forced_trimmed$PT_bins[compiledData_forced_trimmed$PT_actual >= 1.1 & compiledData_forced_trimmed$PT_actual < 1.2] = 1.1
+compiledData_forced_trimmed$PT_bins[compiledData_forced_trimmed$PT_actual >= 1.2 & compiledData_forced_trimmed$PT_actual <= 1.3] = 1.2
+subjNums_all = unique(compiledData$subject)
+
+compiledData$neighbor = NA
+compiledData$neighbor[!is.na(compiledData$fingerDistance)] = 2
+compiledData$neighbor[compiledData$fingerDistance == 0] = 0
+compiledData$neighbor[compiledData$fingerDistance == 1] = 1
+names(compiledData)[names(compiledData) == "expt"] <- "day"
+rlData_withExclusions$day = as.character(rlData_withExclusions$day)
+rlData_withExclusions$treeDistance = as.factor(rlData_withExclusions$treeDistance)
+rlData_withExclusions$neighbor = NA
+rlData_withExclusions$neighbor[!is.na(rlData_withExclusions$fingerDistance)] = 2
+rlData_withExclusions$neighbor[rlData_withExclusions$fingerDistance == 0] = 0
+rlData_withExclusions$neighbor[rlData_withExclusions$fingerDistance == 1] = 1
+```
+
+# Comparison of DYN expts and multiday
+## accuracy and RT in end of learning task
+```{r, echo=F, message=F, warning=F, error=T, fig.width=8, fig.height=3, fig.align='center'}
+dyn_lastiter = compiledData %>% filter(iter>40) %>% group_by(subject, day) %>% dplyr::summarise(accu = mean(corr, na.rm = TRUE))
+multi_lastiter = rlData_withExclusions %>% filter(day %in% c(1,8),iter>40) %>% group_by(subject, day) %>% dplyr::summarise(accu = mean(corr, na.rm = TRUE))
+lastiter=rbind(dyn_lastiter,multi_lastiter) 
+ggplot(lastiter, aes(x=day, y = accu))+geom_bar(stat = 'summary', fun.y='mean')+geom_point()
+t.test(lastiter$accu[lastiter$day == 1],lastiter$accu[lastiter$day == 8], paired = TRUE)
+t.test(lastiter$accu[lastiter$day == 1],lastiter$accu[lastiter$day == 'hierDyn'])
+t.test(lastiter$accu[lastiter$day == 1],lastiter$accu[lastiter$day == 'flatDyn'])
+t.test(lastiter$accu[lastiter$day == 8],lastiter$accu[lastiter$day == 'hierDyn'])
+t.test(lastiter$accu[lastiter$day == 8],lastiter$accu[lastiter$day == 'flatDyn'])
+t.test(lastiter$accu[lastiter$day == 'hierDyn'],lastiter$accu[lastiter$day == 'flatDyn'])
+
+
+dyn_lastiter_rt = compiledData %>% filter(iter>40, streak == 1) %>% group_by(subject, day) %>% dplyr::summarise(avgRT = mean(rt_corrected_both, na.rm = TRUE))
+multi_lastiter_rt = rlData_withExclusions %>% filter(day %in% c(1,8),iter>40, streak == 1) %>% group_by(subject, day) %>% dplyr::summarise(avgRT = mean(rt_corrected_both, na.rm = TRUE))
+lastiter_rt=rbind(dyn_lastiter_rt,multi_lastiter_rt) 
+ggplot(lastiter_rt, aes(x=day, y = avgRT))+geom_bar(stat = 'summary', fun.y='mean')+geom_point()
+t.test(lastiter_rt$avgRT[lastiter_rt$day == 1],lastiter_rt$avgRT[lastiter_rt$day == 8], paired = TRUE)
+t.test(lastiter_rt$avgRT[lastiter_rt$day == 1],lastiter_rt$avgRT[lastiter_rt$day == 'hierDyn'])
+t.test(lastiter_rt$avgRT[lastiter_rt$day == 1],lastiter_rt$avgRT[lastiter_rt$day == 'flatDyn'])
+t.test(lastiter_rt$avgRT[lastiter_rt$day == 8],lastiter_rt$avgRT[lastiter_rt$day == 'hierDyn'])
+t.test(lastiter_rt$avgRT[lastiter_rt$day == 8],lastiter_rt$avgRT[lastiter_rt$day == 'flatDyn'])
+t.test(lastiter_rt$avgRT[lastiter_rt$day == 'hierDyn'],lastiter_rt$avgRT[lastiter_rt$day == 'flatDyn'])
+
+```
+## Path distance x day (or experiment)
+```{r, echo=F, message=F, warning=F, error=T, fig.width=5, fig.height=3, fig.align='center'}
+dyn_tree = compiledData %>% filter(!is.na(treeDistance),streak == 1) %>% group_by(subject, day, treeDistance) %>% dplyr::summarise(avgRT = mean(rt_corrected_both, na.rm = TRUE))
+multi_tree = rlData_withExclusions %>% filter(day %in% c(1,8),streak == 1,!is.na(treeDistance)) %>% group_by(subject, day, treeDistance) %>% dplyr::summarise(avgRT = mean(rt_corrected_both, na.rm = TRUE))
+both_tree=rbind(dyn_tree,multi_tree) 
+ggplot(both_tree, aes(x=treeDistance, y = avgRT))+geom_bar(stat = 'summary', fun.y='mean')+geom_point()+facet_wrap(~day)
+
+
+anova_test(data.frame(multi_tree), dv = avgRT, wid = subject, within = c(day, treeDistance), effect.size = 'pes')
+
+onehier_tree = both_tree %>% filter(day %in% c('1', 'hierDyn'))
+anova_test(data.frame(onehier_tree), dv = avgRT, wid = subject, between = day, within = c(treeDistance), effect.size = 'pes')
+oneflat_tree = both_tree %>% filter(day %in% c('1', 'flatDyn'))
+anova_test(data.frame(oneflat_tree), dv = avgRT, wid = subject, between = day, within = c(treeDistance), effect.size = 'pes')
+eighthier_tree = both_tree %>% filter(day %in% c('8', 'hierDyn'))
+anova_test(data.frame(eighthier_tree), dv = avgRT, wid = subject, between = day, within = c(treeDistance), effect.size = 'pes')
+eightflat_tree = both_tree %>% filter(day %in% c('8', 'flatDyn'))
+anova_test(data.frame(eightflat_tree), dv = avgRT, wid = subject, between = day, within = c(treeDistance), effect.size = 'pes')
+
+anova_test(data.frame(dyn_tree), dv = avgRT, wid = subject, between = day, within = c(treeDistance), effect.size = 'pes')
+```
+## Path distance x Experiment (day 1 vs Experiment 4, day 1 versus Experiment 5, day 8 vs Experiment 4, day 8 vs Experiment 5)
+```{r, echo=F, message=F, warning=F, error=T, fig.width=5, fig.height=3, fig.align='center'}
+Fdyn_tree = compiledData %>% filter(!is.na(treeDistance),streak == 1, day == 'flatDyn') %>% group_by(subject, day, treeDistance) %>% dplyr::summarise(avgRT = mean(rt_corrected_both, na.rm = TRUE))
+multi_tree_eight = rlData_withExclusions %>% filter(day %in% c(8),streak == 1,!is.na(treeDistance)) %>% group_by(subject, day, treeDistance) %>% dplyr::summarise(avgRT = mean(rt_corrected_both, na.rm = TRUE))
+flatComp_tree=rbind(Fdyn_tree,multi_tree_eight) 
+ggplot(flatComp_tree, aes(x=treeDistance, y = avgRT))+geom_bar(stat = 'summary', fun.y='mean')+geom_point()+facet_wrap(~day)
+
+
+anova_test(data.frame(flatComp_tree), dv = avgRT, wid = subject, within = c(treeDistance),between = day, effect.size = 'pes')
+
+onehier_tree = both_tree %>% filter(day %in% c('1', 'hierDyn'))
+anova_test(data.frame(onehier_tree), dv = avgRT, wid = subject, between = day, within = c(treeDistance), effect.size = 'pes')
+oneflat_tree = both_tree %>% filter(day %in% c('1', 'flatDyn'))
+anova_test(data.frame(oneflat_tree), dv = avgRT, wid = subject, between = day, within = c(treeDistance), effect.size = 'pes')
+eighthier_tree = both_tree %>% filter(day %in% c('8', 'hierDyn'))
+anova_test(data.frame(eighthier_tree), dv = avgRT, wid = subject, between = day, within = c(treeDistance), effect.size = 'pes')
+eightflat_tree = both_tree %>% filter(day %in% c('8', 'flatDyn'))
+anova_test(data.frame(eightflat_tree), dv = avgRT, wid = subject, between = day, within = c(treeDistance), effect.size = 'pes')
+
+anova_test(data.frame(dyn_tree), dv = avgRT, wid = subject, between = day, within = c(treeDistance), effect.size = 'pes')
+```
+
+# LEARNING CURVES (ACCU AND RT)
+## Accuracy over iterations
+```{r, echo=F, message=F, warning=F, error=T, fig.width=8, fig.height=3, fig.align='center'}
+ribbonAlpha =1
+learningCurve_accuracy_hand_subj = rlData_withExclusions %>% group_by(subject,cumIter) %>% filter(cumIter <301) %>% dplyr::summarize(pCorHand = mean(corrHand,na.rm = TRUE), pCorCouplet = mean(corrCouplet,na.rm = TRUE), pCorFinger = mean(corr,na.rm = TRUE))
+sumStats_finger = summarySEwithin(data.frame(learningCurve_accuracy_hand_subj), measurevar = 'pCorFinger',withinvars = c('cumIter'), idvar = 'subject', na.rm = FALSE)
+sumStats_couplet = summarySEwithin(data.frame(learningCurve_accuracy_hand_subj), measurevar = 'pCorCouplet',withinvars = c('cumIter'), idvar = 'subject', na.rm = FALSE)
+sumStats = summarySEwithin(data.frame(learningCurve_accuracy_hand_subj), measurevar = 'pCorHand',withinvars = c('cumIter'), idvar = 'subject', na.rm = FALSE)
+sumStats$pCorCouplet = NA
+sumStats$pCorCouplet_se = NA
+sumStats$pCorFinger_se = NA
+sumStats$pCorFinger = NA
+sumStats$pCorCouplet = sumStats_couplet$pCorCouplet
+sumStats$pCorCouplet_se = sumStats_couplet$se
+sumStats$pCorFinger = sumStats_finger$pCorFinger
+sumStats$pCorFinger_se = sumStats_finger$se
+
+ggplot(sumStats)+
+  geom_line(aes(x = as.numeric(cumIter),y = pCorHand, color = "hand"))+
+  geom_line(aes(x = as.numeric(cumIter),y = pCorCouplet, color = "couplet"))+
+  geom_line(aes(x = as.numeric(cumIter),y = pCorFinger, color = "overall accuracy"))+
+  geom_ribbon(aes(x = as.numeric(cumIter),ymin = pCorCouplet - pCorCouplet_se, ymax = pCorCouplet + pCorCouplet_se), inherit.aes = FALSE,fill = "red", alpha = ribbonAlpha)+
+  geom_ribbon(aes(x = as.numeric(cumIter),ymin = pCorHand - se, ymax = pCorHand + se), inherit.aes = FALSE,fill = "blue", alpha = ribbonAlpha)+
+  geom_ribbon(aes(x = as.numeric(cumIter),ymin = pCorFinger - pCorFinger_se, ymax = pCorFinger + pCorFinger_se), inherit.aes = FALSE,fill = "black", alpha = ribbonAlpha)+
+  labs(x= 'stimulus iteration', y = 'accuracy')+
+  geom_vline(xintercept = c(57,89,121,153,185,217,249))+
+  theme(axis.line=element_line(),
+        panel.grid = element_blank(),
+        panel.background = element_rect(fill = "white", colour = "black")
+        ,panel.border = element_rect(fill = NA, colour = "white"),
+        strip.text = element_text(size=axisTitleSize,face="bold"), 
+        axis.title.x = element_text(size = axisTitleSize, face = 'bold'), 
+        axis.title.y = element_text(size = axisTitleSize, face = 'bold'), 
+        axis.text.x = element_text(size = axisTextSize), 
+        axis.text.y = element_text(size = axisTextSize), 
+        legend.position = "right", 
+        legend.title = element_blank(),
+        legend.text = element_text(size = axisTextSize),
+        axis.line.x.bottom=element_line(size=axisWidth), 
+        axis.line.y.left=element_line(size=axisWidth), 
+        axis.ticks = element_line(colour = axisColor, size = tickWidth), 
+        axis.ticks.length = unit(tickLength,"cm"))+ 
+  scale_color_manual(values = c("hand" = "blue","couplet" = "red","overall accuracy" = "black"),limits=c("hand","couplet","overall accuracy"))
+
+ggplot(sumStats)+
+  geom_line(aes(x = as.numeric(cumIter),y = pCorFinger, color = "overall accuracy"))+
+  geom_ribbon(aes(x = as.numeric(cumIter),ymin = pCorFinger - pCorFinger_se, ymax = pCorFinger + pCorFinger_se), inherit.aes = FALSE,fill = "black", alpha = ribbonAlpha)+
+  labs(x= 'stimulus iteration', y = 'accuracy')+
+  geom_vline(xintercept = c(57,89,121,153,185,217,249))+
+  theme(axis.line=element_line(),
+        panel.grid = element_blank(),
+        panel.background = element_rect(fill = "white", colour = "black")
+        ,panel.border = element_rect(fill = NA, colour = "white"),
+        strip.text = element_text(size=axisTitleSize,face="bold"), 
+        axis.title.x = element_text(size = axisTitleSize, face = 'bold'), 
+        axis.title.y = element_text(size = axisTitleSize, face = 'bold'), 
+        axis.text.x = element_text(size = axisTextSize), 
+        axis.text.y = element_text(size = axisTextSize), 
+        legend.position = "right", 
+        legend.title = element_blank(),
+        legend.text = element_text(size = axisTextSize),
+        axis.line.x.bottom=element_line(size=axisWidth), 
+        axis.line.y.left=element_line(size=axisWidth), 
+        axis.ticks = element_line(colour = axisColor, size = tickWidth), 
+        axis.ticks.length = unit(tickLength,"cm"))+ 
+  scale_color_manual(values = c("overall accuracy" = "black"),limits=c("overall accuracy"))
+#ggsave('multiday_accuracyLearning_010325.eps')
+
+```
+## Accuracy over days
+```{r, echo=F, message=F, warning=F, error=T, fig.width=6, fig.height=3, fig.align='center'}
+ribbonAlpha =.5
+learningCurve_accuracy_days = rlData_withExclusions %>% group_by(subject,day) %>% dplyr::summarize(accu = mean(corr,na.rm = TRUE))
+sumStats_accu_days = summarySEwithin(data.frame(learningCurve_accuracy_days), measurevar = 'accu',withinvars = c('day'), idvar = 'subject', na.rm = FALSE)
+
+ggplot(sumStats_accu_days)+
+  geom_line(aes(x =day,y = accu))+geom_point(aes(x = day, y = accu))+
+  geom_errorbar(aes(x = day,ymin = accu - se, ymax = accu + se), alpha = ribbonAlpha)+
+  labs(x= 'day', y = 'accuracy')+
+  theme(axis.line=element_line(),
+        panel.grid = element_blank(),
+        panel.background = element_rect(fill = "white", colour = "black")
+        ,panel.border = element_rect(fill = NA, colour = "white"),
+        strip.text = element_text(size=axisTitleSize,face="bold"), 
+        axis.title.x = element_text(size = axisTitleSize, face = 'bold'), 
+        axis.title.y = element_text(size = axisTitleSize, face = 'bold'), 
+        axis.text.x = element_text(size = axisTextSize), 
+        axis.text.y = element_text(size = axisTextSize), 
+        legend.position = "right", 
+        legend.title = element_blank(),
+        legend.text = element_text(size = axisTextSize),
+        axis.line.x.bottom=element_line(size=axisWidth), 
+        axis.line.y.left=element_line(size=axisWidth), 
+        axis.ticks = element_line(colour = axisColor, size = tickWidth), 
+        axis.ticks.length = unit(tickLength,"cm"))
+#ggsave('multiday_accuracyLearning.eps')
+
+```
+## Learning curve: RT over days
+```{r, echo=F, message=F, warning=F, error=T, fig.width=6, fig.height=3, fig.align='center'}
+ribbonAlpha =.5
+learningCurve_rt_days = rlData_withExclusions %>% group_by(subject,day) %>% filter(corr == 1) %>% dplyr::summarize(avgRT = mean(rt,na.rm = TRUE))
+sumStats_rt_days = summarySEwithin(data.frame(learningCurve_rt_days), measurevar = 'avgRT',withinvars = c('day'), idvar = 'subject', na.rm = FALSE)
+
+ggplot(sumStats_rt_days)+
+  geom_line(aes(x =day,y = avgRT))+geom_point(aes(x = day, y = avgRT))+
+  geom_errorbar(aes(x = day,ymin = avgRT - se, ymax = avgRT + se), alpha = ribbonAlpha)+
+  labs(x= 'day', y = 'avgRT (corr)')+
+  theme(axis.line=element_line(),
+        panel.grid = element_blank(),
+        panel.background = element_rect(fill = "white", colour = "black")
+        ,panel.border = element_rect(fill = NA, colour = "white"),
+        strip.text = element_text(size=axisTitleSize,face="bold"), 
+        axis.title.x = element_text(size = axisTitleSize, face = 'bold'), 
+        axis.title.y = element_text(size = axisTitleSize, face = 'bold'), 
+        axis.text.x = element_text(size = axisTextSize), 
+        axis.text.y = element_text(size = axisTextSize), 
+        legend.position = "right", 
+        legend.title = element_blank(),
+        legend.text = element_text(size = axisTextSize),
+        axis.line.x.bottom=element_line(size=axisWidth), 
+        axis.line.y.left=element_line(size=axisWidth), 
+        axis.ticks = element_line(colour = axisColor, size = tickWidth), 
+        axis.ticks.length = unit(tickLength,"cm"))
+#ggsave('multiday_accuracyLearning.eps')
+
+```
+## Learning curve: RT over iterations
+```{r, echo=F, message=F, warning=F, error=T, fig.width=6, fig.height=3, fig.align='center'}
+ribbonAlpha =.5
+learningCurve_rt_corr = rlData_withExclusions %>% group_by(subject,cumIter) %>% filter(cumIter <301, corr == 1) %>% dplyr::summarize(avgRT = mean(rt, na.rm = TRUE))
+sumStats_rt_corr = summarySEwithin(data.frame(learningCurve_rt_corr), measurevar = 'avgRT',withinvars = c('cumIter'), idvar = 'subject', na.rm = FALSE)
+
+learningCurve_rt = rlData_withExclusions %>% group_by(subject,cumIter) %>% filter(cumIter <301) %>% dplyr::summarize(avgRT = mean(rt, na.rm = TRUE))
+sumStats_rt = summarySEwithin(data.frame(learningCurve_rt), measurevar = 'avgRT',withinvars = c('cumIter'), idvar = 'subject', na.rm = FALSE)
+
+ggplot(sumStats_rt_corr)+
+  geom_line(aes(x = as.numeric(cumIter),y = avgRT))+
+  geom_ribbon(aes(x = as.numeric(cumIter),ymin = avgRT - se, ymax = avgRT + se), inherit.aes = FALSE, alpha = ribbonAlpha)+
+  labs(x= 'stimulus iteration', y = 'avgRT (corr)')+
+  geom_vline(xintercept = c(57,89,121,153,185,217,249))+
+  theme(axis.line=element_line(),
+        panel.grid = element_blank(),
+        panel.background = element_rect(fill = "white", colour = "black")
+        ,panel.border = element_rect(fill = NA, colour = "white"),
+        strip.text = element_text(size=axisTitleSize,face="bold"), 
+        axis.title.x = element_text(size = axisTitleSize, face = 'bold'), 
+        axis.title.y = element_text(size = axisTitleSize, face = 'bold'), 
+        axis.text.x = element_text(size = axisTextSize), 
+        axis.text.y = element_text(size = axisTextSize), 
+        legend.position = "right", 
+        legend.title = element_blank(),
+        legend.text = element_text(size = axisTextSize),
+        axis.line.x.bottom=element_line(size=axisWidth), 
+        axis.line.y.left=element_line(size=axisWidth), 
+        axis.ticks = element_line(colour = axisColor, size = tickWidth), 
+        axis.ticks.length = unit(tickLength,"cm"))
+#ggsave('multiday_rt_010325.eps')
+
+ggplot(sumStats_rt)+
+  geom_line(aes(x = as.numeric(cumIter),y = avgRT))+
+  geom_ribbon(aes(x = as.numeric(cumIter),ymin = avgRT - se, ymax = avgRT + se), inherit.aes = FALSE, alpha = ribbonAlpha)+
+  labs(x= 'stimulus iteration', y = 'avgRT (all)')+
+  geom_vline(xintercept = c(57,89,121,153,185,217,249))+
+  theme(axis.line=element_line(),
+        panel.grid = element_blank(),
+        panel.background = element_rect(fill = "white", colour = "black")
+        ,panel.border = element_rect(fill = NA, colour = "white"),
+        strip.text = element_text(size=axisTitleSize,face="bold"), 
+        axis.title.x = element_text(size = axisTitleSize, face = 'bold'), 
+        axis.title.y = element_text(size = axisTitleSize, face = 'bold'), 
+        axis.text.x = element_text(size = axisTextSize), 
+        axis.text.y = element_text(size = axisTextSize), 
+        legend.position = "right", 
+        legend.title = element_blank(),
+        legend.text = element_text(size = axisTextSize),
+        axis.line.x.bottom=element_line(size=axisWidth), 
+        axis.line.y.left=element_line(size=axisWidth), 
+        axis.ticks = element_line(colour = axisColor, size = tickWidth), 
+        axis.ticks.length = unit(tickLength,"cm"))
+
+```
+## Learning curve: Corrected RT x iteration
+```{r, echo=F, message=F, warning=F, error=T, fig.width=8, fig.height=3, fig.align='center'}
+ribbonAlpha =.5
+learningCurve_rt_corr_corrected= rlData_withExclusions %>% group_by(subject,cumIter) %>% filter(cumIter <301, corr == 1) %>% dplyr::summarize(avgRT = mean(rt_corrected_both, na.rm = TRUE))
+sumStats_rt_corr_corrected = summarySEwithin(data.frame(learningCurve_rt_corr_corrected), measurevar = 'avgRT',withinvars = c('cumIter'), idvar = 'subject', na.rm = FALSE)
+
+learningCurve_rt_corrected = rlData_withExclusions %>% group_by(subject,cumIter) %>% filter(cumIter <301) %>% dplyr::summarize(avgRT = mean(rt_corrected_both, na.rm = TRUE))
+sumStats_rt_corrected = summarySEwithin(data.frame(learningCurve_rt_corrected), measurevar = 'avgRT',withinvars = c('cumIter'), idvar = 'subject', na.rm = FALSE)
+
+ggplot(sumStats_rt_corr_corrected)+
+  geom_line(aes(x = as.numeric(cumIter),y = avgRT))+
+  geom_ribbon(aes(x = as.numeric(cumIter),ymin = avgRT - se, ymax = avgRT + se), inherit.aes = FALSE, alpha = ribbonAlpha)+
+  labs(x= 'stimulus iteration', y = 'avgRT_corrected (corr)')+
+  geom_vline(xintercept = c(57,89,121,153,185,217,249))+
+  theme(axis.line=element_line(),
+        panel.grid = element_blank(),
+        panel.background = element_rect(fill = "white", colour = "black")
+        ,panel.border = element_rect(fill = NA, colour = "white"),
+        strip.text = element_text(size=axisTitleSize,face="bold"), 
+        axis.title.x = element_text(size = axisTitleSize, face = 'bold'), 
+        axis.title.y = element_text(size = axisTitleSize, face = 'bold'), 
+        axis.text.x = element_text(size = axisTextSize), 
+        axis.text.y = element_text(size = axisTextSize), 
+        legend.position = "right", 
+        legend.title = element_blank(),
+        legend.text = element_text(size = axisTextSize),
+        axis.line.x.bottom=element_line(size=axisWidth), 
+        axis.line.y.left=element_line(size=axisWidth), 
+        axis.ticks = element_line(colour = axisColor, size = tickWidth), 
+        axis.ticks.length = unit(tickLength,"cm"))
+#ggsave('multiday_rt_corrected_010325.eps')
+
+ggplot(sumStats_rt_corrected)+
+  geom_line(aes(x = as.numeric(cumIter),y = avgRT))+
+  geom_ribbon(aes(x = as.numeric(cumIter),ymin = avgRT - se, ymax = avgRT + se), inherit.aes = FALSE, alpha = ribbonAlpha)+
+  labs(x= 'stimulus iteration', y = 'avgRT_corrected (all)')+
+  geom_vline(xintercept = c(57,89,121,153,185,217,249))+
+  theme(axis.line=element_line(),
+        panel.grid = element_blank(),
+        panel.background = element_rect(fill = "white", colour = "black")
+        ,panel.border = element_rect(fill = NA, colour = "white"),
+        strip.text = element_text(size=axisTitleSize,face="bold"), 
+        axis.title.x = element_text(size = axisTitleSize, face = 'bold'), 
+        axis.title.y = element_text(size = axisTitleSize, face = 'bold'), 
+        axis.text.x = element_text(size = axisTextSize), 
+        axis.text.y = element_text(size = axisTextSize), 
+        legend.position = "right", 
+        legend.title = element_blank(),
+        legend.text = element_text(size = axisTextSize),
+        axis.line.x.bottom=element_line(size=axisWidth), 
+        axis.line.y.left=element_line(size=axisWidth), 
+        axis.ticks = element_line(colour = axisColor, size = tickWidth), 
+        axis.ticks.length = unit(tickLength,"cm"))
+
+```
+
+# Path distance x Day (corrected RTs)
+```{r, echo=F, message=F, warning=F, error=T, fig.width=6, fig.height=4, fig.align='center'}
+treeDist_days_streak = rlData_withExclusions %>% filter(streak == 1, !is.na(treeDistance)) %>% group_by(subject,day, treeDistance)%>% dplyr::summarize(avgRT = mean(rt_corrected, na.rm = TRUE),medRT = median(rt_corrected_both,na.rm = TRUE))
+  
+summaryStats_treeDist_days_streak = summarySEwithin(treeDist_days_streak,measurevar="avgRT", withinvars=c("day","treeDistance"),idvar="subject", na.rm=FALSE, conf.interval=.95)
+
+ggplot(summaryStats_treeDist_days_streak, aes(x = treeDistance, y = avgRT)) + 
+  geom_bar(stat = "identity",position = "dodge")+
+  geom_errorbar(aes(ymin=avgRT-se, ymax=avgRT+se), width=.2,position=position_dodge(.9))+
+  labs(x= 'treeDistance', y = 'corrected RT')+
+  scale_y_continuous(expand = c(0,0), limits = c(0,800))+
+  theme(panel.grid = element_blank(),
+        panel.background = element_rect(fill = "white", colour = "black"),
+        panel.border = element_rect(fill = NA, colour = "white"),
+        strip.text = element_text(size=axisTitleSize), 
+        axis.title.x = element_text(size = axisTitleSize), 
+        axis.title.y = element_text(size = axisTitleSize), 
+        axis.text.x = element_text(size = axisTextSize, color = textColor), 
+        axis.text.y = element_text(size = axisTextSize, color = textColor), 
+        axis.line.x.bottom=element_line(size=axisWidth), 
+        axis.line.y.left=element_line(size=axisWidth), 
+        axis.ticks = element_line(colour = axisColor, size = tickWidth), 
+        axis.ticks.length = unit(tickLength,"cm"))+ facet_wrap(~day)
+
+summaryStats_treeDist_days_firstlast_streak = summaryStats_treeDist_days_streak %>% filter(day %in% c(1,8))
+ggplot(summaryStats_treeDist_days_firstlast_streak, aes(x = treeDistance, y = avgRT)) + 
+  geom_bar(stat = "identity",position = "dodge")+
+  geom_errorbar(aes(ymin=avgRT-se, ymax=avgRT+se), width=.2,position=position_dodge(.9))+
+  labs(x= 'treeDistance', y = 'corrected RT')+
+  scale_y_continuous(expand = c(0,0), limits = c(0,800))+
+  theme(panel.grid = element_blank(),
+        panel.background = element_rect(fill = "white", colour = "black"),
+        panel.border = element_rect(fill = NA, colour = "white"),
+        strip.text = element_text(size=axisTitleSize), 
+        axis.title.x = element_text(size = axisTitleSize), 
+        axis.title.y = element_text(size = axisTitleSize), 
+        axis.text.x = element_text(size = axisTextSize, color = textColor), 
+        axis.text.y = element_text(size = axisTextSize, color = textColor), 
+        axis.line.x.bottom=element_line(size=axisWidth), 
+        axis.line.y.left=element_line(size=axisWidth), 
+        axis.ticks = element_line(colour = axisColor, size = tickWidth), 
+        axis.ticks.length = unit(tickLength,"cm"))+ facet_wrap(~day)
+
+treeDist_days_streak_firstlast = treeDist_days_streak %>% filter(day %in% c(1,8))
+anova_test(data.frame(treeDist_days_streak_firstlast), dv = avgRT, wid = subject, within = c(day,treeDistance), effect.size = 'pes')
+
+```
+
+\newpage
+# MEM
+# MEM combined across days (streak trials only)
+```{r, echo=F, message=F, warning=F, error=T, fig.width=3.5, fig.height=3, fig.align='center'}
+#models
+#tree
+alldays_ModelData_streak = rlData_withExclusions %>% filter(streak == 1,trialNum > 3, !is.na(treeDistance), !is.na(nFeatureSwitch), !is.na(fingerDistance))
+alldays_MEM_tree_streak = lmer(rt_corrected_both ~ as.numeric(treeDistance)+(1|subject), data = alldays_ModelData_streak, na.action = na.exclude)
+summary(alldays_MEM_tree_streak)
+# flat
+alldays_MEM_flat_streak = lmer(rt_corrected_both ~ as.numeric(fingerSwitch_actual)+(1|subject), data = alldays_ModelData_streak, na.action = na.exclude)
+summary(alldays_MEM_flat_streak)
+
+# feature sw
+alldays_MEM_feature_streak = lmer(rt_corrected_both ~ as.numeric(nFeatureSwitch)+(1|subject), data = alldays_ModelData_streak, na.action = na.exclude)
+summary(alldays_MEM_feature_streak)
+
+# finger
+alldays_MEM_finger_streak = lmer(rt_corrected_both ~ as.numeric(fingerDistance)+(1|subject), data = alldays_ModelData_streak, na.action = na.exclude)
+summary(alldays_MEM_finger_streak)
+
+# interaction
+alldays_MEM_interaction = lmer(rt_corrected_both ~ as.numeric(treeDistance) + as.numeric(nFeatureSwitch) + (1|subject),data = alldays_ModelData_streak, na.action = na.exclude)
+summary(alldays_MEM_interaction)
+
+
+aic_streak_correctedRT =AIC(alldays_MEM_tree_streak,alldays_MEM_flat_streak,alldays_MEM_feature_streak,alldays_MEM_finger_streak)
+bic_streak_correctedRT =BIC(alldays_MEM_tree_streak,alldays_MEM_flat_streak,alldays_MEM_feature_streak,alldays_MEM_finger_streak)
+
+aic_streak_correctedRT$model = c("tree","flat","feature","finger")
+bic_streak_correctedRT$model = c("tree","flat","feature","finger")
+
+ggplot(aic_streak_correctedRT,aes(x = model, y = AIC)) + geom_bar(stat = "identity")
+ggplot(bic_streak_correctedRT,aes(x = model, y = BIC)) + geom_bar(stat = "identity")
+```
+# DAY 1 (streak trials only)
+```{r, echo=F, message=F, warning=F, error=T, fig.width=2, fig.height=2, fig.align='center'}
+#models - corrected RT
+#tree
+ModelData_streak_one = rlData_withExclusions %>% filter(day == 1,streak == 1,trialNum > 3, !is.na(treeDistance), !is.na(nFeatureSwitch), !is.na(fingerDistance))
+MEM_tree_streak_one = lmer(rt_corrected_both ~ treeDistance+(1|subject), data = ModelData_streak_one, na.action = na.exclude)
+# flat
+MEM_flat_streak_one = lmer(rt_corrected_both ~ fingerSwitch_actual+(1|subject), data = ModelData_streak_one, na.action = na.exclude)
+# feature sw
+MEM_feature_streak_one = lmer(rt_corrected_both ~ nFeatureSwitch+(1|subject), data = ModelData_streak_one, na.action = na.exclude)
+# finger
+MEM_finger_streak_one = lmer(rt_corrected_both ~ fingerDistance+(1|subject), data = ModelData_streak_one, na.action = na.exclude)
+# neighbor
+MEM_neighbor_streak_one = lmer(rt_corrected_both ~ neighbor+(1|subject), data = ModelData_streak_one, na.action = na.exclude)
+
+AIC(MEM_tree_streak_one,MEM_flat_streak_one,MEM_feature_streak_one,MEM_finger_streak_one,MEM_neighbor_streak_one)
+BIC(MEM_tree_streak_one,MEM_flat_streak_one,MEM_feature_streak_one,MEM_finger_streak_one,MEM_neighbor_streak_one)
+
+hierDyn_BIC_one = BIC(MEM_tree_streak_one,MEM_flat_streak_one,MEM_feature_streak_one,MEM_finger_streak_one,MEM_neighbor_streak_one)
+hierDyn_BIC_one$delta = hierDyn_BIC_one$BIC-hierDyn_BIC_one$BIC[1]
+hierDyn_BIC_one$model = c('tree','flat','feature','finger', 'neighbor')
+hierDyn_BIC_one_trim = hierDyn_BIC_one %>% filter(model != 'tree')
+
+ggplot(hierDyn_BIC_one_trim, aes(x = NA, y = delta, color = model))+geom_point()+
+  geom_hline(yintercept = 0)+
+   scale_y_continuous(expand = c(0,0), limits = c(-50, 550))+
+  theme(panel.grid = element_blank(),legend.position = 'none',
+        panel.background = element_rect(fill = "white", colour = "black"),
+        panel.border = element_rect(fill = NA, colour = "white"),
+        strip.text = element_text(size=axisTitleSize), 
+        axis.title.x = element_text(size = axisTitleSize), 
+        axis.title.y = element_text(size = axisTitleSize), 
+        axis.text.x = element_text(size = axisTextSize, color = textColor), 
+        axis.text.y = element_text(size = axisTextSize, color = textColor), 
+        axis.line.x.bottom=element_line(size=axisWidth), 
+        axis.line.y.left=element_line(size=axisWidth), 
+        axis.ticks = element_line(colour = axisColor, size = tickWidth), 
+        axis.ticks.length = unit(tickLength,"cm"),
+        legend.title = element_text(size = axisTextSize),
+        legend.text = element_text(size = axisTextSize))
+#ggsave('multiday_BIC_delta_one_randomscale.eps')
+
+ggplot(hierDyn_BIC_one, aes(x = NA, y = BIC, color = model))+geom_point()+
+   scale_y_continuous()+
+  theme(panel.grid = element_blank(),legend.position = 'none',
+        panel.background = element_rect(fill = "white", colour = "black"),
+        panel.border = element_rect(fill = NA, colour = "white"),
+        strip.text = element_text(size=axisTitleSize), 
+        axis.title.x = element_text(size = axisTitleSize), 
+        axis.title.y = element_text(size = axisTitleSize), 
+        axis.text.x = element_text(size = axisTextSize, color = textColor), 
+        axis.text.y = element_text(size = axisTextSize, color = textColor), 
+        axis.line.x.bottom=element_line(size=axisWidth), 
+        axis.line.y.left=element_line(size=axisWidth), 
+        axis.ticks = element_line(colour = axisColor, size = tickWidth), 
+        axis.ticks.length = unit(tickLength,"cm"),
+        legend.title = element_text(size = axisTextSize),
+        legend.text = element_text(size = axisTextSize))
+#ggsave('multiday_BIC_MEM_1.eps')
+```
+# DAY 8 (streak trials only)
+```{r, echo=F, message=F, warning=F, error=T, fig.width=2, fig.height=2, fig.align='center'}
+#models - corrected RT
+#tree
+ModelData_streak_eight = rlData_withExclusions %>% filter(day == 8,streak == 1,trialNum > 3, !is.na(treeDistance), !is.na(nFeatureSwitch), !is.na(fingerDistance))
+MEM_tree_streak_eight = lmer(rt_corrected_both ~ treeDistance+(1|subject), data = ModelData_streak_eight, na.action = na.exclude)
+# flat
+MEM_flat_streak_eight = lmer(rt_corrected_both ~ fingerSwitch_actual+(1|subject), data = ModelData_streak_eight, na.action = na.exclude)
+# feature sw
+MEM_feature_streak_eight = lmer(rt_corrected_both ~ nFeatureSwitch+(1|subject), data = ModelData_streak_eight, na.action = na.exclude)
+# finger
+MEM_finger_streak_eight = lmer(rt_corrected_both ~ fingerDistance+(1|subject), data = ModelData_streak_eight, na.action = na.exclude)
+# neighbor
+MEM_neighbor_streak_eight = lmer(rt_corrected_both ~ neighbor+(1|subject), data = ModelData_streak_eight, na.action = na.exclude)
+# interaction
+MEM_interaction_eight = lmer(rt_corrected_both ~ treeDistance + nFeatureSwitch + (1|subject),data = ModelData_streak_eight, na.action = na.exclude)
+BIC(MEM_interaction_eight)
+AIC(MEM_tree_streak_eight,MEM_flat_streak_eight,MEM_feature_streak_eight,MEM_finger_streak_eight,MEM_neighbor_streak_eight)
+BIC(MEM_tree_streak_eight,MEM_flat_streak_eight,MEM_feature_streak_eight,MEM_finger_streak_eight,MEM_neighbor_streak_eight)
+
+hierDyn_BIC_eight = BIC(MEM_tree_streak_eight,MEM_flat_streak_eight,MEM_feature_streak_eight,MEM_finger_streak_eight,MEM_neighbor_streak_eight)
+hierDyn_BIC_eight$delta = hierDyn_BIC_eight$BIC-hierDyn_BIC_eight$BIC[1]
+hierDyn_BIC_eight$model = c('tree','flat','feature','finger','neighbor')
+hierDyn_BIC_eight_trim = hierDyn_BIC_eight %>% filter(model != 'tree')
+
+ggplot(hierDyn_BIC_eight_trim, aes(x = NA, y = delta, color = model))+geom_point()+
+  geom_hline(yintercept = 0)+
+   scale_y_continuous(expand = c(0,0), limits = c(-50, 250))+
+  theme(panel.grid = element_blank(),legend.position = 'neight',
+        panel.background = element_rect(fill = "white", colour = "black"),
+        panel.border = element_rect(fill = NA, colour = "white"),
+        strip.text = element_text(size=axisTitleSize), 
+        axis.title.x = element_text(size = axisTitleSize), 
+        axis.title.y = element_text(size = axisTitleSize), 
+        axis.text.x = element_text(size = axisTextSize, color = textColor), 
+        axis.text.y = element_text(size = axisTextSize, color = textColor), 
+        axis.line.x.bottom=element_line(size=axisWidth), 
+        axis.line.y.left=element_line(size=axisWidth), 
+        axis.ticks = element_line(colour = axisColor, size = tickWidth), 
+        axis.ticks.length = unit(tickLength,"cm"),
+        legend.title = element_text(size = axisTextSize),
+        legend.text = element_text(size = axisTextSize))
+#ggsave('mulitday_BIC_delta_eight_randomscale.eps')
+ggplot(hierDyn_BIC_eight, aes(x = NA, y = BIC, color = model))+geom_point()+
+  theme(panel.grid = element_blank(),legend.position = 'neight',
+        panel.background = element_rect(fill = "white", colour = "black"),
+        panel.border = element_rect(fill = NA, colour = "white"),
+        strip.text = element_text(size=axisTitleSize), 
+        axis.title.x = element_text(size = axisTitleSize), 
+        axis.title.y = element_text(size = axisTitleSize), 
+        axis.text.x = element_text(size = axisTextSize, color = textColor), 
+        axis.text.y = element_text(size = axisTextSize, color = textColor), 
+        axis.line.x.bottom=element_line(size=axisWidth), 
+        axis.line.y.left=element_line(size=axisWidth), 
+        axis.ticks = element_line(colour = axisColor, size = tickWidth), 
+        axis.ticks.length = unit(tickLength,"cm"),
+        legend.title = element_text(size = axisTextSize),
+        legend.text = element_text(size = axisTextSize))
+#ggsave('hierDyn_BIC_point_randomscale.eps')
+```
+# DAY 2-7 (streak trials only)
+```{r, echo=F, message=F, warning=F, error=T, fig.width=2, fig.height=2, fig.align='center'}
+#models - corrected RT
+# TWO
+#tree
+ModelData_corr_two = rlData_withExclusions %>% filter(day == 2,streak ==  1,trialNum > 3, !is.na(treeDistance), !is.na(nFeatureSwitch), !is.na(fingerDistance))
+MEM_tree_corr_two = lmer(rt_corrected_both ~ treeDistance+(1|subject), data = ModelData_corr_two, na.action = na.exclude)
+# flat
+MEM_flat_corr_two = lmer(rt_corrected_both ~ fingerSwitch_actual+(1|subject), data = ModelData_corr_two, na.action = na.exclude)
+# feature sw
+MEM_feature_corr_two = lmer(rt_corrected_both ~ nFeatureSwitch+(1|subject), data = ModelData_corr_two, na.action = na.exclude)
+# finger
+MEM_finger_corr_two = lmer(rt_corrected_both ~ fingerDistance+(1|subject), data = ModelData_corr_two, na.action = na.exclude)
+# neighbor
+MEM_neighbor_corr_two = lmer(rt_corrected_both ~ neighbor+(1|subject), data = ModelData_corr_two, na.action = na.exclude)
+
+# interaction
+MEM_interaction_two = lmer(rt_corrected_both ~ treeDistance + nFeatureSwitch + (1|subject),data = ModelData_corr_two, na.action = na.exclude)
+BIC(MEM_interaction_two)
+AIC(MEM_tree_corr_two,MEM_flat_corr_two,MEM_feature_corr_two,MEM_finger_corr_two,MEM_neighbor_corr_two)
+BIC(MEM_tree_corr_two,MEM_flat_corr_two,MEM_feature_corr_two,MEM_finger_corr_two,MEM_neighbor_corr_two)
+
+multiday_BIC_two = BIC(MEM_tree_corr_two,MEM_flat_corr_two,MEM_feature_corr_two,MEM_finger_corr_two,MEM_neighbor_corr_two)
+multiday_BIC_two$delta = multiday_BIC_two$BIC-multiday_BIC_two$BIC[1]
+multiday_BIC_two$model = c('tree','flat','feature','finger', 'neighbor')
+multiday_BIC_two_trim = multiday_BIC_two %>% filter(model != 'tree')
+
+ggplot(multiday_BIC_two_trim, aes(x = NA, y = delta, color = model))+geom_point()+
+  geom_hline(yintercept = 0)+
+   scale_y_continuous(expand = c(0,0), limits = c(-25, 225))+
+  theme(panel.grid = element_blank(),legend.position = 'ntwo',
+        panel.background = element_rect(fill = "white", colour = "black"),
+        panel.border = element_rect(fill = NA, colour = "white"),
+        strip.text = element_text(size=axisTitleSize), 
+        axis.title.x = element_text(size = axisTitleSize), 
+        axis.title.y = element_text(size = axisTitleSize), 
+        axis.text.x = element_text(size = axisTextSize, color = textColor), 
+        axis.text.y = element_text(size = axisTextSize, color = textColor), 
+        axis.line.x.bottom=element_line(size=axisWidth), 
+        axis.line.y.left=element_line(size=axisWidth), 
+        axis.ticks = element_line(colour = axisColor, size = tickWidth), 
+        axis.ticks.length = unit(tickLength,"cm"),
+        legend.title = element_text(size = axisTextSize),
+        legend.text = element_text(size = axisTextSize))
+#ggsave('multiday_BIC_delta_two_randomscale.eps')
+
+#THREE
+#tree
+ModelData_corr_three = rlData_withExclusions %>% filter(day == 3,streak ==  1,trialNum > 3, !is.na(treeDistance), !is.na(nFeatureSwitch), !is.na(fingerDistance))
+MEM_tree_corr_three = lmer(rt_corrected_both ~ treeDistance+(1|subject), data = ModelData_corr_three, na.action = na.exclude)
+# flat
+MEM_flat_corr_three = lmer(rt_corrected_both ~ fingerSwitch_actual+(1|subject), data = ModelData_corr_three, na.action = na.exclude)
+# feature sw
+MEM_feature_corr_three = lmer(rt_corrected_both ~ nFeatureSwitch+(1|subject), data = ModelData_corr_three, na.action = na.exclude)
+# finger
+MEM_finger_corr_three = lmer(rt_corrected_both ~ fingerDistance+(1|subject), data = ModelData_corr_three, na.action = na.exclude)
+# neighbor
+MEM_neighbor_corr_three = lmer(rt_corrected_both ~ neighbor+(1|subject), data = ModelData_corr_three, na.action = na.exclude)
+# interaction
+MEM_interaction_three = lmer(rt_corrected_both ~ treeDistance + nFeatureSwitch + (1|subject),data = ModelData_corr_three, na.action = na.exclude)
+BIC(MEM_interaction_three)
+AIC(MEM_tree_corr_three,MEM_flat_corr_three,MEM_feature_corr_three,MEM_finger_corr_three)
+BIC(MEM_tree_corr_three,MEM_flat_corr_three,MEM_feature_corr_three,MEM_finger_corr_three,MEM_neighbor_corr_three)
+multiday_BIC_three = BIC(MEM_tree_corr_three,MEM_flat_corr_three,MEM_feature_corr_three,MEM_finger_corr_three,MEM_neighbor_corr_three)
+multiday_BIC_three$delta = multiday_BIC_three$BIC-multiday_BIC_three$BIC[1]
+multiday_BIC_three$model = c('tree','flat','feature','finger', 'neighbor')
+multiday_BIC_three_trim = multiday_BIC_three %>% filter(model != 'tree')
+
+ggplot(multiday_BIC_three_trim, aes(x = NA, y = delta, color = model))+geom_point()+
+  geom_hline(yintercept = 0)+
+   scale_y_continuous(expand = c(0,0), limits = c(-25, 235))+
+  theme(panel.grid = element_blank(),legend.position = 'n',
+        panel.background = element_rect(fill = "white", colour = "black"),
+        panel.border = element_rect(fill = NA, colour = "white"),
+        strip.text = element_text(size=axisTitleSize), 
+        axis.title.x = element_text(size = axisTitleSize), 
+        axis.title.y = element_text(size = axisTitleSize), 
+        axis.text.x = element_text(size = axisTextSize, color = textColor), 
+        axis.text.y = element_text(size = axisTextSize, color = textColor), 
+        axis.line.x.bottom=element_line(size=axisWidth), 
+        axis.line.y.left=element_line(size=axisWidth), 
+        axis.ticks = element_line(colour = axisColor, size = tickWidth), 
+        axis.ticks.length = unit(tickLength,"cm"),
+        legend.title = element_text(size = axisTextSize),
+        legend.text = element_text(size = axisTextSize))
+#ggsave('multiday_BIC_delta_three_randomscale.eps')
+
+#FOUR
+#tree
+ModelData_corr_four = rlData_withExclusions %>% filter(day == 4,streak ==  1,trialNum > 3, !is.na(treeDistance), !is.na(nFeatureSwitch), !is.na(fingerDistance))
+MEM_tree_corr_four = lmer(rt_corrected_both ~ treeDistance+(1|subject), data = ModelData_corr_four, na.action = na.exclude)
+# flat
+MEM_flat_corr_four = lmer(rt_corrected_both ~ fingerSwitch_actual+(1|subject), data = ModelData_corr_four, na.action = na.exclude)
+# feature sw
+MEM_feature_corr_four = lmer(rt_corrected_both ~ nFeatureSwitch+(1|subject), data = ModelData_corr_four, na.action = na.exclude)
+# finger
+MEM_finger_corr_four = lmer(rt_corrected_both ~ fingerDistance+(1|subject), data = ModelData_corr_four, na.action = na.exclude)
+# neighbor
+MEM_neighbor_corr_four = lmer(rt_corrected_both ~ neighbor+(1|subject), data = ModelData_corr_four, na.action = na.exclude)
+# interaction
+MEM_interaction_four = lmer(rt_corrected_both ~ treeDistance + nFeatureSwitch + (1|subject),data = ModelData_corr_four, na.action = na.exclude)
+BIC(MEM_interaction_four)
+AIC(MEM_tree_corr_four,MEM_flat_corr_four,MEM_feature_corr_four,MEM_finger_corr_four)
+BIC(MEM_tree_corr_four,MEM_flat_corr_four,MEM_feature_corr_four,MEM_finger_corr_four,MEM_neighbor_corr_four)
+multiday_BIC_four = BIC(MEM_tree_corr_four,MEM_flat_corr_four,MEM_feature_corr_four,MEM_finger_corr_four,MEM_neighbor_corr_four)
+multiday_BIC_four$delta = multiday_BIC_four$BIC-multiday_BIC_four$BIC[1]
+multiday_BIC_four$model = c('tree','flat','feature','finger', 'neighbor')
+multiday_BIC_four_trim = multiday_BIC_four %>% filter(model != 'tree')
+
+ggplot(multiday_BIC_four_trim, aes(x = NA, y = delta, color = model))+geom_point()+
+  geom_hline(yintercept = 0)+
+   scale_y_continuous(expand = c(0,0), limits = c(-25, 200))+
+  theme(panel.grid = element_blank(),legend.position = 'n',
+        panel.background = element_rect(fill = "white", colour = "black"),
+        panel.border = element_rect(fill = NA, colour = "white"),
+        strip.text = element_text(size=axisTitleSize), 
+        axis.title.x = element_text(size = axisTitleSize), 
+        axis.title.y = element_text(size = axisTitleSize), 
+        axis.text.x = element_text(size = axisTextSize, color = textColor), 
+        axis.text.y = element_text(size = axisTextSize, color = textColor), 
+        axis.line.x.bottom=element_line(size=axisWidth), 
+        axis.line.y.left=element_line(size=axisWidth), 
+        axis.ticks = element_line(colour = axisColor, size = tickWidth), 
+        axis.ticks.length = unit(tickLength,"cm"),
+        legend.title = element_text(size = axisTextSize),
+        legend.text = element_text(size = axisTextSize))
+#ggsave('multiday_BIC_delta_four_randomscale.eps')
+
+#FIVE
+#tree
+ModelData_corr_five = rlData_withExclusions %>% filter(day == 5,streak ==  1,trialNum > 3, !is.na(treeDistance), !is.na(nFeatureSwitch), !is.na(fingerDistance))
+MEM_tree_corr_five = lmer(rt_corrected_both ~ treeDistance+(1|subject), data = ModelData_corr_five, na.action = na.exclude)
+# flat
+MEM_flat_corr_five = lmer(rt_corrected_both ~ fingerSwitch_actual+(1|subject), data = ModelData_corr_five, na.action = na.exclude)
+# feature sw
+MEM_feature_corr_five = lmer(rt_corrected_both ~ nFeatureSwitch+(1|subject), data = ModelData_corr_five, na.action = na.exclude)
+# finger
+MEM_finger_corr_five = lmer(rt_corrected_both ~ fingerDistance+(1|subject), data = ModelData_corr_five, na.action = na.exclude)
+# neighbor
+MEM_neighbor_corr_five = lmer(rt_corrected_both ~ neighbor+(1|subject), data = ModelData_corr_five, na.action = na.exclude)
+# interaction
+MEM_interaction_five = lmer(rt_corrected_both ~ treeDistance + nFeatureSwitch + (1|subject),data = ModelData_corr_five, na.action = na.exclude)
+BIC(MEM_interaction_five)
+AIC(MEM_tree_corr_five,MEM_flat_corr_five,MEM_feature_corr_five,MEM_finger_corr_five)
+BIC(MEM_tree_corr_five,MEM_flat_corr_five,MEM_feature_corr_five,MEM_finger_corr_five,MEM_neighbor_corr_five)
+multiday_BIC_five = BIC(MEM_tree_corr_five,MEM_flat_corr_five,MEM_feature_corr_five,MEM_finger_corr_five,MEM_neighbor_corr_five)
+multiday_BIC_five$delta = multiday_BIC_five$BIC-multiday_BIC_five$BIC[1]
+multiday_BIC_five$model = c('tree','flat','feature','finger', 'neighbor')
+multiday_BIC_five_trim = multiday_BIC_five %>% filter(model != 'tree')
+
+ggplot(multiday_BIC_five_trim, aes(x = NA, y = delta, color = model))+geom_point()+
+  geom_hline(yintercept = 0)+
+   scale_y_continuous(expand = c(0,0), limits = c(-25, 200))+
+  theme(panel.grid = element_blank(),legend.position = 'n',
+        panel.background = element_rect(fill = "white", colour = "black"),
+        panel.border = element_rect(fill = NA, colour = "white"),
+        strip.text = element_text(size=axisTitleSize), 
+        axis.title.x = element_text(size = axisTitleSize), 
+        axis.title.y = element_text(size = axisTitleSize), 
+        axis.text.x = element_text(size = axisTextSize, color = textColor), 
+        axis.text.y = element_text(size = axisTextSize, color = textColor), 
+        axis.line.x.bottom=element_line(size=axisWidth), 
+        axis.line.y.left=element_line(size=axisWidth), 
+        axis.ticks = element_line(colour = axisColor, size = tickWidth), 
+        axis.ticks.length = unit(tickLength,"cm"),
+        legend.title = element_text(size = axisTextSize),
+        legend.text = element_text(size = axisTextSize))
+#ggsave('multiday_BIC_delta_five_randomscale.eps')
+
+#SIX
+#tree
+ModelData_corr_six = rlData_withExclusions %>% filter(day == 6,streak ==  1,trialNum > 3, !is.na(treeDistance), !is.na(nFeatureSwitch), !is.na(fingerDistance))
+MEM_tree_corr_six = lmer(rt_corrected_both ~ treeDistance+(1|subject), data = ModelData_corr_six, na.action = na.exclude)
+# flat
+MEM_flat_corr_six = lmer(rt_corrected_both ~ fingerSwitch_actual+(1|subject), data = ModelData_corr_six, na.action = na.exclude)
+# feature sw
+MEM_feature_corr_six = lmer(rt_corrected_both ~ nFeatureSwitch+(1|subject), data = ModelData_corr_six, na.action = na.exclude)
+# finger
+MEM_finger_corr_six = lmer(rt_corrected_both ~ fingerDistance+(1|subject), data = ModelData_corr_six, na.action = na.exclude)
+# neighbor
+MEM_neighbor_corr_six = lmer(rt_corrected_both ~ neighbor+(1|subject), data = ModelData_corr_six, na.action = na.exclude)
+# interaction
+MEM_interaction_six = lmer(rt_corrected_both ~ treeDistance + nFeatureSwitch + (1|subject),data = ModelData_corr_six, na.action = na.exclude)
+BIC(MEM_interaction_six)
+AIC(MEM_tree_corr_six,MEM_flat_corr_six,MEM_feature_corr_six,MEM_finger_corr_six)
+BIC(MEM_tree_corr_six,MEM_flat_corr_six,MEM_feature_corr_six,MEM_finger_corr_six,MEM_neighbor_corr_six)
+multiday_BIC_six = BIC(MEM_tree_corr_six,MEM_flat_corr_six,MEM_feature_corr_six,MEM_finger_corr_six,MEM_neighbor_corr_six)
+multiday_BIC_six$delta = multiday_BIC_six$BIC-multiday_BIC_six$BIC[1]
+multiday_BIC_six$model = c('tree','flat','feature','finger', 'neighbor')
+multiday_BIC_six_trim = multiday_BIC_six %>% filter(model != 'tree')
+
+ggplot(multiday_BIC_six_trim, aes(x = NA, y = delta, color = model))+geom_point()+
+  geom_hline(yintercept = 0)+
+   scale_y_continuous(expand = c(0,0), limits = c(-25, 200))+
+  theme(panel.grid = element_blank(),legend.position = 'n',
+        panel.background = element_rect(fill = "white", colour = "black"),
+        panel.border = element_rect(fill = NA, colour = "white"),
+        strip.text = element_text(size=axisTitleSize), 
+        axis.title.x = element_text(size = axisTitleSize), 
+        axis.title.y = element_text(size = axisTitleSize), 
+        axis.text.x = element_text(size = axisTextSize, color = textColor), 
+        axis.text.y = element_text(size = axisTextSize, color = textColor), 
+        axis.line.x.bottom=element_line(size=axisWidth), 
+        axis.line.y.left=element_line(size=axisWidth), 
+        axis.ticks = element_line(colour = axisColor, size = tickWidth), 
+        axis.ticks.length = unit(tickLength,"cm"),
+        legend.title = element_text(size = axisTextSize),
+        legend.text = element_text(size = axisTextSize))
+#ggsave('multiday_BIC_delta_six_randomscale.eps')
+
+#SEVEN
+#tree
+ModelData_corr_seven = rlData_withExclusions %>% filter(day == 7,streak ==  1,trialNum > 3, !is.na(treeDistance), !is.na(nFeatureSwitch), !is.na(fingerDistance))
+MEM_tree_corr_seven = lmer(rt_corrected_both ~ treeDistance+(1|subject), data = ModelData_corr_seven, na.action = na.exclude)
+# flat
+MEM_flat_corr_seven = lmer(rt_corrected_both ~ fingerSwitch_actual+(1|subject), data = ModelData_corr_seven, na.action = na.exclude)
+# feature sw
+MEM_feature_corr_seven = lmer(rt_corrected_both ~ nFeatureSwitch+(1|subject), data = ModelData_corr_seven, na.action = na.exclude)
+# finger
+MEM_finger_corr_seven = lmer(rt_corrected_both ~ fingerDistance+(1|subject), data = ModelData_corr_seven, na.action = na.exclude)
+# neighbor
+MEM_neighbor_corr_seven = lmer(rt_corrected_both ~ neighbor+(1|subject), data = ModelData_corr_seven, na.action = na.exclude)
+# interaction
+MEM_interaction_seven = lmer(rt_corrected_both ~ treeDistance + nFeatureSwitch + (1|subject),data = ModelData_corr_seven, na.action = na.exclude)
+BIC(MEM_interaction_seven)
+AIC(MEM_tree_corr_seven,MEM_flat_corr_seven,MEM_feature_corr_seven,MEM_finger_corr_seven)
+BIC(MEM_tree_corr_seven,MEM_flat_corr_seven,MEM_feature_corr_seven,MEM_finger_corr_seven,MEM_neighbor_corr_seven)
+multiday_BIC_seven = BIC(MEM_tree_corr_seven,MEM_flat_corr_seven,MEM_feature_corr_seven,MEM_finger_corr_seven,MEM_neighbor_corr_seven)
+multiday_BIC_seven$delta = multiday_BIC_seven$BIC-multiday_BIC_seven$BIC[1]
+multiday_BIC_seven$model = c('tree','flat','feature','finger', 'neighbor')
+multiday_BIC_seven_trim = multiday_BIC_seven %>% filter(model != 'tree')
+
+ggplot(multiday_BIC_seven_trim, aes(x = NA, y = delta, color = model))+geom_point()+
+  geom_hline(yintercept = 0)+
+   scale_y_continuous(expand = c(0,0), limits = c(-25, 200))+
+  theme(panel.grid = element_blank(),legend.position = 'n',
+        panel.background = element_rect(fill = "white", colour = "black"),
+        panel.border = element_rect(fill = NA, colour = "white"),
+        strip.text = element_text(size=axisTitleSize), 
+        axis.title.x = element_text(size = axisTitleSize), 
+        axis.title.y = element_text(size = axisTitleSize), 
+        axis.text.x = element_text(size = axisTextSize, color = textColor), 
+        axis.text.y = element_text(size = axisTextSize, color = textColor), 
+        axis.line.x.bottom=element_line(size=axisWidth), 
+        axis.line.y.left=element_line(size=axisWidth), 
+        axis.ticks = element_line(colour = axisColor, size = tickWidth), 
+        axis.ticks.length = unit(tickLength,"cm"),
+        legend.title = element_text(size = axisTextSize),
+        legend.text = element_text(size = axisTextSize))
+#ggsave('multiday_BIC_delta_seven_randomscale.eps')
+```

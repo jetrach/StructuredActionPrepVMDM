@@ -1,0 +1,1775 @@
+---
+title: "Experiments 1-3 analysis code"
+author: "Juliana E Trach"
+date: "`r Sys.Date()`"
+output: html_document
+---
+\newpage
+# Abstract
+Analysis code for Experiments 1-3 (and Structure control) of "Structured action preparation during visuomotor decision-making." This script loads in data from usable participants in each experiment, concatenates all data frames, and runs main analyses. 
+
+\newpage
+```{r, echo=F, message=F, warning=F, error=T, fig.width=6, fig.height=4, fig.align='center'}
+# set up workspace
+rm(list=ls(all=TRUE))
+# set WD where data is
+setwd("~/Documents/GitHub/StructuredActionPrepVMDM")
+datadir = "~/Documents/GitHub/StructuredActionPrepVMDM/compiledData/"
+# load libraries
+library(ggplot2)
+library(gridExtra)
+library(ggpubr)
+library(reshape2)
+library(dplyr)
+library(tidyr)
+library(tidyverse)
+library(itsadug)
+library(RColorBrewer)
+library(knitr)
+library(extrafont)
+library(fs)
+library(fabricatr)
+library(Rmisc)
+library(lme4)
+library(lmerTest)
+library(rstatix)
+library(MuMIn)
+library(factoextra)
+library(cluster)
+library(effsize)
+library(ggdendro)
+
+####### READ IN RL DATA FOR EACH TASK #########
+
+# set up the column order for all data frames
+colOrder = c('rt',	'subject',	'prolificID',	'trialType',	'key_press',	'corrresp',	'phase',	'stimNum',	'trialNum',	'corr',	'hierarchy',	'corrrespAll',	'finger_press',	'iter',	'zscoredRTs',	'logRTs',	'hand',	'couplet',	'handSwitch',	'coupletSwitch',	'fingerSwitch',	'handSwitch_actual',	'coupletSwitch_actual',	'fingerSwitch_actual',	'respHand',	'respCouplet',	'corrHand',	'corrCouplet',	'combinedType',	'treeDistance', 'includeStrict',	'fingerDistance',	'corrrespAll_prev',	'finger_press_prev',	'nFeatureSwitch',	'topType',	'midType',	'lowType',	'rt_corrected_both',	'rt_corrected', 'rt_corrected_both_z', 'streak', 'expt', 'struct')
+
+## STUDY 1 ### SONA HIERLEARN
+sonaHL = read_csv(file = '~/Documents/GitHub/StructuredActionPrepVMDM/compiledData/Experiment1.csv')
+sonaHL = subset(sonaHL, select = -c(time_elapsed, responses, question_order, stim, repeatTrial,motorSwitch, pracCounter,demoID,medRT_corrected, medRT_corrected_both,rt_strict_corrected,medRT_strict_corrected,longStreak) )
+sonaHL <- sonaHL[ -c(1) ]
+sonaHL$rt_corrected_both_z = NA
+sonaHL$expt = 'B_sonaHL'
+sonaHL$struct = 'hier'
+#fill columns that should be filled
+zscored = sonaHL%>% group_by(subject) %>% dplyr::summarize(z = scale(rt_corrected))
+sonaHL$rt_corrected_both_z = zscored$z
+#order cols
+sonaHL = sonaHL[,colOrder]
+subjNums_sonaHL = unique(sonaHL$subject)
+
+
+## STUDY 3 ### 1D FLATLEARN 
+oneDFL = read_csv(file = '~/Documents/GitHub/StructuredActionPrepVMDM/compiledData/Experiment3.csv')
+oneDFL = subset(oneDFL, select = -c(time_elapsed, responses, question_order, stim, repeatTrial,motorSwitch, pracCounter,demoID, medRT_corrected,medRT_corrected_both,longStreak) )
+oneDFL <- oneDFL[ -c(1) ]
+oneDFL$includeStrict = NA  #stay NA
+oneDFL$rt_corrected_both_z = NA
+oneDFL$hierarchy = NA
+oneDFL$hierarchy = oneDFL$type
+oneDFL$treeDistance = NA
+oneDFL$treeDistance[oneDFL$coupletSwitch_actual == 0&oneDFL$handSwitch_actual == 0] = 2
+oneDFL$treeDistance[oneDFL$coupletSwitch_actual == 0&oneDFL$handSwitch_actual == 1] = 6
+oneDFL$treeDistance[oneDFL$coupletSwitch_actual == 1&oneDFL$handSwitch_actual == 0] =4
+oneDFL$treeDistance[oneDFL$coupletSwitch_actual == 1&oneDFL$handSwitch_actual == 1] = 6
+oneDFL$treeDistance[oneDFL$fingerSwitch_actual == 0] = 0
+oneDFL$treeDistance[oneDFL$trialNum == 1] = NA
+oneDFL$expt = 'C_oneDFL'
+oneDFL$struct = 'flat'
+
+#fill columns that should be filled
+zscored = oneDFL%>% group_by(subject) %>% dplyr::summarize(z = scale(rt_corrected))
+oneDFL$rt_corrected_both_z = zscored$z
+#order cols
+oneDFL = oneDFL[,colOrder]
+subjNums_oneDFL = unique(oneDFL$subject)
+
+## STUDY 4 ### 3D FLATLEARN
+threeDFL = read_csv(file = '~/Documents/GitHub/StructuredActionPrepVMDM/compiledData/Experiment4.csv')
+threeDFL = subset(threeDFL, select = -c(time_elapsed, responses, stim, repeatTrial,motorSwitch, pracCounter,demoID,rt_strict_corrected) )
+threeDFL <- threeDFL[ -c(1) ]
+threeDFL$rt_corrected = NA
+threeDFL$rt_corrected = threeDFL$rt_corrected_both
+threeDFL$rt_corrected_both_z = NA
+threeDFL$expt = 'D_threeDFL'
+threeDFL$struct = 'flat'
+#fill columns that should be filled
+zscored = threeDFL%>% group_by(subject) %>% dplyr::summarize(z = scale(rt_corrected))
+threeDFL$rt_corrected_both_z = zscored$z
+
+#order cols
+threeDFL = threeDFL[,colOrder]
+subjNums_threeDFL = unique(threeDFL$subject)
+
+## STUDY 2 ### FINGERSPACE HIERLEARN
+fingerHL = read_csv(file = '~/Documents/GitHub/StructuredActionPrepVMDM/compiledData/Experiment2.csv')
+fingerHL = subset(fingerHL, select = -c(time_elapsed, responses, repeatTrial,motorSwitch, pracCounter,demoID,stimulus,medRT_corrected_both,rt_strict_corrected,medRT_strict_corrected,longStreak) )
+fingerHL <- fingerHL[ -c(1) ]
+fingerHL$rt_corrected = NA
+fingerHL$rt_corrected = fingerHL$rt_corrected_both
+fingerHL$expt = 'E_fingerHL'
+fingerHL$struct = 'hier'
+#order cols
+fingerHL = fingerHL[,colOrder]
+subjNums_fingerHL = unique(fingerHL$subject)
+
+################################
+# bind the data frames together
+compiledData = rbind(sonaHL, oneDFL, threeDFL,fingerHL)
+
+# add transition type column
+compiledData$transitionType = NA
+typeCounter = 0
+for(ai in 1:max(compiledData$finger_press_prev, na.rm = TRUE)){
+  for(bi in ai:max(compiledData$finger_press, na.rm = TRUE)){
+    typeCounter = typeCounter+1
+    compiledData$transitionType[compiledData$finger_press_prev == ai & compiledData$finger_press == bi] = typeCounter
+    compiledData$transitionType[compiledData$finger_press_prev == bi & compiledData$finger_press == ai] = typeCounter
+  }
+  }
+compiledData$transitionType[compiledData$trialNum == 1] = NA
+
+# CORRECT THE ZSCORE COLUMN
+compiledData$rt_corrected_both_z= NA
+compiledData = compiledData %>% group_by(subject) %>% mutate(rt_corrected_both_z = scale(rt_corrected_both))
+subjNums_all = unique(compiledData$subject)
+
+
+
+######## set up motor arrays ########
+# set up the column order for all data frames
+colOrder_motor = c('rt',	'subject',	'prolificID',	'trialType',	'key_press',	'corrresp',	'phase',	'stimNum',	'trialNum',	'corr',	'hierarchy',	'corrrespAll',	'finger_press',		'zscoredRTs',	'logRTs',	'hand',	'couplet',	'handSwitch',	'coupletSwitch',	'fingerSwitch',	'handSwitch_actual',	'coupletSwitch_actual',	'fingerSwitch_actual',	'respHand',	'respCouplet',	'corrHand',	'corrCouplet',	'combinedType',	'treeDistance',	'fingerDistance',	'corrrespAll_prev',	'finger_press_prev',	'nFeatureSwitch','expt', 'struct')
+
+
+## STUDY 1 ###
+sonaHL_motor = read_csv(file = '~/Documents/GitHub/StructuredActionPrepVMDM/compiledData/motorData_Experiment1.csv')
+sonaHL_motor = subset(sonaHL_motor, select = -c(time_elapsed, responses, question_order, stim, repeatTrial,motorSwitch, pracCounter,demoID,rtStrict,iter) )
+sonaHL_motor <- sonaHL_motor[ -c(1) ]
+sonaHL_motor$expt = 'B_sonaHL'
+sonaHL_motor$struct = 'hier'
+sonaHL_motor$fingerDistance = NA
+sonaHL_motor$corrrespAll_prev = NA
+sonaHL_motor$finger_press_prev = NA
+sonaHL_motor$nFeatureSwitch = NA
+
+#order cols
+sonaHL_motor = sonaHL_motor[,colOrder_motor]
+
+
+## STUDY 2 ###
+oneDFL_motor = read_csv(file = '~/Documents/GitHub/StructuredActionPrepVMDM/compiledData/motorData_Experiment3.csv')
+oneDFL_motor = subset(oneDFL_motor, select = -c(time_elapsed, responses, question_order, stim, repeatTrial,motorSwitch, pracCounter,demoID,iter, rtStrict) )
+oneDFL_motor <- oneDFL_motor[ -c(1) ]
+oneDFL_motor$treeDistance = NA
+oneDFL_motor$treeDistance[oneDFL_motor$coupletSwitch_actual == 0&oneDFL_motor$handSwitch_actual == 0] = 2
+oneDFL_motor$treeDistance[oneDFL_motor$coupletSwitch_actual == 0&oneDFL_motor$handSwitch_actual == 1] = 6
+oneDFL_motor$treeDistance[oneDFL_motor$coupletSwitch_actual == 1&oneDFL_motor$handSwitch_actual == 0] =4
+oneDFL_motor$treeDistance[oneDFL_motor$coupletSwitch_actual == 1&oneDFL_motor$handSwitch_actual == 1] = 6
+oneDFL_motor$treeDistance[oneDFL_motor$fingerSwitch_actual == 0] = 0
+oneDFL_motor$treeDistance[oneDFL_motor$trialNum == 1] = NA
+oneDFL_motor$hierarchy = NA
+oneDFL_motor$hierarchy = oneDFL_motor$type
+oneDFL_motor = subset(oneDFL_motor, select = -c(type) )
+oneDFL_motor$expt = 'C_oneDFL'
+oneDFL_motor$struct = 'flat'
+
+#order cols
+oneDFL_motor = oneDFL_motor[,colOrder_motor]
+
+## STUDY 3 ###
+threeDFL_motor = read_csv(file = '~/Documents/GitHub/StructuredActionPrepVMDM/compiledData/motorData_Experiment4.csv')
+threeDFL_motor = subset(threeDFL_motor, select = -c(time_elapsed, responses, stim, repeatTrial,motorSwitch, pracCounter,demoID, includeStrict,iter,rtStrict) )
+threeDFL_motor <- threeDFL_motor[ -c(1) ]
+threeDFL_motor$expt = 'D_threeDFL'
+threeDFL_motor$struct = 'flat'
+
+#order cols
+threeDFL_motor = threeDFL_motor[,colOrder_motor]
+
+## Structure control ###
+fingerHL_motor = read_csv(file = '~/Documents/GitHub/StructuredActionPrepVMDM/compiledData/motorData_Experiment2.csv')
+fingerHL_motor = subset(fingerHL_motor, select = -c(stimulus, includeStrict,iter) )
+fingerHL_motor <- fingerHL_motor[ -c(1) ]
+
+fingerHL_motor$expt = 'E_fingerHL'
+fingerHL_motor$struct = 'finger'
+#order cols
+fingerHL_motor = fingerHL_motor[,colOrder_motor]
+
+# bind the data frames together
+motorCompiledData = rbind(sonaHL_motor, oneDFL_motor, threeDFL_motor,fingerHL_motor)
+ # add transition type column
+motorCompiledData$transitionType = NA
+typeCounter = 0
+for(ai in 1:max(motorCompiledData$finger_press_prev, na.rm = TRUE)){
+  for(bi in ai:max(motorCompiledData$finger_press, na.rm = TRUE)){
+    typeCounter = typeCounter+1
+    motorCompiledData$transitionType[motorCompiledData$finger_press_prev == ai & motorCompiledData$finger_press == bi] = typeCounter
+    motorCompiledData$transitionType[motorCompiledData$finger_press_prev == bi & motorCompiledData$finger_press == ai] = typeCounter
+  }
+  }
+motorCompiledData$transitionType[motorCompiledData$trialNum == 1] = NA
+ 
+# add column for suggested neighbor model
+compiledData$neighbor = 2
+compiledData$neighbor[compiledData$fingerDistance == 1] = 1
+compiledData$neighbor[compiledData$fingerDistance == 0] = 0
+
+
+  # talk figures
+ribbonAlpha = 1
+textColor = "black"
+axisColor = "black"
+axisTitleSize = 20
+axisTextSize = 18
+axisWidth = 1
+tickWidth = 1
+lineWidth = 1
+tickLength = .25
+```
+\newpage
+# MOTOR ANALYSES
+# RT patterns
+```{r, echo=F, message=F, warning=F, error=T,fig.width=6, fig.height=4, fig.align='center'}
+motortreedistance = motorCompiledData %>% group_by(expt,subject,treeDistance) %>% dplyr::summarise(avgRT = mean(rt,na.rm = TRUE)) 
+ggplot(motortreedistance, aes(x = treeDistance, y = avgRT)) + geom_bar(stat = "summary",fun.y = "mean")+geom_point()+facet_wrap(~expt)
+```
+
+\newpage
+# Accuracy figures
+# Accuracy by experiment
+```{r, echo=F, message=F, warning=F, error=T,fig.width=6, fig.height=4, fig.align='center'}
+compiledData %>% group_by(expt,subject) %>% dplyr::summarise(accu = mean(corr,na.rm = TRUE)) %>% ggplot(aes(x = expt, y = accu)) + geom_bar(stat = "summary",fun.y = "mean")+geom_point()+scale_y_continuous(expand = c(0,0), limits = c(0,1))+theme(panel.grid = element_blank(),
+        panel.background = element_rect(fill = "white", colour = "black"),
+        panel.border = element_rect(fill = NA, colour = "white"),
+        strip.text = element_text(size=axisTitleSize), 
+        axis.title.x = element_text(size = axisTitleSize), 
+        axis.title.y = element_text(size = axisTitleSize), 
+        axis.text.x = element_text(size = axisTextSize, color = textColor), 
+        axis.text.y = element_text(size = axisTextSize, color = textColor), 
+        axis.line.x.bottom=element_line(size=axisWidth), 
+        axis.line.y.left=element_line(size=axisWidth), 
+        axis.ticks = element_line(colour = axisColor, size = tickWidth), 
+        axis.ticks.length = unit(tickLength,"cm"),
+        legend.title = element_text(size = axisTextSize),
+        legend.text = element_text(size = axisTextSize))
+```
+# Accuracy by experiment after 55 iterations
+```{r, echo=F, message=F, warning=F, error=T,fig.width=6, fig.height=4, fig.align='center' }
+accu = compiledData %>% filter(iter < 56) %>% group_by(expt,subject) %>% dplyr::summarise(accu = mean(corr,na.rm = TRUE)) %>% group_by(expt) %>% dplyr::summarise(accu = mean(accu))
+accu_ttest = compiledData %>% filter(iter < 56) %>% group_by(expt,subject) %>% dplyr::summarise(accu = mean(corr,na.rm = TRUE))
+
+compiledData %>% filter(iter < 56) %>% group_by(expt,subject) %>% dplyr::summarise(accu = mean(corr,na.rm = TRUE)) %>% ggplot(aes(x = expt, y = accu)) + geom_bar(stat = "summary",fun.y = "mean")+geom_point()+scale_y_continuous(expand = c(0,0), limits = c(0,1))+theme(panel.grid = element_blank(),
+        panel.background = element_rect(fill = "white", colour = "black"),
+        panel.border = element_rect(fill = NA, colour = "white"),
+        strip.text = element_text(size=axisTitleSize), 
+        axis.title.x = element_text(size = axisTitleSize), 
+        axis.title.y = element_text(size = axisTitleSize), 
+        axis.text.x = element_text(size = axisTextSize, color = textColor), 
+        axis.text.y = element_text(size = axisTextSize, color = textColor), 
+        axis.line.x.bottom=element_line(size=axisWidth), 
+        axis.line.y.left=element_line(size=axisWidth), 
+        axis.ticks = element_line(colour = axisColor, size = tickWidth), 
+        axis.ticks.length = unit(tickLength,"cm"),
+        legend.title = element_text(size = axisTextSize),
+        legend.text = element_text(size = axisTextSize))
+
+t.test(accu_ttest$accu[accu_ttest$expt == 'B_sonaHL'], accu_ttest$accu[accu_ttest$expt == 'C_oneDFL'])
+cohen.d(accu_ttest$accu[accu_ttest$expt == 'B_sonaHL'], accu_ttest$accu[accu_ttest$expt == 'C_oneDFL'])
+
+t.test(accu_ttest$accu[accu_ttest$expt == 'B_sonaHL'], accu_ttest$accu[accu_ttest$expt == 'D_threeDFL'])
+cohen.d(accu_ttest$accu[accu_ttest$expt == 'B_sonaHL'], accu_ttest$accu[accu_ttest$expt == 'D_threeDFL'])
+
+t.test(accu_ttest$accu[accu_ttest$expt == 'B_sonaHL'], accu_ttest$accu[accu_ttest$expt == 'E_fingerHL'])
+cohen.d(accu_ttest$accu[accu_ttest$expt == 'B_sonaHL'], accu_ttest$accu[accu_ttest$expt == 'E_fingerHL'])
+
+t.test(accu_ttest$accu[accu_ttest$expt == 'C_oneDFL'], accu_ttest$accu[accu_ttest$expt == 'D_threeDFL'])
+cohen.d(accu_ttest$accu[accu_ttest$expt == 'C_oneDFL'], accu_ttest$accu[accu_ttest$expt == 'D_threeDFL'])
+
+t.test(accu_ttest$accu[accu_ttest$expt == 'C_oneDFL'], accu_ttest$accu[accu_ttest$expt == 'E_fingerHL'])
+cohen.d(accu_ttest$accu[accu_ttest$expt == 'C_oneDFL'], accu_ttest$accu[accu_ttest$expt == 'E_fingerHL'])
+
+t.test(accu_ttest$accu[accu_ttest$expt == 'D_threeDFL'], accu_ttest$accu[accu_ttest$expt == 'E_fingerHL'])
+cohen.d(accu_ttest$accu[accu_ttest$expt == 'D_threeDFL'], accu_ttest$accu[accu_ttest$expt == 'E_fingerHL'])
+
+# also do in lab ones with the same stim!!
+inlabaccu_samestim = compiledData %>% filter(iter < 56, expt %in% c('B_sonaHL','D_threeDFL','E_fingerHL')) %>% group_by(struct,subject) %>% dplyr::summarise(accu = mean(corr,na.rm = TRUE))
+t.test(inlabaccu_samestim$accu[inlabaccu_samestim$struct == 'hier'],inlabaccu_samestim$accu[inlabaccu_samestim$struct == 'flat'])
+```
+
+\newpage
+# avgRT figures
+# average RT  across experiments
+```{r, echo=F, message=F, warning=F, error=T,fig.width=8, fig.height=4, fig.align='center'  }
+compiledData %>% filter(corr == 1) %>% group_by(expt,subject) %>% dplyr::summarise(avgRT = mean(rt_corrected_both,na.rm = TRUE)) %>% ggplot(aes(x = expt, y = avgRT)) + geom_bar(stat = "summary", fun.y = "mean")+geom_point()+scale_y_continuous(expand = c(0,0))+theme(panel.grid = element_blank(),
+        panel.background = element_rect(fill = "white", colour = "black"),
+        panel.border = element_rect(fill = NA, colour = "white"),
+        strip.text = element_text(size=axisTitleSize), 
+        axis.title.x = element_text(size = axisTitleSize), 
+        axis.title.y = element_text(size = axisTitleSize), 
+        axis.text.x = element_text(size = axisTextSize, color = textColor), 
+        axis.text.y = element_text(size = axisTextSize, color = textColor), 
+        axis.line.x.bottom=element_line(size=axisWidth), 
+        axis.line.y.left=element_line(size=axisWidth), 
+        axis.ticks = element_line(colour = axisColor, size = tickWidth), 
+        axis.ticks.length = unit(tickLength,"cm"),
+        legend.title = element_text(size = axisTextSize),
+        legend.text = element_text(size = axisTextSize))
+```
+# average RT  across experiments @ 55 iter
+```{r, echo=F, message=F, warning=F, error=T,fig.width=8, fig.height=4, fig.align='center'  }
+RT_across = compiledData %>% filter(corr == 1, iter < 56) %>% group_by(expt,subject) %>% dplyr::summarise(avgRT = mean(rt_corrected_both,na.rm = TRUE)) 
+compiledData %>% filter(corr == 1, iter < 56) %>% group_by(expt,subject) %>% dplyr::summarise(avgRT = mean(rt_corrected_both,na.rm = TRUE)) %>% ggplot(aes(x = expt, y = avgRT)) + geom_bar(stat = "summary", fun.y = "mean")+geom_point()+scale_y_continuous(expand = c(0,0))+theme(panel.grid = element_blank(),
+        panel.background = element_rect(fill = "white", colour = "black"),
+        panel.border = element_rect(fill = NA, colour = "white"),
+        strip.text = element_text(size=axisTitleSize), 
+        axis.title.x = element_text(size = axisTitleSize), 
+        axis.title.y = element_text(size = axisTitleSize), 
+        axis.text.x = element_text(size = axisTextSize, color = textColor), 
+        axis.text.y = element_text(size = axisTextSize, color = textColor), 
+        axis.line.x.bottom=element_line(size=axisWidth), 
+        axis.line.y.left=element_line(size=axisWidth), 
+        axis.ticks = element_line(colour = axisColor, size = tickWidth), 
+        axis.ticks.length = unit(tickLength,"cm"),
+        legend.title = element_text(size = axisTextSize),
+        legend.text = element_text(size = axisTextSize))
+t.test(RT_across$avgRT[RT_across$expt == 'B_sonaHL'], RT_across$avgRT[RT_across$expt == 'C_oneDFL'])
+cohen.d(RT_across$avgRT[RT_across$expt == 'B_sonaHL'], RT_across$avgRT[RT_across$expt == 'C_oneDFL'])
+
+t.test(RT_across$avgRT[RT_across$expt == 'B_sonaHL'], RT_across$avgRT[RT_across$expt == 'D_threeDFL'])
+cohen.d(RT_across$avgRT[RT_across$expt == 'B_sonaHL'], RT_across$avgRT[RT_across$expt == 'D_threeDFL'])
+
+t.test(RT_across$avgRT[RT_across$expt == 'B_sonaHL'], RT_across$avgRT[RT_across$expt == 'E_fingerHL'])
+cohen.d(RT_across$avgRT[RT_across$expt == 'B_sonaHL'], RT_across$avgRT[RT_across$expt == 'E_fingerHL'])
+
+t.test(RT_across$avgRT[RT_across$expt == 'C_oneDFL'], RT_across$avgRT[RT_across$expt == 'D_threeDFL'])
+cohen.d(RT_across$avgRT[RT_across$expt == 'C_oneDFL'], RT_across$avgRT[RT_across$expt == 'D_threeDFL'])
+
+t.test(RT_across$avgRT[RT_across$expt == 'C_oneDFL'], RT_across$avgRT[RT_across$expt == 'E_fingerHL'])
+cohen.d(RT_across$avgRT[RT_across$expt == 'C_oneDFL'], RT_across$avgRT[RT_across$expt == 'E_fingerHL'])
+
+t.test(RT_across$avgRT[RT_across$expt == 'D_threeDFL'], RT_across$avgRT[RT_across$expt == 'E_fingerHL'])
+cohen.d(RT_across$avgRT[RT_across$expt == 'D_threeDFL'], RT_across$avgRT[RT_across$expt == 'E_fingerHL'])
+
+# also do in lab ones with the same stim!!
+inlabrt_samestim = compiledData %>% filter(corr == 1,iter < 56, expt %in% c('B_sonaHL','D_threeDFL','E_fingerHL')) %>% group_by(struct,subject) %>% dplyr::summarise(avgRT = mean(rt_corrected_both,na.rm = TRUE))
+t.test(inlabrt_samestim$avgRT[inlabrt_samestim$struct == 'hier'],inlabrt_samestim$avgRT[inlabrt_samestim$struct == 'flat'])
+```
+
+\newpage
+# sonaHL figures
+# Learning curve
+```{r, echo=F, message=F, warning=F, error=T, fig.width=4, fig.height=4, fig.align='center' }
+sonaHL = compiledData %>% filter(expt == 'B_sonaHL')
+sonaHL_motor = motorCompiledData %>% filter(expt == 'B_sonaHL')
+ribbonAlpha = 1
+
+accu = sonaHL %>% filter(trialNum > 3) %>% group_by(subject) %>% dplyr::summarise(accuHand = mean(corrHand,na.rm = TRUE), accuCouplet = mean(corrCouplet,na.rm = TRUE))
+
+accuHand = mean(accu$accuHand)
+accuCouplet = mean(accu$accuCouplet)
+t.test(accu$accuHand,accu$accuCouplet,paired = TRUE)
+
+accu_end = sonaHL %>% filter(trialNum > 3, iter >122) %>% group_by(subject) %>% dplyr::summarise(accuHand = mean(corrHand,na.rm = TRUE), accuCouplet = mean(corrCouplet,na.rm = TRUE))
+
+accuHand_end = mean(accu_end$accuHand)
+accuCouplet_end = mean(accu_end$accuCouplet)
+t.test(accu_end$accuHand,accu_end$accuCouplet,paired = TRUE)
+
+sonaHL_learningCurve= sonaHL %>% group_by(subject,iter) %>% dplyr::summarize(pCorHand = mean(corrHand,na.rm = TRUE), pCorCouplet = mean(corrCouplet,na.rm = TRUE), pCorFinger = mean(corr,na.rm = TRUE))
+
+sonaHL_learningCurve_across = sonaHL_learningCurve %>% group_by(iter) %>% dplyr::summarize(acrosspCorHand = mean(pCorHand),acrosspCorCouplet = mean(pCorCouplet),acrosspCorFinger = mean(pCorFinger))
+
+ggplot(sonaHL_learningCurve_across,aes(x=iter))+
+  geom_line(aes(x = iter,y = acrosspCorHand, color = "hand"))+
+  geom_line(aes(x = iter,y = acrosspCorCouplet, color = "couplet"))+
+  geom_line(aes(x = iter,y = acrosspCorFinger, color = "overall accuracy"))+
+  geom_ribbon(data=sonaHL_learningCurve_across,aes(x = iter,ymin = acrosspCorCouplet - se(acrosspCorCouplet), ymax = acrosspCorCouplet + se(acrosspCorCouplet)), inherit.aes = FALSE,fill = "red", alpha = ribbonAlpha)+
+  geom_ribbon(data=sonaHL_learningCurve_across,aes(x = iter,ymin = acrosspCorHand - se(acrosspCorHand), ymax = acrosspCorHand + se(acrosspCorHand)), inherit.aes = FALSE,fill = "blue", alpha = ribbonAlpha)+
+  geom_ribbon(data=sonaHL_learningCurve_across,aes(x = iter,ymin = acrosspCorFinger - se(acrosspCorFinger), ymax = acrosspCorFinger + se(acrosspCorFinger)), inherit.aes = FALSE,fill = "black", alpha = ribbonAlpha)+
+  labs(x= 'stimulus iteration', y = 'accuracy')+
+  theme(axis.line=element_line(),
+        panel.grid = element_blank(),
+        panel.background = element_rect(fill = "white", colour = "black")
+        ,panel.border = element_rect(fill = NA, colour = "white"),
+        strip.text = element_text(size=axisTitleSize,face="bold"), 
+        axis.title.x = element_text(size = axisTitleSize, face = 'bold'), 
+        axis.title.y = element_text(size = axisTitleSize, face = 'bold'), 
+        axis.text.x = element_text(size = axisTextSize), 
+        axis.text.y = element_text(size = axisTextSize), 
+        legend.position = "right", 
+        legend.title = element_blank(),
+        legend.text = element_text(size = axisTextSize),
+        axis.line.x.bottom=element_line(size=axisWidth), 
+        axis.line.y.left=element_line(size=axisWidth), 
+        axis.ticks = element_line(colour = axisColor, size = tickWidth), 
+        axis.ticks.length = unit(tickLength,"cm"))+ 
+  scale_color_manual(values = c("hand" = "blue","couplet" = "red","overall accuracy" = "black"),limits=c("hand","couplet","overall accuracy"))
+  
+```
+# tree distance fig sonaHL
+```{r, echo=F, message=F, warning=F, error=T, fig.width=3, fig.height=3, fig.align='center' }
+sonaHL$hierarchy[sonaHL$hierarchy == "shape;pattern;color"] = "shape,pattern,color"
+sonaHL$hierarchy[sonaHL$hierarchy == "pattern;color;shape"] = "pattern,color,shape"
+sonaHL$hierarchy[sonaHL$hierarchy == "shape;color;pattern"] = "shape,color,pattern"
+sonaHL$hierarchy[sonaHL$hierarchy == "color;pattern;shape"] = "color,pattern,shape"
+sonaHL$hierarchy[sonaHL$hierarchy == "color;shape;pattern"] = "color,shape,pattern"
+sonaHL_accu_struct = sonaHL %>% group_by(subject, hierarchy) %>% dplyr::summarise(accu = mean(corr, na.rm = TRUE))
+anova_test(data.frame(sonaHL_accu_struct), dv = accu, wid = subject, between = hierarchy,effect.size = 'pes')
+
+sonaHL_rt_struct = sonaHL %>% group_by(subject, hierarchy) %>% dplyr::summarise(avgRT = mean(rt, na.rm = TRUE))
+anova_test(data.frame(sonaHL_rt_struct), dv = avgRT, wid = subject, between = hierarchy,effect.size = 'pes')
+
+```
+# tree distance fig sonaHL
+```{r, echo=F, message=F, warning=F, error=T, fig.width=3, fig.height=3, fig.align='center' }
+sonaHL_tree_streak= sonaHL %>% filter(streak == 1) %>%group_by(subject, treeDistance) %>% filter(!is.na(treeDistance))%>% dplyr::summarize(avgRT = mean(rt_corrected_both,na.rm = TRUE))
+t.test(sonaHL_tree_streak$avgRT[sonaHL_tree_streak$treeDistance == 6],sonaHL_tree_streak$avgRT[sonaHL_tree_streak$treeDistance == 4], paired = TRUE)
+cohen.d(sonaHL_tree_streak$avgRT[sonaHL_tree_streak$treeDistance == 6],sonaHL_tree_streak$avgRT[sonaHL_tree_streak$treeDistance == 4],paired = TRUE)
+
+t.test(sonaHL_tree_streak$avgRT[sonaHL_tree_streak$treeDistance == 6],sonaHL_tree_streak$avgRT[sonaHL_tree_streak$treeDistance == 2], paired = TRUE)
+cohen.d(sonaHL_tree_streak$avgRT[sonaHL_tree_streak$treeDistance == 6],sonaHL_tree_streak$avgRT[sonaHL_tree_streak$treeDistance == 2],paired = TRUE)
+
+t.test(sonaHL_tree_streak$avgRT[sonaHL_tree_streak$treeDistance == 6],sonaHL_tree_streak$avgRT[sonaHL_tree_streak$treeDistance == 0], paired = TRUE)
+cohen.d(sonaHL_tree_streak$avgRT[sonaHL_tree_streak$treeDistance == 6],sonaHL_tree_streak$avgRT[sonaHL_tree_streak$treeDistance == 0],paired = TRUE)
+
+t.test(sonaHL_tree_streak$avgRT[sonaHL_tree_streak$treeDistance == 4],sonaHL_tree_streak$avgRT[sonaHL_tree_streak$treeDistance == 2], paired = TRUE)
+cohen.d(sonaHL_tree_streak$avgRT[sonaHL_tree_streak$treeDistance == 4],sonaHL_tree_streak$avgRT[sonaHL_tree_streak$treeDistance == 2],paired = TRUE)
+
+t.test(sonaHL_tree_streak$avgRT[sonaHL_tree_streak$treeDistance == 4],sonaHL_tree_streak$avgRT[sonaHL_tree_streak$treeDistance == 0], paired = TRUE)
+cohen.d(sonaHL_tree_streak$avgRT[sonaHL_tree_streak$treeDistance == 4],sonaHL_tree_streak$avgRT[sonaHL_tree_streak$treeDistance == 0],paired = TRUE)
+
+t.test(sonaHL_tree_streak$avgRT[sonaHL_tree_streak$treeDistance == 2],sonaHL_tree_streak$avgRT[sonaHL_tree_streak$treeDistance == 0], paired = TRUE)
+cohen.d(sonaHL_tree_streak$avgRT[sonaHL_tree_streak$treeDistance == 2],sonaHL_tree_streak$avgRT[sonaHL_tree_streak$treeDistance == 0],paired = TRUE)
+
+sonaHL_tree_streak_summaryStats = summarySEwithin(sonaHL_tree_streak,measurevar="avgRT", withinvars=c("treeDistance"),idvar="subject", na.rm=FALSE, conf.interval=.95)
+
+ggplot(sonaHL_tree_streak_summaryStats, aes(x = as.factor(treeDistance), y = avgRT)) + 
+  geom_bar(stat = "identity",position = "dodge")+
+  geom_errorbar(aes(ymin=avgRT-se, ymax=avgRT+se), width=.2,position=position_dodge(.9))+
+  labs(x= 'tree distance', y = 'RT')+
+  scale_y_continuous(expand = c(0,0), limits = c(0,900))+
+  theme(panel.grid = element_blank(),
+        panel.background = element_rect(fill = "white", colour = "black"),
+        panel.border = element_rect(fill = NA, colour = "white"),
+        strip.text = element_text(size=axisTitleSize), 
+        axis.title.x = element_text(size = axisTitleSize), 
+        axis.title.y = element_text(size = axisTitleSize), 
+        axis.text.x = element_text(size = axisTextSize, color = textColor), 
+        axis.text.y = element_text(size = axisTextSize, color = textColor), 
+        axis.line.x.bottom=element_line(size=axisWidth), 
+        axis.line.y.left=element_line(size=axisWidth), 
+        axis.ticks = element_line(colour = axisColor, size = tickWidth), 
+        axis.ticks.length = unit(tickLength,"cm"))
+```
+# accu x tree distance fig sonaHL
+```{r, echo=F, message=F, warning=F, error=T, fig.width=3, fig.height=3, fig.align='center' }
+sonaHL_accu_tree_streak= sonaHL %>%group_by(subject, treeDistance) %>% filter(!is.na(treeDistance))%>% dplyr::summarize(accu = mean(corr,na.rm = TRUE))
+t.test(sonaHL_accu_tree_streak$accu[sonaHL_accu_tree_streak$treeDistance == 6],sonaHL_accu_tree_streak$accu[sonaHL_accu_tree_streak$treeDistance == 4], paired = TRUE)
+t.test(sonaHL_accu_tree_streak$accu[sonaHL_accu_tree_streak$treeDistance == 6],sonaHL_accu_tree_streak$accu[sonaHL_accu_tree_streak$treeDistance == 2], paired = TRUE)
+t.test(sonaHL_accu_tree_streak$accu[sonaHL_accu_tree_streak$treeDistance == 6],sonaHL_accu_tree_streak$accu[sonaHL_accu_tree_streak$treeDistance == 0], paired = TRUE)
+t.test(sonaHL_accu_tree_streak$accu[sonaHL_accu_tree_streak$treeDistance == 4],sonaHL_accu_tree_streak$accu[sonaHL_accu_tree_streak$treeDistance == 2], paired = TRUE)
+t.test(sonaHL_accu_tree_streak$accu[sonaHL_accu_tree_streak$treeDistance == 4],sonaHL_accu_tree_streak$accu[sonaHL_accu_tree_streak$treeDistance == 0], paired = TRUE)
+t.test(sonaHL_accu_tree_streak$accu[sonaHL_accu_tree_streak$treeDistance == 2],sonaHL_accu_tree_streak$accu[sonaHL_accu_tree_streak$treeDistance == 0], paired = TRUE)
+anova_test(data.frame(sonaHL_accu_tree_streak), dv = accu, wid = subject, within = c(treeDistance), effect.size = 'pes')
+
+sonaHL_accu_tree_streak_summaryStats = summarySEwithin(sonaHL_accu_tree_streak,measurevar="accu", withinvars=c("treeDistance"),idvar="subject", na.rm=FALSE, conf.interval=.95)
+
+ggplot(sonaHL_accu_tree_streak_summaryStats, aes(x = as.factor(treeDistance), y = accu)) + 
+  geom_bar(stat = "identity",position = "dodge")+
+  geom_errorbar(aes(ymin=accu-se, ymax=accu+se), width=.2,position=position_dodge(.9))+
+  labs(x= 'tree distance', y = 'accuracy')+
+  scale_y_continuous(expand = c(0,0), limits = c(0,1))+
+  theme(panel.grid = element_blank(),
+        panel.background = element_rect(fill = "white", colour = "black"),
+        panel.border = element_rect(fill = NA, colour = "white"),
+        strip.text = element_text(size=axisTitleSize), 
+        axis.title.x = element_text(size = axisTitleSize), 
+        axis.title.y = element_text(size = axisTitleSize), 
+        axis.text.x = element_text(size = axisTextSize, color = textColor), 
+        axis.text.y = element_text(size = axisTextSize, color = textColor), 
+        axis.line.x.bottom=element_line(size=axisWidth), 
+        axis.line.y.left=element_line(size=axisWidth), 
+        axis.ticks = element_line(colour = axisColor, size = tickWidth), 
+        axis.ticks.length = unit(tickLength,"cm"))
+```
+\newpage
+# sonaHL heatmaps
+# raw RTs
+```{r, echo=F, message=F, warning=F, error=T, fig.width=6, fig.height=6, fig.align='center' }
+#filter for correct responses
+sonaHL_heatmapData_raw = data.frame(subject = sonaHL$subject[2:length(sonaHL$subject)],currResp = sonaHL$key_press[2:length(sonaHL$key_press)], prevResp = sonaHL$key_press[1:length(sonaHL$key_press)-1], trialNum = sonaHL$trialNum[2:length(sonaHL$trialNum)], rt = sonaHL$rt[2:length(sonaHL$rt)], corr = sonaHL$corr[2:length(sonaHL$corr)]) %>% filter(trialNum !=1, corr == 1, !is.na(currResp), !is.na(prevResp)) %>% group_by(subject, currResp, prevResp) %>% dplyr::summarize(meanRT = mean(rt, na.rm=TRUE)) %>% group_by(currResp,prevResp) %>% dplyr::summarise(meanRT = mean(meanRT))
+
+sonaHL_heatmapData_raw$prevResp = factor(sonaHL_heatmapData_raw$prevResp, levels = c(76,75,74,72,70,68,83,65))
+sonaHL_heatmapData_raw$currResp = factor(sonaHL_heatmapData_raw$currResp, levels = c(65,83,68,70,72,74,75,76))
+
+handColor = "dodgerblue1"
+coupletColor = "firebrick3"
+
+
+tickLength = .25
+handBoundaryWidth = 2
+coupletBoundaryWidth = 1
+boundaryColor = "black"
+
+bottom = .25
+top = 8.75
+left = .25
+right = 8.75
+handBoundaryWidth = 2
+coupletBoundaryWidth = 1
+boundaryColor = "black"
+
+
+ggplot(sonaHL_heatmapData_raw,aes(as.factor(currResp), as.factor(prevResp), fill = meanRT))+geom_tile(color = "white")+
+  geom_text(aes(label = round(meanRT, digits = 0)), color = "grey20", size = 4)+
+  scale_fill_distiller(palette = "Purples", trans = "reverse")+coord_equal()+
+  geom_segment(aes(x=4.5 ,y=bottom,xend = 4.5, yend = top), size = handBoundaryWidth, color = boundaryColor)+
+  geom_segment(aes(x=left ,y=4.5,xend = right, yend = 4.5), size = handBoundaryWidth, color = boundaryColor)+
+  geom_segment(aes(x=2.5 ,y=bottom,xend = 2.5, yend = top), size = coupletBoundaryWidth, color = boundaryColor)+
+  geom_segment(aes(x=6.5 ,y=bottom,xend = 6.5, yend = top), size = coupletBoundaryWidth, color = boundaryColor)+
+  geom_segment(aes(x=left ,y=2.5,xend = right, yend = 2.5), size = coupletBoundaryWidth, color = boundaryColor)+
+  geom_segment(aes(x=left ,y=6.5,xend = right, yend = 6.5), size = coupletBoundaryWidth, color = boundaryColor)+
+  labs(x= 'current response', y = 'previous response')+
+  theme(panel.grid = element_blank(),
+        panel.background = element_rect(fill = "white", colour = "black"),
+        panel.border = element_rect(fill = NA, colour = "white"),
+        strip.text = element_text(size=axisTitleSize), 
+        axis.title.x = element_text(size = axisTitleSize), 
+        axis.title.y = element_text(size = axisTitleSize), 
+        axis.text.x = element_text(size = axisTextSize, color = textColor), 
+        axis.text.y = element_text(size = axisTextSize, color = textColor))
+
+```
+
+
+# motor RTs
+```{r, echo=F, message=F, warning=F, error=T, fig.width=6, fig.height=6, fig.align='center' }
+#filter for correct responses
+sonaHL_heatmapData_motor = data.frame(subject = sonaHL_motor$subject[2:length(sonaHL_motor$subject)],currResp = sonaHL_motor$key_press[2:length(sonaHL_motor$key_press)], prevResp = sonaHL_motor$key_press[1:length(sonaHL_motor$key_press)-1], trialNum = sonaHL_motor$trialNum[2:length(sonaHL_motor$trialNum)], rt = sonaHL_motor$rt[2:length(sonaHL_motor$rt)], corr = sonaHL_motor$corr[2:length(sonaHL_motor$corr)]) %>% filter(trialNum !=1, corr == 1, !is.na(currResp), !is.na(prevResp)) %>% group_by(subject,currResp, prevResp) %>% dplyr::summarize(meanRT = mean(rt, na.rm=TRUE)) %>% group_by(currResp,prevResp) %>% dplyr::summarize(meanRT = mean(meanRT))
+
+sonaHL_heatmapData_motor$prevResp = factor(sonaHL_heatmapData_motor$prevResp, levels = c(76,75,74,72,70,68,83,65))
+sonaHL_heatmapData_motor$currResp = factor(sonaHL_heatmapData_motor$currResp, levels = c(65,83,68,70,72,74,75,76))
+
+
+ggplot(sonaHL_heatmapData_motor,aes(as.factor(currResp), as.factor(prevResp), fill = meanRT))+geom_tile(color = "white")+
+  geom_text(aes(label = round(meanRT, digits = 0)), color = "grey20", size = 4)+
+  scale_fill_distiller(palette = "Reds", trans = "reverse")+coord_equal()+
+  geom_segment(aes(x=4.5 ,y=bottom,xend = 4.5, yend = top), size = handBoundaryWidth, color = boundaryColor)+
+  geom_segment(aes(x=left ,y=4.5,xend = right, yend = 4.5), size = handBoundaryWidth, color = boundaryColor)+
+  geom_segment(aes(x=2.5 ,y=bottom,xend = 2.5, yend = top), size = coupletBoundaryWidth, color = boundaryColor)+
+  geom_segment(aes(x=6.5 ,y=bottom,xend = 6.5, yend = top), size = coupletBoundaryWidth, color = boundaryColor)+
+  geom_segment(aes(x=left ,y=2.5,xend = right, yend = 2.5), size = coupletBoundaryWidth, color = boundaryColor)+
+  geom_segment(aes(x=left ,y=6.5,xend = right, yend = 6.5), size = coupletBoundaryWidth, color = boundaryColor)+
+  labs(x= 'current response', y = 'previous response')+
+  theme(panel.grid = element_blank(),
+        panel.background = element_rect(fill = "white", colour = "black"),
+        panel.border = element_rect(fill = NA, colour = "white"),
+        strip.text = element_text(size=axisTitleSize), 
+        axis.title.x = element_text(size = axisTitleSize), 
+        axis.title.y = element_text(size = axisTitleSize), 
+        axis.text.x = element_text(size = axisTextSize, color = textColor), 
+        axis.text.y = element_text(size = axisTextSize, color = textColor))
+
+```
+
+# corrected RTs
+```{r, echo=F, message=F, warning=F, error=T, fig.width=6, fig.height=6, fig.align='center' }
+#filter for correct responses
+sonaHL_heatmapData_corrected = data.frame(subject = sonaHL$subject[2:length(sonaHL$subject)],currResp = sonaHL$key_press[2:length(sonaHL$key_press)], prevResp = sonaHL$key_press[1:length(sonaHL$key_press)-1], trialNum = sonaHL$trialNum[2:length(sonaHL$trialNum)], rt_corrected_both = sonaHL$rt_corrected_both[2:length(sonaHL$rt_corrected_both)], corr = sonaHL$corr[2:length(sonaHL$corr)]) %>% filter(trialNum !=1, corr == 1, !is.na(currResp), !is.na(prevResp)) %>% group_by(subject,currResp, prevResp) %>% dplyr::summarize(meanRT = mean(rt_corrected_both, na.rm=TRUE)) %>% group_by(currResp,prevResp) %>% dplyr::summarise(meanRT = mean(meanRT))
+
+sonaHL_heatmapData_corrected$prevResp = factor(sonaHL_heatmapData_corrected$prevResp, levels = c(76,75,74,72,70,68,83,65))
+sonaHL_heatmapData_corrected$currResp = factor(sonaHL_heatmapData_corrected$currResp, levels = c(65,83,68,70,72,74,75,76))
+
+ggplot(sonaHL_heatmapData_corrected,aes(as.factor(currResp), as.factor(prevResp), fill = meanRT))+geom_tile(color = "white")+
+  geom_text(aes(label = round(meanRT, digits = 0)), color = "grey20", size = 4)+
+  scale_fill_distiller(palette = "Blues", trans = "reverse")+coord_equal()+
+  geom_segment(aes(x=4.5 ,y=bottom,xend = 4.5, yend = top), size = handBoundaryWidth, color = boundaryColor)+
+  geom_segment(aes(x=left ,y=4.5,xend = right, yend = 4.5), size = handBoundaryWidth, color = boundaryColor)+
+  geom_segment(aes(x=2.5 ,y=bottom,xend = 2.5, yend = top), size = coupletBoundaryWidth, color = boundaryColor)+
+  geom_segment(aes(x=6.5 ,y=bottom,xend = 6.5, yend = top), size = coupletBoundaryWidth, color = boundaryColor)+
+  geom_segment(aes(x=left ,y=2.5,xend = right, yend = 2.5), size = coupletBoundaryWidth, color = boundaryColor)+
+  geom_segment(aes(x=left ,y=6.5,xend = right, yend = 6.5), size = coupletBoundaryWidth, color = boundaryColor)+
+  labs(x= 'current response', y = 'previous response')+
+  theme(panel.grid = element_blank(),
+        panel.background = element_rect(fill = "white", colour = "black"),
+        panel.border = element_rect(fill = NA, colour = "white"),
+        strip.text = element_text(size=axisTitleSize), 
+        axis.title.x = element_text(size = axisTitleSize), 
+        axis.title.y = element_text(size = axisTitleSize), 
+        axis.text.x = element_text(size = axisTextSize, color = textColor), 
+        axis.text.y = element_text(size = axisTextSize, color = textColor))
+
+```
+
+\newpage 
+# SONA HL
+# models streak trials
+```{r, echo=F, message=F, warning=F, error=T, fig.width=3.5, fig.height=3, fig.align='center'}
+#tree
+sonaHL_ModelData_streak = sonaHL %>% filter(streak == 1,trialNum > 3, !is.na(treeDistance), !is.na(nFeatureSwitch), !is.na(fingerDistance))
+sonaHL_ModelData_streak$subject = as.factor(sonaHL_ModelData_streak$subject)
+sonaHL_MEM_tree_streak = lmer(rt_corrected_both ~ treeDistance+(1|subject), data = sonaHL_ModelData_streak)
+# flat
+sonaHL_MEM_flat_streak = lmer(rt_corrected_both ~ fingerSwitch_actual+(1|subject), data = sonaHL_ModelData_streak)
+# feature sw
+sonaHL_MEM_feature_streak = lmer(rt_corrected_both ~ nFeatureSwitch+(1|subject), data = sonaHL_ModelData_streak, na.action = na.exclude)
+# finger
+sonaHL_MEM_finger_streak = lmer(rt_corrected ~ fingerDistance+(1|subject), data = sonaHL_ModelData_streak, na.action = na.exclude)
+# neighbor
+sonaHL_MEM_neighbor_streak = lmer(rt_corrected ~ neighbor+(1|subject), data = sonaHL_ModelData_streak, na.action = na.exclude)
+
+AIC(sonaHL_MEM_tree_streak,sonaHL_MEM_flat_streak,sonaHL_MEM_feature_streak,sonaHL_MEM_finger_streak,sonaHL_MEM_neighbor_streak)
+BIC(sonaHL_MEM_tree_streak,sonaHL_MEM_flat_streak,sonaHL_MEM_feature_streak,sonaHL_MEM_finger_streak,sonaHL_MEM_neighbor_streak)
+
+```
+
+# models streak trials (first 55 iter)
+```{r, echo=F, message=F, warning=F, error=T, fig.width=3.5, fig.height=3, fig.align='center'}
+#tree
+sonaHL_ModelData_streak_early = sonaHL %>% filter(streak == 1,trialNum > 3, !is.na(treeDistance), !is.na(nFeatureSwitch), !is.na(fingerDistance), iter <=55)
+sonaHL_ModelData_streak_early$subject = as.factor(sonaHL_ModelData_streak_early$subject)
+sonaHL_MEM_tree_streak_early = lmer(rt_corrected_both ~ treeDistance+(1|subject), data = sonaHL_ModelData_streak_early)
+# flat
+sonaHL_MEM_flat_streak_early = lmer(rt_corrected_both ~ fingerSwitch_actual+(1|subject), data = sonaHL_ModelData_streak_early)
+# feature sw
+sonaHL_MEM_feature_streak_early = lmer(rt_corrected_both ~ nFeatureSwitch+(1|subject), data = sonaHL_ModelData_streak_early, na.action = na.exclude)
+# finger
+sonaHL_MEM_finger_streak_early = lmer(rt_corrected_both ~ fingerDistance+(1|subject), data = sonaHL_ModelData_streak_early, na.action = na.exclude)
+# neighbor
+sonaHL_MEM_neighbor_streak_early = lmer(rt_corrected_both ~ neighbor+(1|subject), data = sonaHL_ModelData_streak_early, na.action = na.exclude)
+
+AIC(sonaHL_MEM_tree_streak_early,sonaHL_MEM_flat_streak_early,sonaHL_MEM_feature_streak_early,sonaHL_MEM_finger_streak_early,sonaHL_MEM_neighbor_streak_early)
+BIC(sonaHL_MEM_tree_streak_early,sonaHL_MEM_flat_streak_early,sonaHL_MEM_feature_streak_early,sonaHL_MEM_finger_streak_early,sonaHL_MEM_neighbor_streak_early)
+
+sonaHL_ModelData_streak_early_corr = sonaHL %>% filter(corr == 1,trialNum > 3, !is.na(treeDistance), !is.na(nFeatureSwitch), !is.na(fingerDistance), iter <=55)
+sonaHL_ModelData_streak_early_corr$subject = as.factor(sonaHL_ModelData_streak_early_corr$subject)
+sonaHL_MEM_tree_streak_early_corr = lmer(rt_corrected_both ~ treeDistance+(1|subject), data = sonaHL_ModelData_streak_early_corr)
+# flat
+sonaHL_MEM_flat_streak_early_corr = lmer(rt_corrected_both ~ fingerSwitch_actual+(1|subject), data = sonaHL_ModelData_streak_early_corr)
+# feature sw
+sonaHL_MEM_feature_streak_early_corr = lmer(rt_corrected_both ~ nFeatureSwitch+(1|subject), data = sonaHL_ModelData_streak_early_corr, na.action = na.exclude)
+# finger
+sonaHL_MEM_finger_streak_early_corr = lmer(rt_corrected_both ~ fingerDistance+(1|subject), data = sonaHL_ModelData_streak_early_corr, na.action = na.exclude)
+# neighbor
+sonaHL_MEM_neighbor_streak_early_corr = lmer(rt_corrected_both ~ neighbor+(1|subject), data = sonaHL_ModelData_streak_early_corr, na.action = na.exclude)
+
+AIC(sonaHL_MEM_tree_streak_early_corr,sonaHL_MEM_flat_streak_early_corr,sonaHL_MEM_feature_streak_early_corr,sonaHL_MEM_finger_streak_early_corr,sonaHL_MEM_neighbor_streak_early_corr)
+BIC(sonaHL_MEM_tree_streak_early_corr,sonaHL_MEM_flat_streak_early_corr,sonaHL_MEM_feature_streak_early_corr,sonaHL_MEM_finger_streak_early_corr,sonaHL_MEM_neighbor_streak_early_corr)
+
+#tree
+sonaHL_ModelData_streak_late = sonaHL %>% filter(streak == 1,trialNum > 3, !is.na(treeDistance), !is.na(nFeatureSwitch), !is.na(fingerDistance), iter >= 55)
+sonaHL_ModelData_streak_late$subject = as.factor(sonaHL_ModelData_streak_late$subject)
+sonaHL_MEM_tree_streak_late = lmer(rt_corrected_both ~ treeDistance+(1|subject), data = sonaHL_ModelData_streak_late)
+# flat
+sonaHL_MEM_flat_streak_late = lmer(rt_corrected_both ~ fingerSwitch_actual+(1|subject), data = sonaHL_ModelData_streak_late)
+# feature sw
+sonaHL_MEM_feature_streak_late = lmer(rt_corrected_both ~ nFeatureSwitch+(1|subject), data = sonaHL_ModelData_streak_late, na.action = na.exclude)
+# finger
+sonaHL_MEM_finger_streak_late = lmer(rt_corrected_both ~ fingerDistance+(1|subject), data = sonaHL_ModelData_streak_late, na.action = na.exclude)
+# neighbor
+sonaHL_MEM_neighbor_streak_late = lmer(rt_corrected_both ~ neighbor+(1|subject), data = sonaHL_ModelData_streak_late, na.action = na.exclude)
+
+AIC(sonaHL_MEM_tree_streak_late,sonaHL_MEM_flat_streak_late,sonaHL_MEM_feature_streak_late,sonaHL_MEM_finger_streak_late,sonaHL_MEM_neighbor_streak_late)
+BIC(sonaHL_MEM_tree_streak_late,sonaHL_MEM_flat_streak_late,sonaHL_MEM_feature_streak_late,sonaHL_MEM_finger_streak_late,sonaHL_MEM_neighbor_streak_late)
+
+```
+\newpage
+# fingerHL figures
+# Learning curve
+```{r, echo=F, message=F, warning=F, error=T, fig.width=4, fig.height=4, fig.align='center' }
+fingerHL = compiledData %>% filter(expt == 'E_fingerHL')
+fingerHL_motor = motorCompiledData %>% filter(expt == 'E_fingerHL')
+ribbonAlpha = 1
+
+fingerHL_learningCurve= fingerHL %>% group_by(subject,iter) %>% dplyr::summarize(pCorHand = mean(corrHand,na.rm = TRUE), pCorCouplet = mean(corrCouplet,na.rm = TRUE), pCorFinger = mean(corr,na.rm = TRUE))
+
+fingerHL_learningCurve_across = fingerHL_learningCurve %>% group_by(iter) %>% dplyr::summarize(acrosspCorHand = mean(pCorHand),acrosspCorCouplet = mean(pCorCouplet),acrosspCorFinger = mean(pCorFinger))
+
+ggplot(fingerHL_learningCurve_across,aes(x=iter))+
+  geom_line(aes(x = iter,y = acrosspCorHand, color = "hand"))+
+  geom_line(aes(x = iter,y = acrosspCorCouplet, color = "couplet"))+
+  geom_line(aes(x = iter,y = acrosspCorFinger, color = "overall accuracy"))+
+  geom_ribbon(data=fingerHL_learningCurve_across,aes(x = iter,ymin = acrosspCorCouplet - se(acrosspCorCouplet), ymax = acrosspCorCouplet + se(acrosspCorCouplet)), inherit.aes = FALSE,fill = "red", alpha = ribbonAlpha)+
+  geom_ribbon(data=fingerHL_learningCurve_across,aes(x = iter,ymin = acrosspCorHand - se(acrosspCorHand), ymax = acrosspCorHand + se(acrosspCorHand)), inherit.aes = FALSE,fill = "blue", alpha = ribbonAlpha)+
+  geom_ribbon(data=fingerHL_learningCurve_across,aes(x = iter,ymin = acrosspCorFinger - se(acrosspCorFinger), ymax = acrosspCorFinger + se(acrosspCorFinger)), inherit.aes = FALSE,fill = "black", alpha = ribbonAlpha)+
+  labs(x= 'stimulus iteration', y = 'accuracy')+
+  theme(axis.line=element_line(),
+        panel.grid = element_blank(),
+        panel.background = element_rect(fill = "white", colour = "black")
+        ,panel.border = element_rect(fill = NA, colour = "white"),
+        strip.text = element_text(size=axisTitleSize,face="bold"), 
+        axis.title.x = element_text(size = axisTitleSize, face = 'bold'), 
+        axis.title.y = element_text(size = axisTitleSize, face = 'bold'), 
+        axis.text.x = element_text(size = axisTextSize), 
+        axis.text.y = element_text(size = axisTextSize), 
+        legend.position = "right", 
+        legend.title = element_blank(),
+        legend.text = element_text(size = axisTextSize),
+        axis.line.x.bottom=element_line(size=axisWidth), 
+        axis.line.y.left=element_line(size=axisWidth), 
+        axis.ticks = element_line(colour = axisColor, size = tickWidth), 
+        axis.ticks.length = unit(tickLength,"cm"))+ 
+  scale_color_manual(values = c("hand" = "blue","couplet" = "red","overall accuracy" = "black"),limits=c("hand","couplet","overall accuracy"))
+  
+```
+# tree distance fig fingerHL
+```{r, echo=F, message=F, warning=F, error=T, fig.width=3, fig.height=3, fig.align='center' }
+fingerHL_tree_streak= fingerHL %>% filter(streak == 1) %>%group_by(subject, treeDistance) %>% filter(!is.na(treeDistance))%>% dplyr::summarize(avgRT = mean(rt_corrected_both,na.rm = TRUE))
+
+t.test(fingerHL_tree_streak$avgRT[fingerHL_tree_streak$treeDistance == 6],fingerHL_tree_streak$avgRT[fingerHL_tree_streak$treeDistance == 4],paired = TRUE)
+cohen.d(fingerHL_tree_streak$avgRT[fingerHL_tree_streak$treeDistance == 6],fingerHL_tree_streak$avgRT[fingerHL_tree_streak$treeDistance == 4],paired = TRUE)
+
+t.test(fingerHL_tree_streak$avgRT[fingerHL_tree_streak$treeDistance == 6],fingerHL_tree_streak$avgRT[fingerHL_tree_streak$treeDistance == 2],paired = TRUE)
+cohen.d(fingerHL_tree_streak$avgRT[fingerHL_tree_streak$treeDistance == 6],fingerHL_tree_streak$avgRT[fingerHL_tree_streak$treeDistance == 2],paired = TRUE)
+
+t.test(fingerHL_tree_streak$avgRT[fingerHL_tree_streak$treeDistance == 6],fingerHL_tree_streak$avgRT[fingerHL_tree_streak$treeDistance == 0],paired = TRUE)
+cohen.d(fingerHL_tree_streak$avgRT[fingerHL_tree_streak$treeDistance == 6],fingerHL_tree_streak$avgRT[fingerHL_tree_streak$treeDistance == 0],paired = TRUE)
+
+t.test(fingerHL_tree_streak$avgRT[fingerHL_tree_streak$treeDistance == 4],fingerHL_tree_streak$avgRT[fingerHL_tree_streak$treeDistance == 2],paired = TRUE)
+cohen.d(fingerHL_tree_streak$avgRT[fingerHL_tree_streak$treeDistance == 4],fingerHL_tree_streak$avgRT[fingerHL_tree_streak$treeDistance == 2],paired = TRUE)
+
+t.test(fingerHL_tree_streak$avgRT[fingerHL_tree_streak$treeDistance == 4],fingerHL_tree_streak$avgRT[fingerHL_tree_streak$treeDistance == 0],paired = TRUE)
+cohen.d(fingerHL_tree_streak$avgRT[fingerHL_tree_streak$treeDistance == 4],fingerHL_tree_streak$avgRT[fingerHL_tree_streak$treeDistance == 0],paired = TRUE)
+
+t.test(fingerHL_tree_streak$avgRT[fingerHL_tree_streak$treeDistance == 2],fingerHL_tree_streak$avgRT[fingerHL_tree_streak$treeDistance == 0],paired = TRUE)
+cohen.d(fingerHL_tree_streak$avgRT[fingerHL_tree_streak$treeDistance == 2],fingerHL_tree_streak$avgRT[fingerHL_tree_streak$treeDistance == 0],paired = TRUE)
+
+fingerHL_tree_streak_summaryStats = summarySEwithin(fingerHL_tree_streak,measurevar="avgRT", withinvars=c("treeDistance"),idvar="subject", na.rm=FALSE, conf.interval=.95)
+
+ggplot(fingerHL_tree_streak_summaryStats, aes(x = as.factor(treeDistance), y = avgRT)) + 
+  geom_bar(stat = "identity",position = "dodge")+
+  geom_errorbar(aes(ymin=avgRT-se, ymax=avgRT+se), width=.2,position=position_dodge(.9))+
+  labs(x= 'tree distance', y = 'RT')+
+  scale_y_continuous(expand = c(0,0), limits = c(0,900))+
+  theme(panel.grid = element_blank(),
+        panel.background = element_rect(fill = "white", colour = "black"),
+        panel.border = element_rect(fill = NA, colour = "white"),
+        strip.text = element_text(size=axisTitleSize), 
+        axis.title.x = element_text(size = axisTitleSize), 
+        axis.title.y = element_text(size = axisTitleSize), 
+        axis.text.x = element_text(size = axisTextSize, color = textColor), 
+        axis.text.y = element_text(size = axisTextSize, color = textColor), 
+        axis.line.x.bottom=element_line(size=axisWidth), 
+        axis.line.y.left=element_line(size=axisWidth), 
+        axis.ticks = element_line(colour = axisColor, size = tickWidth), 
+        axis.ticks.length = unit(tickLength,"cm"))
+```
+# accu x tree distance fig fingerHL
+```{r, echo=F, message=F, warning=F, error=T, fig.width=3, fig.height=3, fig.align='center' }
+fingerHL_accu_tree_streak= fingerHL %>%group_by(subject, treeDistance) %>% filter(!is.na(treeDistance))%>% dplyr::summarize(accu = mean(corr,na.rm = TRUE))
+t.test(fingerHL_accu_tree_streak$accu[fingerHL_accu_tree_streak$treeDistance == 6],fingerHL_accu_tree_streak$accu[fingerHL_accu_tree_streak$treeDistance == 4], paired = TRUE)
+t.test(fingerHL_accu_tree_streak$accu[fingerHL_accu_tree_streak$treeDistance == 6],fingerHL_accu_tree_streak$accu[fingerHL_accu_tree_streak$treeDistance == 2], paired = TRUE)
+t.test(fingerHL_accu_tree_streak$accu[fingerHL_accu_tree_streak$treeDistance == 6],fingerHL_accu_tree_streak$accu[fingerHL_accu_tree_streak$treeDistance == 0], paired = TRUE)
+t.test(fingerHL_accu_tree_streak$accu[fingerHL_accu_tree_streak$treeDistance == 4],fingerHL_accu_tree_streak$accu[fingerHL_accu_tree_streak$treeDistance == 2], paired = TRUE)
+t.test(fingerHL_accu_tree_streak$accu[fingerHL_accu_tree_streak$treeDistance == 4],fingerHL_accu_tree_streak$accu[fingerHL_accu_tree_streak$treeDistance == 0], paired = TRUE)
+t.test(fingerHL_accu_tree_streak$accu[fingerHL_accu_tree_streak$treeDistance == 2],fingerHL_accu_tree_streak$accu[fingerHL_accu_tree_streak$treeDistance == 0], paired = TRUE)
+anova_test(data.frame(fingerHL_accu_tree_streak), dv = accu, wid = subject, within = c(treeDistance), effect.size = 'pes')
+
+fingerHL_accu_tree_streak_summaryStats = summarySEwithin(fingerHL_accu_tree_streak,measurevar="accu", withinvars=c("treeDistance"),idvar="subject", na.rm=FALSE, conf.interval=.95)
+
+ggplot(fingerHL_accu_tree_streak_summaryStats, aes(x = as.factor(treeDistance), y = accu)) + 
+  geom_bar(stat = "identity",position = "dodge")+
+  geom_errorbar(aes(ymin=accu-se, ymax=accu+se), width=.2,position=position_dodge(.9))+
+  labs(x= 'tree distance', y = 'RT')+
+  scale_y_continuous(expand = c(0,0), limits = c(0,1))+
+  theme(panel.grid = element_blank(),
+        panel.background = element_rect(fill = "white", colour = "black"),
+        panel.border = element_rect(fill = NA, colour = "white"),
+        strip.text = element_text(size=axisTitleSize), 
+        axis.title.x = element_text(size = axisTitleSize), 
+        axis.title.y = element_text(size = axisTitleSize), 
+        axis.text.x = element_text(size = axisTextSize, color = textColor), 
+        axis.text.y = element_text(size = axisTextSize, color = textColor), 
+        axis.line.x.bottom=element_line(size=axisWidth), 
+        axis.line.y.left=element_line(size=axisWidth), 
+        axis.ticks = element_line(colour = axisColor, size = tickWidth), 
+        axis.ticks.length = unit(tickLength,"cm"))
+
+```
+\newpage
+# fingerHL heatmaps
+# raw RTs
+```{r, echo=F, message=F, warning=F, error=T, fig.width=6, fig.height=6, fig.align='center' }
+#filter for correct responses
+fingerHL_heatmapData_raw = data.frame(subject = fingerHL$subject[2:length(fingerHL$subject)],currResp = fingerHL$key_press[2:length(fingerHL$key_press)], prevResp = fingerHL$key_press[1:length(fingerHL$key_press)-1], trialNum = fingerHL$trialNum[2:length(fingerHL$trialNum)], rt = fingerHL$rt[2:length(fingerHL$rt)], corr = fingerHL$corr[2:length(fingerHL$corr)]) %>% filter(trialNum !=1, corr == 1, !is.na(currResp), !is.na(prevResp)) %>% group_by(subject, currResp, prevResp) %>% dplyr::summarize(meanRT = mean(rt, na.rm=TRUE)) %>% group_by(currResp,prevResp) %>% dplyr::summarise(meanRT = mean(meanRT))
+
+fingerHL_heatmapData_raw$prevResp = factor(fingerHL_heatmapData_raw$prevResp, levels = c(76,75,74,72,70,68,83,65))
+fingerHL_heatmapData_raw$currResp = factor(fingerHL_heatmapData_raw$currResp, levels = c(65,83,68,70,72,74,75,76))
+
+handColor = "dodgerblue1"
+coupletColor = "firebrick3"
+
+
+tickLength = .25
+handBoundaryWidth = 2
+coupletBoundaryWidth = 1
+boundaryColor = "black"
+
+bottom = .25
+top = 8.75
+left = .25
+right = 8.75
+handBoundaryWidth = 2
+coupletBoundaryWidth = 1
+boundaryColor = "black"
+
+
+ggplot(fingerHL_heatmapData_raw,aes(as.factor(currResp), as.factor(prevResp), fill = meanRT))+geom_tile(color = "white")+
+  geom_text(aes(label = round(meanRT, digits = 0)), color = "grey20", size = 4)+
+  scale_fill_distiller(palette = "Purples", trans = "reverse")+coord_equal()+
+  geom_segment(aes(x=4.5 ,y=bottom,xend = 4.5, yend = top), size = handBoundaryWidth, color = boundaryColor)+
+  geom_segment(aes(x=left ,y=4.5,xend = right, yend = 4.5), size = handBoundaryWidth, color = boundaryColor)+
+  geom_segment(aes(x=2.5 ,y=bottom,xend = 2.5, yend = top), size = coupletBoundaryWidth, color = boundaryColor)+
+  geom_segment(aes(x=6.5 ,y=bottom,xend = 6.5, yend = top), size = coupletBoundaryWidth, color = boundaryColor)+
+  geom_segment(aes(x=left ,y=2.5,xend = right, yend = 2.5), size = coupletBoundaryWidth, color = boundaryColor)+
+  geom_segment(aes(x=left ,y=6.5,xend = right, yend = 6.5), size = coupletBoundaryWidth, color = boundaryColor)+
+  labs(x= 'current response', y = 'previous response')+
+  theme(panel.grid = element_blank(),
+        panel.background = element_rect(fill = "white", colour = "black"),
+        panel.border = element_rect(fill = NA, colour = "white"),
+        strip.text = element_text(size=axisTitleSize), 
+        axis.title.x = element_text(size = axisTitleSize), 
+        axis.title.y = element_text(size = axisTitleSize), 
+        axis.text.x = element_text(size = axisTextSize, color = textColor), 
+        axis.text.y = element_text(size = axisTextSize, color = textColor))
+
+```
+
+
+# motor RTs
+```{r, echo=F, message=F, warning=F, error=T, fig.width=6, fig.height=6, fig.align='center' }
+#filter for correct responses
+fingerHL_heatmapData_motor = data.frame(subject = fingerHL_motor$subject[2:length(fingerHL_motor$subject)],currResp = fingerHL_motor$key_press[2:length(fingerHL_motor$key_press)], prevResp = fingerHL_motor$key_press[1:length(fingerHL_motor$key_press)-1], trialNum = fingerHL_motor$trialNum[2:length(fingerHL_motor$trialNum)], rt = fingerHL_motor$rt[2:length(fingerHL_motor$rt)], corr = fingerHL_motor$corr[2:length(fingerHL_motor$corr)]) %>% filter(trialNum !=1, corr == 1, !is.na(currResp), !is.na(prevResp)) %>% group_by(subject,currResp, prevResp) %>% dplyr::summarize(meanRT = mean(rt, na.rm=TRUE)) %>% group_by(currResp,prevResp) %>% dplyr::summarize(meanRT = mean(meanRT))
+
+fingerHL_heatmapData_motor$prevResp = factor(fingerHL_heatmapData_motor$prevResp, levels = c(76,75,74,72,70,68,83,65))
+fingerHL_heatmapData_motor$currResp = factor(fingerHL_heatmapData_motor$currResp, levels = c(65,83,68,70,72,74,75,76))
+
+
+ggplot(fingerHL_heatmapData_motor,aes(as.factor(currResp), as.factor(prevResp), fill = meanRT))+geom_tile(color = "white")+
+  geom_text(aes(label = round(meanRT, digits = 0)), color = "grey20", size = 4)+
+  scale_fill_distiller(palette = "Reds", trans = "reverse")+coord_equal()+
+  geom_segment(aes(x=4.5 ,y=bottom,xend = 4.5, yend = top), size = handBoundaryWidth, color = boundaryColor)+
+  geom_segment(aes(x=left ,y=4.5,xend = right, yend = 4.5), size = handBoundaryWidth, color = boundaryColor)+
+  geom_segment(aes(x=2.5 ,y=bottom,xend = 2.5, yend = top), size = coupletBoundaryWidth, color = boundaryColor)+
+  geom_segment(aes(x=6.5 ,y=bottom,xend = 6.5, yend = top), size = coupletBoundaryWidth, color = boundaryColor)+
+  geom_segment(aes(x=left ,y=2.5,xend = right, yend = 2.5), size = coupletBoundaryWidth, color = boundaryColor)+
+  geom_segment(aes(x=left ,y=6.5,xend = right, yend = 6.5), size = coupletBoundaryWidth, color = boundaryColor)+
+  labs(x= 'current response', y = 'previous response')+
+  theme(panel.grid = element_blank(),
+        panel.background = element_rect(fill = "white", colour = "black"),
+        panel.border = element_rect(fill = NA, colour = "white"),
+        strip.text = element_text(size=axisTitleSize), 
+        axis.title.x = element_text(size = axisTitleSize), 
+        axis.title.y = element_text(size = axisTitleSize), 
+        axis.text.x = element_text(size = axisTextSize, color = textColor), 
+        axis.text.y = element_text(size = axisTextSize, color = textColor))
+
+```
+
+# corrected RTs
+```{r, echo=F, message=F, warning=F, error=T, fig.width=6, fig.height=6, fig.align='center' }
+#filter for correct responses
+fingerHL_heatmapData_corrected = data.frame(subject = fingerHL$subject[2:length(fingerHL$subject)],currResp = fingerHL$key_press[2:length(fingerHL$key_press)], prevResp = fingerHL$key_press[1:length(fingerHL$key_press)-1], trialNum = fingerHL$trialNum[2:length(fingerHL$trialNum)], rt_corrected_both = fingerHL$rt_corrected_both[2:length(fingerHL$rt_corrected_both)], corr = fingerHL$corr[2:length(fingerHL$corr)]) %>% filter(trialNum !=1, corr == 1, !is.na(currResp), !is.na(prevResp)) %>% group_by(subject,currResp, prevResp) %>% dplyr::summarize(meanRT = mean(rt_corrected_both, na.rm=TRUE)) %>% group_by(currResp,prevResp) %>% dplyr::summarise(meanRT = mean(meanRT))
+
+fingerHL_heatmapData_corrected$prevResp = factor(fingerHL_heatmapData_corrected$prevResp, levels = c(76,75,74,72,70,68,83,65))
+fingerHL_heatmapData_corrected$currResp = factor(fingerHL_heatmapData_corrected$currResp, levels = c(65,83,68,70,72,74,75,76))
+
+ggplot(fingerHL_heatmapData_corrected,aes(as.factor(currResp), as.factor(prevResp), fill = meanRT))+geom_tile(color = "white")+
+  geom_text(aes(label = round(meanRT, digits = 0)), color = "grey20", size = 4)+
+  scale_fill_distiller(palette = "Blues", trans = "reverse")+coord_equal()+
+  geom_segment(aes(x=4.5 ,y=bottom,xend = 4.5, yend = top), size = handBoundaryWidth, color = boundaryColor)+
+  geom_segment(aes(x=left ,y=4.5,xend = right, yend = 4.5), size = handBoundaryWidth, color = boundaryColor)+
+  geom_segment(aes(x=2.5 ,y=bottom,xend = 2.5, yend = top), size = coupletBoundaryWidth, color = boundaryColor)+
+  geom_segment(aes(x=6.5 ,y=bottom,xend = 6.5, yend = top), size = coupletBoundaryWidth, color = boundaryColor)+
+  geom_segment(aes(x=left ,y=2.5,xend = right, yend = 2.5), size = coupletBoundaryWidth, color = boundaryColor)+
+  geom_segment(aes(x=left ,y=6.5,xend = right, yend = 6.5), size = coupletBoundaryWidth, color = boundaryColor)+
+  labs(x= 'current response', y = 'previous response')+
+  theme(panel.grid = element_blank(),
+        panel.background = element_rect(fill = "white", colour = "black"),
+        panel.border = element_rect(fill = NA, colour = "white"),
+        strip.text = element_text(size=axisTitleSize), 
+        axis.title.x = element_text(size = axisTitleSize), 
+        axis.title.y = element_text(size = axisTitleSize), 
+        axis.text.x = element_text(size = axisTextSize, color = textColor), 
+        axis.text.y = element_text(size = axisTextSize, color = textColor))
+
+```
+
+\newpage 
+# finger HL
+# models streak trials
+```{r, echo=F, message=F, warning=F, error=T, fig.width=3.5, fig.height=3, fig.align='center'}
+#tree
+fingerHL_ModelData_streak = fingerHL %>% filter(streak == 1,trialNum > 3, !is.na(treeDistance), !is.na(nFeatureSwitch), !is.na(fingerDistance))
+fingerHL_MEM_tree_streak = lmer(rt_corrected_both ~ treeDistance+(1|subject), data = fingerHL_ModelData_streak, na.action = na.exclude)
+# flat
+fingerHL_MEM_flat_streak = lmer(rt_corrected_both ~ fingerSwitch_actual+(1|subject), data = fingerHL_ModelData_streak, na.action = na.exclude)
+# feature sw
+fingerHL_MEM_feature_streak = lmer(rt_corrected_both ~ nFeatureSwitch+(1|subject), data = fingerHL_ModelData_streak, na.action = na.exclude)
+# finger
+fingerHL_MEM_finger_streak = lmer(rt_corrected ~ fingerDistance+(1|subject), data = fingerHL_ModelData_streak, na.action = na.exclude)
+# neighbor 
+fingerHL_MEM_neighbor_streak = lmer(rt_corrected ~ neighbor+(1|subject), data = fingerHL_ModelData_streak, na.action = na.exclude)
+
+AIC(fingerHL_MEM_tree_streak,fingerHL_MEM_flat_streak,fingerHL_MEM_feature_streak,fingerHL_MEM_finger_streak,fingerHL_MEM_neighbor_streak)
+BIC(fingerHL_MEM_tree_streak,fingerHL_MEM_flat_streak,fingerHL_MEM_feature_streak,fingerHL_MEM_finger_streak,fingerHL_MEM_neighbor_streak)
+```
+\newpage
+# oneDFL figures
+# Learning curve
+```{r, echo=F, message=F, warning=F, error=T, fig.width=4, fig.height=4, fig.align='center' }
+oneDFL = compiledData %>% filter(expt == 'C_oneDFL')
+oneDFL_motor = motorCompiledData %>% filter(expt == 'C_oneDFL')
+ribbonAlpha = 1
+
+oneDFL_learningCurve= oneDFL %>% group_by(subject,iter) %>% dplyr::summarize(pCorHand = mean(corrHand,na.rm = TRUE), pCorCouplet = mean(corrCouplet,na.rm = TRUE), pCorFinger = mean(corr,na.rm = TRUE))
+
+oneDFL_learningCurve_across = oneDFL_learningCurve %>% group_by(iter) %>% dplyr::summarize(acrosspCorHand = mean(pCorHand),acrosspCorCouplet = mean(pCorCouplet),acrosspCorFinger = mean(pCorFinger))
+
+ggplot(oneDFL_learningCurve_across,aes(x=iter))+
+  geom_line(aes(x = iter,y = acrosspCorHand, color = "hand"))+
+  geom_line(aes(x = iter,y = acrosspCorCouplet, color = "couplet"))+
+  geom_line(aes(x = iter,y = acrosspCorFinger, color = "overall accuracy"))+
+  geom_ribbon(data=oneDFL_learningCurve_across,aes(x = iter,ymin = acrosspCorCouplet - se(acrosspCorCouplet), ymax = acrosspCorCouplet + se(acrosspCorCouplet)), inherit.aes = FALSE,fill = "red", alpha = ribbonAlpha)+
+  geom_ribbon(data=oneDFL_learningCurve_across,aes(x = iter,ymin = acrosspCorHand - se(acrosspCorHand), ymax = acrosspCorHand + se(acrosspCorHand)), inherit.aes = FALSE,fill = "blue", alpha = ribbonAlpha)+
+  geom_ribbon(data=oneDFL_learningCurve_across,aes(x = iter,ymin = acrosspCorFinger - se(acrosspCorFinger), ymax = acrosspCorFinger + se(acrosspCorFinger)), inherit.aes = FALSE,fill = "black", alpha = ribbonAlpha)+
+  labs(x= 'stimulus iteration', y = 'accuracy')+
+  theme(axis.line=element_line(),
+        panel.grid = element_blank(),
+        panel.background = element_rect(fill = "white", colour = "black")
+        ,panel.border = element_rect(fill = NA, colour = "white"),
+        strip.text = element_text(size=axisTitleSize,face="bold"), 
+        axis.title.x = element_text(size = axisTitleSize, face = 'bold'), 
+        axis.title.y = element_text(size = axisTitleSize, face = 'bold'), 
+        axis.text.x = element_text(size = axisTextSize), 
+        axis.text.y = element_text(size = axisTextSize), 
+        legend.position = "right", 
+        legend.title = element_blank(),
+        legend.text = element_text(size = axisTextSize),
+        axis.line.x.bottom=element_line(size=axisWidth), 
+        axis.line.y.left=element_line(size=axisWidth), 
+        axis.ticks = element_line(colour = axisColor, size = tickWidth), 
+        axis.ticks.length = unit(tickLength,"cm"))+ 
+  scale_color_manual(values = c("hand" = "blue","couplet" = "red","overall accuracy" = "black"),limits=c("hand","couplet","overall accuracy"))
+  
+```
+# tree distance fig oneDFL
+```{r, echo=F, message=F, warning=F, error=T, fig.width=3, fig.height=3, fig.align='center' }
+oneDFL_tree_streak= oneDFL %>% filter(streak == 1) %>%group_by(subject, treeDistance) %>% filter(!is.na(treeDistance))%>% dplyr::summarize(avgRT = mean(rt_corrected_both,na.rm = TRUE))
+
+t.test(oneDFL_tree_streak$avgRT[oneDFL_tree_streak$treeDistance == 6],oneDFL_tree_streak$avgRT[oneDFL_tree_streak$treeDistance == 4], paired = TRUE )
+cohen.d(oneDFL_tree_streak$avgRT[oneDFL_tree_streak$treeDistance == 6],oneDFL_tree_streak$avgRT[oneDFL_tree_streak$treeDistance == 4],paired = TRUE)
+
+t.test(oneDFL_tree_streak$avgRT[oneDFL_tree_streak$treeDistance == 6],oneDFL_tree_streak$avgRT[oneDFL_tree_streak$treeDistance == 2], paired = TRUE )
+cohen.d(oneDFL_tree_streak$avgRT[oneDFL_tree_streak$treeDistance == 6],oneDFL_tree_streak$avgRT[oneDFL_tree_streak$treeDistance == 2],paired = TRUE)
+
+t.test(oneDFL_tree_streak$avgRT[oneDFL_tree_streak$treeDistance == 6],oneDFL_tree_streak$avgRT[oneDFL_tree_streak$treeDistance == 0], paired = TRUE )
+cohen.d(oneDFL_tree_streak$avgRT[oneDFL_tree_streak$treeDistance == 6],oneDFL_tree_streak$avgRT[oneDFL_tree_streak$treeDistance == 0],paired = TRUE)
+
+t.test(oneDFL_tree_streak$avgRT[oneDFL_tree_streak$treeDistance == 4],oneDFL_tree_streak$avgRT[oneDFL_tree_streak$treeDistance == 2], paired = TRUE )
+cohen.d(oneDFL_tree_streak$avgRT[oneDFL_tree_streak$treeDistance == 4],oneDFL_tree_streak$avgRT[oneDFL_tree_streak$treeDistance == 2],paired = TRUE)
+
+t.test(oneDFL_tree_streak$avgRT[oneDFL_tree_streak$treeDistance == 4],oneDFL_tree_streak$avgRT[oneDFL_tree_streak$treeDistance == 0], paired = TRUE )
+cohen.d(oneDFL_tree_streak$avgRT[oneDFL_tree_streak$treeDistance == 4],oneDFL_tree_streak$avgRT[oneDFL_tree_streak$treeDistance == 0],paired = TRUE)
+
+t.test(oneDFL_tree_streak$avgRT[oneDFL_tree_streak$treeDistance == 2],oneDFL_tree_streak$avgRT[oneDFL_tree_streak$treeDistance == 0], paired = TRUE )
+cohen.d(oneDFL_tree_streak$avgRT[oneDFL_tree_streak$treeDistance == 2],oneDFL_tree_streak$avgRT[oneDFL_tree_streak$treeDistance == 0],paired = TRUE)
+
+oneDFL_tree_streak_summaryStats = summarySEwithin(oneDFL_tree_streak,measurevar="avgRT", withinvars=c("treeDistance"),idvar="subject", na.rm=FALSE, conf.interval=.95)
+
+ggplot(oneDFL_tree_streak_summaryStats, aes(x = as.factor(treeDistance), y = avgRT)) + 
+  geom_bar(stat = "identity",position = "dodge")+
+  geom_errorbar(aes(ymin=avgRT-se, ymax=avgRT+se), width=.2,position=position_dodge(.9))+
+  labs(x= 'tree distance', y = 'RT')+
+  scale_y_continuous(expand = c(0,0), limits = c(0,900))+
+  theme(panel.grid = element_blank(),
+        panel.background = element_rect(fill = "white", colour = "black"),
+        panel.border = element_rect(fill = NA, colour = "white"),
+        strip.text = element_text(size=axisTitleSize), 
+        axis.title.x = element_text(size = axisTitleSize), 
+        axis.title.y = element_text(size = axisTitleSize), 
+        axis.text.x = element_text(size = axisTextSize, color = textColor), 
+        axis.text.y = element_text(size = axisTextSize, color = textColor), 
+        axis.line.x.bottom=element_line(size=axisWidth), 
+        axis.line.y.left=element_line(size=axisWidth), 
+        axis.ticks = element_line(colour = axisColor, size = tickWidth), 
+        axis.ticks.length = unit(tickLength,"cm"))
+```
+# accu x tree distance fig oneDFL
+```{r, echo=F, message=F, warning=F, error=T, fig.width=3, fig.height=3, fig.align='center' }
+oneDFL_accu_tree_streak= oneDFL %>%group_by(subject, treeDistance) %>% filter(!is.na(treeDistance))%>% dplyr::summarize(accu = mean(corr,na.rm = TRUE))
+t.test(oneDFL_accu_tree_streak$accu[oneDFL_accu_tree_streak$treeDistance == 6],oneDFL_accu_tree_streak$accu[oneDFL_accu_tree_streak$treeDistance == 4], paired = TRUE)
+t.test(oneDFL_accu_tree_streak$accu[oneDFL_accu_tree_streak$treeDistance == 6],oneDFL_accu_tree_streak$accu[oneDFL_accu_tree_streak$treeDistance == 2], paired = TRUE)
+t.test(oneDFL_accu_tree_streak$accu[oneDFL_accu_tree_streak$treeDistance == 6],oneDFL_accu_tree_streak$accu[oneDFL_accu_tree_streak$treeDistance == 0], paired = TRUE)
+t.test(oneDFL_accu_tree_streak$accu[oneDFL_accu_tree_streak$treeDistance == 4],oneDFL_accu_tree_streak$accu[oneDFL_accu_tree_streak$treeDistance == 2], paired = TRUE)
+t.test(oneDFL_accu_tree_streak$accu[oneDFL_accu_tree_streak$treeDistance == 4],oneDFL_accu_tree_streak$accu[oneDFL_accu_tree_streak$treeDistance == 0], paired = TRUE)
+t.test(oneDFL_accu_tree_streak$accu[oneDFL_accu_tree_streak$treeDistance == 2],oneDFL_accu_tree_streak$accu[oneDFL_accu_tree_streak$treeDistance == 0], paired = TRUE)
+anova_test(data.frame(oneDFL_accu_tree_streak), dv = accu, wid = subject, within = c(treeDistance), effect.size = 'pes')
+
+oneDFL_accu_tree_streak_summaryStats = summarySEwithin(oneDFL_accu_tree_streak,measurevar="accu", withinvars=c("treeDistance"),idvar="subject", na.rm=FALSE, conf.interval=.95)
+
+ggplot(oneDFL_accu_tree_streak_summaryStats, aes(x = as.factor(treeDistance), y = accu)) + 
+  geom_bar(stat = "identity",position = "dodge")+
+  geom_errorbar(aes(ymin=accu-se, ymax=accu+se), width=.2,position=position_dodge(.9))+
+  labs(x= 'tree distance', y = 'accuracy')+
+  scale_y_continuous(expand = c(0,0), limits = c(0,1))+
+  theme(panel.grid = element_blank(),
+        panel.background = element_rect(fill = "white", colour = "black"),
+        panel.border = element_rect(fill = NA, colour = "white"),
+        strip.text = element_text(size=axisTitleSize), 
+        axis.title.x = element_text(size = axisTitleSize), 
+        axis.title.y = element_text(size = axisTitleSize), 
+        axis.text.x = element_text(size = axisTextSize, color = textColor), 
+        axis.text.y = element_text(size = axisTextSize, color = textColor), 
+        axis.line.x.bottom=element_line(size=axisWidth), 
+        axis.line.y.left=element_line(size=axisWidth), 
+        axis.ticks = element_line(colour = axisColor, size = tickWidth), 
+        axis.ticks.length = unit(tickLength,"cm"))
+
+```
+\newpage
+# oneDFL heatmaps
+# raw RTs
+```{r, echo=F, message=F, warning=F, error=T, fig.width=6, fig.height=6, fig.align='center' }
+#filter for correct responses
+oneDFL_heatmapData_raw = data.frame(subject = oneDFL$subject[2:length(oneDFL$subject)],currResp = oneDFL$key_press[2:length(oneDFL$key_press)], prevResp = oneDFL$key_press[1:length(oneDFL$key_press)-1], trialNum = oneDFL$trialNum[2:length(oneDFL$trialNum)], rt = oneDFL$rt[2:length(oneDFL$rt)], corr = oneDFL$corr[2:length(oneDFL$corr)]) %>% filter(trialNum !=1, corr == 1, !is.na(currResp), !is.na(prevResp)) %>% group_by(subject, currResp, prevResp) %>% dplyr::summarize(meanRT = mean(rt, na.rm=TRUE)) %>% group_by(currResp,prevResp) %>% dplyr::summarise(meanRT = mean(meanRT))
+
+oneDFL_heatmapData_raw$prevResp = factor(oneDFL_heatmapData_raw$prevResp, levels = c(76,75,74,72,70,68,83,65))
+oneDFL_heatmapData_raw$currResp = factor(oneDFL_heatmapData_raw$currResp, levels = c(65,83,68,70,72,74,75,76))
+
+handColor = "dodgerblue1"
+coupletColor = "firebrick3"
+
+
+tickLength = .25
+handBoundaryWidth = 2
+coupletBoundaryWidth = 1
+boundaryColor = "black"
+
+bottom = .25
+top = 8.75
+left = .25
+right = 8.75
+handBoundaryWidth = 2
+coupletBoundaryWidth = 1
+boundaryColor = "black"
+
+
+ggplot(oneDFL_heatmapData_raw,aes(as.factor(currResp), as.factor(prevResp), fill = meanRT))+geom_tile(color = "white")+
+  geom_text(aes(label = round(meanRT, digits = 0)), color = "grey20", size = 4)+
+  scale_fill_distiller(palette = "Purples", trans = "reverse")+coord_equal()+
+  geom_segment(aes(x=4.5 ,y=bottom,xend = 4.5, yend = top), size = handBoundaryWidth, color = boundaryColor)+
+  geom_segment(aes(x=left ,y=4.5,xend = right, yend = 4.5), size = handBoundaryWidth, color = boundaryColor)+
+  geom_segment(aes(x=2.5 ,y=bottom,xend = 2.5, yend = top), size = coupletBoundaryWidth, color = boundaryColor)+
+  geom_segment(aes(x=6.5 ,y=bottom,xend = 6.5, yend = top), size = coupletBoundaryWidth, color = boundaryColor)+
+  geom_segment(aes(x=left ,y=2.5,xend = right, yend = 2.5), size = coupletBoundaryWidth, color = boundaryColor)+
+  geom_segment(aes(x=left ,y=6.5,xend = right, yend = 6.5), size = coupletBoundaryWidth, color = boundaryColor)+
+  labs(x= 'current response', y = 'previous response')+
+  theme(panel.grid = element_blank(),
+        panel.background = element_rect(fill = "white", colour = "black"),
+        panel.border = element_rect(fill = NA, colour = "white"),
+        strip.text = element_text(size=axisTitleSize), 
+        axis.title.x = element_text(size = axisTitleSize), 
+        axis.title.y = element_text(size = axisTitleSize), 
+        axis.text.x = element_text(size = axisTextSize, color = textColor), 
+        axis.text.y = element_text(size = axisTextSize, color = textColor))
+
+```
+
+
+# motor RTs
+```{r, echo=F, message=F, warning=F, error=T, fig.width=6, fig.height=6, fig.align='center' }
+#filter for correct responses
+oneDFL_heatmapData_motor = data.frame(subject = oneDFL_motor$subject[2:length(oneDFL_motor$subject)],currResp = oneDFL_motor$key_press[2:length(oneDFL_motor$key_press)], prevResp = oneDFL_motor$key_press[1:length(oneDFL_motor$key_press)-1], trialNum = oneDFL_motor$trialNum[2:length(oneDFL_motor$trialNum)], rt = oneDFL_motor$rt[2:length(oneDFL_motor$rt)], corr = oneDFL_motor$corr[2:length(oneDFL_motor$corr)]) %>% filter(trialNum !=1, corr == 1, !is.na(currResp), !is.na(prevResp)) %>% group_by(subject,currResp, prevResp) %>% dplyr::summarize(meanRT = mean(rt, na.rm=TRUE)) %>% group_by(currResp,prevResp) %>% dplyr::summarize(meanRT = mean(meanRT))
+
+oneDFL_heatmapData_motor$prevResp = factor(oneDFL_heatmapData_motor$prevResp, levels = c(76,75,74,72,70,68,83,65))
+oneDFL_heatmapData_motor$currResp = factor(oneDFL_heatmapData_motor$currResp, levels = c(65,83,68,70,72,74,75,76))
+
+
+ggplot(oneDFL_heatmapData_motor,aes(as.factor(currResp), as.factor(prevResp), fill = meanRT))+geom_tile(color = "white")+
+  geom_text(aes(label = round(meanRT, digits = 0)), color = "grey20", size = 4)+
+  scale_fill_distiller(palette = "Reds", trans = "reverse")+coord_equal()+
+  geom_segment(aes(x=4.5 ,y=bottom,xend = 4.5, yend = top), size = handBoundaryWidth, color = boundaryColor)+
+  geom_segment(aes(x=left ,y=4.5,xend = right, yend = 4.5), size = handBoundaryWidth, color = boundaryColor)+
+  geom_segment(aes(x=2.5 ,y=bottom,xend = 2.5, yend = top), size = coupletBoundaryWidth, color = boundaryColor)+
+  geom_segment(aes(x=6.5 ,y=bottom,xend = 6.5, yend = top), size = coupletBoundaryWidth, color = boundaryColor)+
+  geom_segment(aes(x=left ,y=2.5,xend = right, yend = 2.5), size = coupletBoundaryWidth, color = boundaryColor)+
+  geom_segment(aes(x=left ,y=6.5,xend = right, yend = 6.5), size = coupletBoundaryWidth, color = boundaryColor)+
+  labs(x= 'current response', y = 'previous response')+
+  theme(panel.grid = element_blank(),
+        panel.background = element_rect(fill = "white", colour = "black"),
+        panel.border = element_rect(fill = NA, colour = "white"),
+        strip.text = element_text(size=axisTitleSize), 
+        axis.title.x = element_text(size = axisTitleSize), 
+        axis.title.y = element_text(size = axisTitleSize), 
+        axis.text.x = element_text(size = axisTextSize, color = textColor), 
+        axis.text.y = element_text(size = axisTextSize, color = textColor))
+
+```
+
+# corrected RTs
+```{r, echo=F, message=F, warning=F, error=T, fig.width=6, fig.height=6, fig.align='center' }
+#filter for correct responses
+oneDFL_heatmapData_corrected = data.frame(subject = oneDFL$subject[2:length(oneDFL$subject)],currResp = oneDFL$key_press[2:length(oneDFL$key_press)], prevResp = oneDFL$key_press[1:length(oneDFL$key_press)-1], trialNum = oneDFL$trialNum[2:length(oneDFL$trialNum)], rt_corrected_both = oneDFL$rt_corrected_both[2:length(oneDFL$rt_corrected_both)], corr = oneDFL$corr[2:length(oneDFL$corr)]) %>% filter(trialNum !=1, corr == 1, !is.na(currResp), !is.na(prevResp)) %>% group_by(subject,currResp, prevResp) %>% dplyr::summarize(meanRT = mean(rt_corrected_both, na.rm=TRUE)) %>% group_by(currResp,prevResp) %>% dplyr::summarise(meanRT = mean(meanRT))
+
+oneDFL_heatmapData_corrected$prevResp = factor(oneDFL_heatmapData_corrected$prevResp, levels = c(76,75,74,72,70,68,83,65))
+oneDFL_heatmapData_corrected$currResp = factor(oneDFL_heatmapData_corrected$currResp, levels = c(65,83,68,70,72,74,75,76))
+
+ggplot(oneDFL_heatmapData_corrected,aes(as.factor(currResp), as.factor(prevResp), fill = meanRT))+geom_tile(color = "white")+
+  geom_text(aes(label = round(meanRT, digits = 0)), color = "grey20", size = 4)+
+  scale_fill_distiller(palette = "Blues", trans = "reverse")+coord_equal()+
+  geom_segment(aes(x=4.5 ,y=bottom,xend = 4.5, yend = top), size = handBoundaryWidth, color = boundaryColor)+
+  geom_segment(aes(x=left ,y=4.5,xend = right, yend = 4.5), size = handBoundaryWidth, color = boundaryColor)+
+  geom_segment(aes(x=2.5 ,y=bottom,xend = 2.5, yend = top), size = coupletBoundaryWidth, color = boundaryColor)+
+  geom_segment(aes(x=6.5 ,y=bottom,xend = 6.5, yend = top), size = coupletBoundaryWidth, color = boundaryColor)+
+  geom_segment(aes(x=left ,y=2.5,xend = right, yend = 2.5), size = coupletBoundaryWidth, color = boundaryColor)+
+  geom_segment(aes(x=left ,y=6.5,xend = right, yend = 6.5), size = coupletBoundaryWidth, color = boundaryColor)+
+  labs(x= 'current response', y = 'previous response')+
+  theme(panel.grid = element_blank(),
+        panel.background = element_rect(fill = "white", colour = "black"),
+        panel.border = element_rect(fill = NA, colour = "white"),
+        strip.text = element_text(size=axisTitleSize), 
+        axis.title.x = element_text(size = axisTitleSize), 
+        axis.title.y = element_text(size = axisTitleSize), 
+        axis.text.x = element_text(size = axisTextSize, color = textColor), 
+        axis.text.y = element_text(size = axisTextSize, color = textColor))
+
+```
+
+\newpage 
+# oneDFL
+# models streak trials
+```{r, echo=F, message=F, warning=F, error=T, fig.width=3.5, fig.height=3, fig.align='center'}
+oneDFL_ModelData_streak = oneDFL %>% filter(streak == 1,trialNum > 3, !is.na(treeDistance), !is.na(nFeatureSwitch), !is.na(fingerDistance))
+#tree
+oneDFL_MEM_tree_streak = lmer(rt_corrected_both ~ treeDistance+(1|subject), data = oneDFL_ModelData_streak, na.action = na.exclude)
+# flat
+oneDFL_MEM_flat_streak = lmer(rt_corrected_both ~ fingerSwitch_actual+(1|subject), data = oneDFL_ModelData_streak, na.action = na.exclude)
+# finger
+oneDFL_MEM_finger_streak = lmer(rt_corrected_both ~ fingerDistance+(1|subject), data = oneDFL_ModelData_streak, na.action = na.exclude)
+# neighbor
+oneDFL_MEM_neighbor_streak = lmer(rt_corrected_both ~ neighbor+(1|subject), data = oneDFL_ModelData_streak, na.action = na.exclude)
+
+AIC(oneDFL_MEM_tree_streak,oneDFL_MEM_flat_streak,oneDFL_MEM_finger_streak,oneDFL_MEM_neighbor_streak)
+BIC(oneDFL_MEM_tree_streak,oneDFL_MEM_flat_streak,oneDFL_MEM_finger_streak,oneDFL_MEM_neighbor_streak)
+
+```
+
+
+\newpage
+# threeDFL figures
+# Learning curve
+```{r, echo=F, message=F, warning=F, error=T, fig.width=4, fig.height=4, fig.align='center' }
+threeDFL = compiledData %>% filter(expt == 'D_threeDFL')
+threeDFL_motor = motorCompiledData %>% filter(expt == 'D_threeDFL')
+ribbonAlpha = 1
+
+threeDFL_learningCurve= threeDFL %>% group_by(subject,iter) %>% dplyr::summarize(pCorHand = mean(corrHand,na.rm = TRUE), pCorCouplet = mean(corrCouplet,na.rm = TRUE), pCorFinger = mean(corr,na.rm = TRUE))
+
+threeDFL_learningCurve_across = threeDFL_learningCurve %>% group_by(iter) %>% dplyr::summarize(acrosspCorHand = mean(pCorHand),acrosspCorCouplet = mean(pCorCouplet),acrosspCorFinger = mean(pCorFinger))
+
+ggplot(threeDFL_learningCurve_across,aes(x=iter))+
+  geom_line(aes(x = iter,y = acrosspCorHand, color = "hand"))+
+  geom_line(aes(x = iter,y = acrosspCorCouplet, color = "couplet"))+
+  geom_line(aes(x = iter,y = acrosspCorFinger, color = "overall accuracy"))+
+  geom_ribbon(data=threeDFL_learningCurve_across,aes(x = iter,ymin = acrosspCorCouplet - se(acrosspCorCouplet), ymax = acrosspCorCouplet + se(acrosspCorCouplet)), inherit.aes = FALSE,fill = "red", alpha = ribbonAlpha)+
+  geom_ribbon(data=threeDFL_learningCurve_across,aes(x = iter,ymin = acrosspCorHand - se(acrosspCorHand), ymax = acrosspCorHand + se(acrosspCorHand)), inherit.aes = FALSE,fill = "blue", alpha = ribbonAlpha)+
+  geom_ribbon(data=threeDFL_learningCurve_across,aes(x = iter,ymin = acrosspCorFinger - se(acrosspCorFinger), ymax = acrosspCorFinger + se(acrosspCorFinger)), inherit.aes = FALSE,fill = "black", alpha = ribbonAlpha)+
+  labs(x= 'stimulus iteration', y = 'accuracy')+
+  theme(axis.line=element_line(),
+        panel.grid = element_blank(),
+        panel.background = element_rect(fill = "white", colour = "black")
+        ,panel.border = element_rect(fill = NA, colour = "white"),
+        strip.text = element_text(size=axisTitleSize,face="bold"), 
+        axis.title.x = element_text(size = axisTitleSize, face = 'bold'), 
+        axis.title.y = element_text(size = axisTitleSize, face = 'bold'), 
+        axis.text.x = element_text(size = axisTextSize), 
+        axis.text.y = element_text(size = axisTextSize), 
+        legend.position = "right", 
+        legend.title = element_blank(),
+        legend.text = element_text(size = axisTextSize),
+        axis.line.x.bottom=element_line(size=axisWidth), 
+        axis.line.y.left=element_line(size=axisWidth), 
+        axis.ticks = element_line(colour = axisColor, size = tickWidth), 
+        axis.ticks.length = unit(tickLength,"cm"))+ 
+  scale_color_manual(values = c("hand" = "blue","couplet" = "red","overall accuracy" = "black"),limits=c("hand","couplet","overall accuracy"))
+  
+```
+# tree distance fig threeDFL
+```{r, echo=F, message=F, warning=F, error=T, fig.width=4, fig.height=4, fig.align='center' }
+threeDFL_tree_streak= threeDFL %>% filter(streak == 1) %>%group_by(subject, treeDistance) %>% filter(!is.na(treeDistance))%>% dplyr::summarize(avgRT = mean(rt_corrected_both,na.rm = TRUE))
+t.test(threeDFL_tree_streak$avgRT[threeDFL_tree_streak$treeDistance == 6],threeDFL_tree_streak$avgRT[threeDFL_tree_streak$treeDistance == 4], paired = TRUE )
+cohen.d(threeDFL_tree_streak$avgRT[threeDFL_tree_streak$treeDistance == 6],threeDFL_tree_streak$avgRT[threeDFL_tree_streak$treeDistance == 4],paired = TRUE)
+
+t.test(threeDFL_tree_streak$avgRT[threeDFL_tree_streak$treeDistance == 6],threeDFL_tree_streak$avgRT[threeDFL_tree_streak$treeDistance == 2], paired = TRUE )
+cohen.d(threeDFL_tree_streak$avgRT[threeDFL_tree_streak$treeDistance == 6],threeDFL_tree_streak$avgRT[threeDFL_tree_streak$treeDistance == 2],paired = TRUE)
+
+t.test(threeDFL_tree_streak$avgRT[threeDFL_tree_streak$treeDistance == 6],threeDFL_tree_streak$avgRT[threeDFL_tree_streak$treeDistance == 0], paired = TRUE )
+cohen.d(threeDFL_tree_streak$avgRT[threeDFL_tree_streak$treeDistance == 6],threeDFL_tree_streak$avgRT[threeDFL_tree_streak$treeDistance == 0],paired = TRUE)
+
+t.test(threeDFL_tree_streak$avgRT[threeDFL_tree_streak$treeDistance == 4],threeDFL_tree_streak$avgRT[threeDFL_tree_streak$treeDistance == 2], paired = TRUE )
+cohen.d(threeDFL_tree_streak$avgRT[threeDFL_tree_streak$treeDistance == 4],threeDFL_tree_streak$avgRT[threeDFL_tree_streak$treeDistance == 2],paired = TRUE)
+
+t.test(threeDFL_tree_streak$avgRT[threeDFL_tree_streak$treeDistance == 4],threeDFL_tree_streak$avgRT[threeDFL_tree_streak$treeDistance == 0], paired = TRUE )
+cohen.d(threeDFL_tree_streak$avgRT[threeDFL_tree_streak$treeDistance == 4],threeDFL_tree_streak$avgRT[threeDFL_tree_streak$treeDistance == 0],paired = TRUE)
+
+t.test(threeDFL_tree_streak$avgRT[threeDFL_tree_streak$treeDistance == 2],threeDFL_tree_streak$avgRT[threeDFL_tree_streak$treeDistance == 0], paired = TRUE )
+cohen.d(threeDFL_tree_streak$avgRT[threeDFL_tree_streak$treeDistance == 2],threeDFL_tree_streak$avgRT[threeDFL_tree_streak$treeDistance == 0],paired = TRUE)
+
+
+threeDFL_tree_streak_summaryStats = summarySEwithin(threeDFL_tree_streak,measurevar="avgRT", withinvars=c("treeDistance"),idvar="subject", na.rm=FALSE, conf.interval=.95)
+
+ggplot(threeDFL_tree_streak_summaryStats, aes(x = as.factor(treeDistance), y = avgRT)) + 
+  geom_bar(stat = "identity",position = "dodge")+
+  geom_errorbar(aes(ymin=avgRT-se, ymax=avgRT+se), width=.2,position=position_dodge(.9))+
+  labs(x= 'tree distance', y = 'RT')+
+  scale_y_continuous(expand = c(0,0), limits = c(0,900))+
+  theme(panel.grid = element_blank(),
+        panel.background = element_rect(fill = "white", colour = "black"),
+        panel.border = element_rect(fill = NA, colour = "white"),
+        strip.text = element_text(size=axisTitleSize), 
+        axis.title.x = element_text(size = axisTitleSize), 
+        axis.title.y = element_text(size = axisTitleSize), 
+        axis.text.x = element_text(size = axisTextSize, color = textColor), 
+        axis.text.y = element_text(size = axisTextSize, color = textColor), 
+        axis.line.x.bottom=element_line(size=axisWidth), 
+        axis.line.y.left=element_line(size=axisWidth), 
+        axis.ticks = element_line(colour = axisColor, size = tickWidth), 
+        axis.ticks.length = unit(tickLength,"cm"))
+```
+# accu x tree distance fig threeDFL
+```{r, echo=F, message=F, warning=F, error=T, fig.width=3, fig.height=3, fig.align='center' }
+threeDFL_accu_tree_streak= threeDFL %>%group_by(subject, treeDistance) %>% filter(!is.na(treeDistance))%>% dplyr::summarize(accu = mean(corr,na.rm = TRUE))
+t.test(threeDFL_accu_tree_streak$accu[threeDFL_accu_tree_streak$treeDistance == 6],threeDFL_accu_tree_streak$accu[threeDFL_accu_tree_streak$treeDistance == 4], paired = TRUE)
+t.test(threeDFL_accu_tree_streak$accu[threeDFL_accu_tree_streak$treeDistance == 6],threeDFL_accu_tree_streak$accu[threeDFL_accu_tree_streak$treeDistance == 2], paired = TRUE)
+t.test(threeDFL_accu_tree_streak$accu[threeDFL_accu_tree_streak$treeDistance == 6],threeDFL_accu_tree_streak$accu[threeDFL_accu_tree_streak$treeDistance == 0], paired = TRUE)
+t.test(threeDFL_accu_tree_streak$accu[threeDFL_accu_tree_streak$treeDistance == 4],threeDFL_accu_tree_streak$accu[threeDFL_accu_tree_streak$treeDistance == 2], paired = TRUE)
+t.test(threeDFL_accu_tree_streak$accu[threeDFL_accu_tree_streak$treeDistance == 4],threeDFL_accu_tree_streak$accu[threeDFL_accu_tree_streak$treeDistance == 0], paired = TRUE)
+t.test(threeDFL_accu_tree_streak$accu[threeDFL_accu_tree_streak$treeDistance == 2],threeDFL_accu_tree_streak$accu[threeDFL_accu_tree_streak$treeDistance == 0], paired = TRUE)
+anova_test(data.frame(threeDFL_accu_tree_streak), dv = accu, wid = subject, within = c(treeDistance), effect.size = 'pes')
+
+threeDFL_accu_tree_streak_summaryStats = summarySEwithin(threeDFL_accu_tree_streak,measurevar="accu", withinvars=c("treeDistance"),idvar="subject", na.rm=FALSE, conf.interval=.95)
+
+ggplot(threeDFL_accu_tree_streak_summaryStats, aes(x = as.factor(treeDistance), y = accu)) + 
+  geom_bar(stat = "identity",position = "dodge")+
+  geom_errorbar(aes(ymin=accu-se, ymax=accu+se), width=.2,position=position_dodge(.9))+
+  labs(x= 'tree distance', y = 'accuracy')+
+  scale_y_continuous(expand = c(0,0), limits = c(0,1))+
+  theme(panel.grid = element_blank(),
+        panel.background = element_rect(fill = "white", colour = "black"),
+        panel.border = element_rect(fill = NA, colour = "white"),
+        strip.text = element_text(size=axisTitleSize), 
+        axis.title.x = element_text(size = axisTitleSize), 
+        axis.title.y = element_text(size = axisTitleSize), 
+        axis.text.x = element_text(size = axisTextSize, color = textColor), 
+        axis.text.y = element_text(size = axisTextSize, color = textColor), 
+        axis.line.x.bottom=element_line(size=axisWidth), 
+        axis.line.y.left=element_line(size=axisWidth), 
+        axis.ticks = element_line(colour = axisColor, size = tickWidth), 
+        axis.ticks.length = unit(tickLength,"cm"))
+
+```
+
+\newpage
+# threeDFL heatmaps
+# raw RTs
+```{r, echo=F, message=F, warning=F, error=T, fig.width=6, fig.height=6, fig.align='center' }
+#filter for correct responses
+threeDFL_heatmapData_raw = data.frame(subject = threeDFL$subject[2:length(threeDFL$subject)],currResp = threeDFL$key_press[2:length(threeDFL$key_press)], prevResp = threeDFL$key_press[1:length(threeDFL$key_press)-1], trialNum = threeDFL$trialNum[2:length(threeDFL$trialNum)], rt = threeDFL$rt[2:length(threeDFL$rt)], corr = threeDFL$corr[2:length(threeDFL$corr)]) %>% filter(trialNum !=1, corr == 1, !is.na(currResp), !is.na(prevResp)) %>% group_by(subject, currResp, prevResp) %>% dplyr::summarize(meanRT = mean(rt, na.rm=TRUE)) %>% group_by(currResp,prevResp) %>% dplyr::summarise(meanRT = mean(meanRT))
+
+threeDFL_heatmapData_raw$prevResp = factor(threeDFL_heatmapData_raw$prevResp, levels = c(76,75,74,72,70,68,83,65))
+threeDFL_heatmapData_raw$currResp = factor(threeDFL_heatmapData_raw$currResp, levels = c(65,83,68,70,72,74,75,76))
+
+handColor = "dodgerblue1"
+coupletColor = "firebrick3"
+
+
+tickLength = .25
+handBoundaryWidth = 2
+coupletBoundaryWidth = 1
+boundaryColor = "black"
+
+bottom = .25
+top = 8.75
+left = .25
+right = 8.75
+handBoundaryWidth = 2
+coupletBoundaryWidth = 1
+boundaryColor = "black"
+
+
+ggplot(threeDFL_heatmapData_raw,aes(as.factor(currResp), as.factor(prevResp), fill = meanRT))+geom_tile(color = "white")+
+  geom_text(aes(label = round(meanRT, digits = 0)), color = "grey20", size = 4)+
+  scale_fill_distiller(palette = "Purples", trans = "reverse")+coord_equal()+
+  geom_segment(aes(x=4.5 ,y=bottom,xend = 4.5, yend = top), size = handBoundaryWidth, color = boundaryColor)+
+  geom_segment(aes(x=left ,y=4.5,xend = right, yend = 4.5), size = handBoundaryWidth, color = boundaryColor)+
+  geom_segment(aes(x=2.5 ,y=bottom,xend = 2.5, yend = top), size = coupletBoundaryWidth, color = boundaryColor)+
+  geom_segment(aes(x=6.5 ,y=bottom,xend = 6.5, yend = top), size = coupletBoundaryWidth, color = boundaryColor)+
+  geom_segment(aes(x=left ,y=2.5,xend = right, yend = 2.5), size = coupletBoundaryWidth, color = boundaryColor)+
+  geom_segment(aes(x=left ,y=6.5,xend = right, yend = 6.5), size = coupletBoundaryWidth, color = boundaryColor)+
+  labs(x= 'current response', y = 'previous response')+
+  theme(panel.grid = element_blank(),
+        panel.background = element_rect(fill = "white", colour = "black"),
+        panel.border = element_rect(fill = NA, colour = "white"),
+        strip.text = element_text(size=axisTitleSize), 
+        axis.title.x = element_text(size = axisTitleSize), 
+        axis.title.y = element_text(size = axisTitleSize), 
+        axis.text.x = element_text(size = axisTextSize, color = textColor), 
+        axis.text.y = element_text(size = axisTextSize, color = textColor))
+
+```
+
+
+# motor RTs
+```{r, echo=F, message=F, warning=F, error=T, fig.width=6, fig.height=6, fig.align='center' }
+#filter for correct responses
+threeDFL_heatmapData_motor = data.frame(subject = threeDFL_motor$subject[2:length(threeDFL_motor$subject)],currResp = threeDFL_motor$key_press[2:length(threeDFL_motor$key_press)], prevResp = threeDFL_motor$key_press[1:length(threeDFL_motor$key_press)-1], trialNum = threeDFL_motor$trialNum[2:length(threeDFL_motor$trialNum)], rt = threeDFL_motor$rt[2:length(threeDFL_motor$rt)], corr = threeDFL_motor$corr[2:length(threeDFL_motor$corr)]) %>% filter(trialNum !=1, corr == 1, !is.na(currResp), !is.na(prevResp)) %>% group_by(subject,currResp, prevResp) %>% dplyr::summarize(meanRT = mean(rt, na.rm=TRUE)) %>% group_by(currResp,prevResp) %>% dplyr::summarize(meanRT = mean(meanRT))
+
+threeDFL_heatmapData_motor$prevResp = factor(threeDFL_heatmapData_motor$prevResp, levels = c(76,75,74,72,70,68,83,65))
+threeDFL_heatmapData_motor$currResp = factor(threeDFL_heatmapData_motor$currResp, levels = c(65,83,68,70,72,74,75,76))
+
+
+ggplot(threeDFL_heatmapData_motor,aes(as.factor(currResp), as.factor(prevResp), fill = meanRT))+geom_tile(color = "white")+
+  geom_text(aes(label = round(meanRT, digits = 0)), color = "grey20", size = 4)+
+  scale_fill_distiller(palette = "Reds", trans = "reverse")+coord_equal()+
+  geom_segment(aes(x=4.5 ,y=bottom,xend = 4.5, yend = top), size = handBoundaryWidth, color = boundaryColor)+
+  geom_segment(aes(x=left ,y=4.5,xend = right, yend = 4.5), size = handBoundaryWidth, color = boundaryColor)+
+  geom_segment(aes(x=2.5 ,y=bottom,xend = 2.5, yend = top), size = coupletBoundaryWidth, color = boundaryColor)+
+  geom_segment(aes(x=6.5 ,y=bottom,xend = 6.5, yend = top), size = coupletBoundaryWidth, color = boundaryColor)+
+  geom_segment(aes(x=left ,y=2.5,xend = right, yend = 2.5), size = coupletBoundaryWidth, color = boundaryColor)+
+  geom_segment(aes(x=left ,y=6.5,xend = right, yend = 6.5), size = coupletBoundaryWidth, color = boundaryColor)+
+  labs(x= 'current response', y = 'previous response')+
+  theme(panel.grid = element_blank(),
+        panel.background = element_rect(fill = "white", colour = "black"),
+        panel.border = element_rect(fill = NA, colour = "white"),
+        strip.text = element_text(size=axisTitleSize), 
+        axis.title.x = element_text(size = axisTitleSize), 
+        axis.title.y = element_text(size = axisTitleSize), 
+        axis.text.x = element_text(size = axisTextSize, color = textColor), 
+        axis.text.y = element_text(size = axisTextSize, color = textColor))
+
+```
+
+# corrected RTs
+```{r, echo=F, message=F, warning=F, error=T, fig.width=6, fig.height=6, fig.align='center' }
+#filter for correct responses
+threeDFL_heatmapData_corrected = data.frame(subject = threeDFL$subject[2:length(threeDFL$subject)],currResp = threeDFL$key_press[2:length(threeDFL$key_press)], prevResp = threeDFL$key_press[1:length(threeDFL$key_press)-1], trialNum = threeDFL$trialNum[2:length(threeDFL$trialNum)], rt_corrected_both = threeDFL$rt_corrected_both[2:length(threeDFL$rt_corrected_both)], corr = threeDFL$corr[2:length(threeDFL$corr)]) %>% filter(trialNum !=1, corr == 1, !is.na(currResp), !is.na(prevResp)) %>% group_by(subject,currResp, prevResp) %>% dplyr::summarize(meanRT = mean(rt_corrected_both, na.rm=TRUE)) %>% group_by(currResp,prevResp) %>% dplyr::summarise(meanRT = mean(meanRT))
+
+threeDFL_heatmapData_corrected$prevResp = factor(threeDFL_heatmapData_corrected$prevResp, levels = c(76,75,74,72,70,68,83,65))
+threeDFL_heatmapData_corrected$currResp = factor(threeDFL_heatmapData_corrected$currResp, levels = c(65,83,68,70,72,74,75,76))
+
+ggplot(threeDFL_heatmapData_corrected,aes(as.factor(currResp), as.factor(prevResp), fill = meanRT))+geom_tile(color = "white")+
+  geom_text(aes(label = round(meanRT, digits = 0)), color = "grey20", size = 4)+
+  scale_fill_distiller(palette = "Blues", trans = "reverse")+coord_equal()+
+  geom_segment(aes(x=4.5 ,y=bottom,xend = 4.5, yend = top), size = handBoundaryWidth, color = boundaryColor)+
+  geom_segment(aes(x=left ,y=4.5,xend = right, yend = 4.5), size = handBoundaryWidth, color = boundaryColor)+
+  geom_segment(aes(x=2.5 ,y=bottom,xend = 2.5, yend = top), size = coupletBoundaryWidth, color = boundaryColor)+
+  geom_segment(aes(x=6.5 ,y=bottom,xend = 6.5, yend = top), size = coupletBoundaryWidth, color = boundaryColor)+
+  geom_segment(aes(x=left ,y=2.5,xend = right, yend = 2.5), size = coupletBoundaryWidth, color = boundaryColor)+
+  geom_segment(aes(x=left ,y=6.5,xend = right, yend = 6.5), size = coupletBoundaryWidth, color = boundaryColor)+
+  labs(x= 'current response', y = 'previous response')+
+  theme(panel.grid = element_blank(),
+        panel.background = element_rect(fill = "white", colour = "black"),
+        panel.border = element_rect(fill = NA, colour = "white"),
+        strip.text = element_text(size=axisTitleSize), 
+        axis.title.x = element_text(size = axisTitleSize), 
+        axis.title.y = element_text(size = axisTitleSize), 
+        axis.text.x = element_text(size = axisTextSize, color = textColor), 
+        axis.text.y = element_text(size = axisTextSize, color = textColor))
+
+
+
+```
+
+\newpage 
+# threeDFL
+# models streak trials
+```{r, echo=F, message=F, warning=F, error=T, fig.width=3.5, fig.height=3, fig.align='center'}
+#tree
+threeDFL_ModelData_streak = threeDFL %>% filter(streak == 1,trialNum > 3, !is.na(treeDistance), !is.na(nFeatureSwitch), !is.na(fingerDistance))
+threeDFL_MEM_tree_streak = lmer(rt_corrected_both ~ treeDistance+(1|subject), data = threeDFL_ModelData_streak, na.action = na.exclude)
+# flat
+threeDFL_MEM_flat_streak = lmer(rt_corrected_both ~ fingerSwitch_actual+(1|subject), data = threeDFL_ModelData_streak, na.action = na.exclude)
+# feature sw
+threeDFL_MEM_feature_streak = lmer(rt_corrected_both ~ nFeatureSwitch+(1|subject), data = threeDFL_ModelData_streak, na.action = na.exclude)
+# finger
+threeDFL_MEM_finger_streak = lmer(rt_corrected_both ~ fingerDistance+(1|subject), data = threeDFL_ModelData_streak, na.action = na.exclude)
+# neighbor
+threeDFL_MEM_neighbor_streak = lmer(rt_corrected_both ~ neighbor+(1|subject), data = threeDFL_ModelData_streak, na.action = na.exclude)
+
+AIC(threeDFL_MEM_tree_streak,threeDFL_MEM_flat_streak,threeDFL_MEM_feature_streak,threeDFL_MEM_finger_streak,threeDFL_MEM_neighbor_streak)
+BIC(threeDFL_MEM_tree_streak,threeDFL_MEM_flat_streak,threeDFL_MEM_feature_streak,threeDFL_MEM_finger_streak,threeDFL_MEM_neighbor_streak)
+
+#tree
+threeDFL_ModelData_streak_corr = threeDFL %>% filter(corr == 1,trialNum > 3, !is.na(treeDistance), !is.na(nFeatureSwitch), !is.na(fingerDistance))
+threeDFL_MEM_tree_streak_corr = lmer(rt_corrected_both ~ treeDistance+(1|subject), data = threeDFL_ModelData_streak_corr, na.action = na.exclude)
+# flat
+threeDFL_MEM_flat_streak_corr = lmer(rt_corrected_both ~ fingerSwitch_actual+(1|subject), data = threeDFL_ModelData_streak_corr, na.action = na.exclude)
+# feature sw
+threeDFL_MEM_feature_streak_corr = lmer(rt_corrected_both ~ nFeatureSwitch+(1|subject), data = threeDFL_ModelData_streak_corr, na.action = na.exclude)
+# finger
+threeDFL_MEM_finger_streak_corr = lmer(rt_corrected_both ~ fingerDistance+(1|subject), data = threeDFL_ModelData_streak_corr, na.action = na.exclude)
+# neighbor
+threeDFL_MEM_neighbor_streak_corr = lmer(rt_corrected_both ~ neighbor+(1|subject), data = threeDFL_ModelData_streak_corr, na.action = na.exclude)
+
+AIC(threeDFL_MEM_tree_streak_corr,threeDFL_MEM_flat_streak_corr,threeDFL_MEM_feature_streak_corr,threeDFL_MEM_finger_streak_corr,threeDFL_MEM_neighbor_streak_corr)
+BIC(threeDFL_MEM_tree_streak_corr,threeDFL_MEM_flat_streak_corr,threeDFL_MEM_feature_streak_corr,threeDFL_MEM_finger_streak_corr,threeDFL_MEM_neighbor_streak_corr)
+
+```
+
+# model AIC/BIC all experiments
+```{r, echo=F, message=F, warning=F, error=T, fig.width=3.5, fig.height=3, fig.align='center'}
+AIC(sonaHL_MEM_tree_streak,sonaHL_MEM_flat_streak,sonaHL_MEM_feature_streak,sonaHL_MEM_finger_streak,sonaHL_MEM_neighbor_streak)
+BIC(sonaHL_MEM_tree_streak,sonaHL_MEM_flat_streak,sonaHL_MEM_feature_streak,sonaHL_MEM_finger_streak,sonaHL_MEM_neighbor_streak)
+
+AIC(fingerHL_MEM_tree_streak,fingerHL_MEM_flat_streak,fingerHL_MEM_feature_streak,fingerHL_MEM_finger_streak,fingerHL_MEM_neighbor_streak)
+BIC(fingerHL_MEM_tree_streak,fingerHL_MEM_flat_streak,fingerHL_MEM_feature_streak,fingerHL_MEM_finger_streak,fingerHL_MEM_neighbor_streak)
+
+AIC(oneDFL_MEM_tree_streak,oneDFL_MEM_flat_streak,oneDFL_MEM_finger_streak,oneDFL_MEM_neighbor_streak)
+BIC(oneDFL_MEM_tree_streak,oneDFL_MEM_flat_streak,oneDFL_MEM_finger_streak,oneDFL_MEM_neighbor_streak)
+
+AIC(threeDFL_MEM_tree_streak,threeDFL_MEM_flat_streak,threeDFL_MEM_feature_streak,threeDFL_MEM_finger_streak,threeDFL_MEM_neighbor_streak)
+BIC(threeDFL_MEM_tree_streak,threeDFL_MEM_flat_streak,threeDFL_MEM_feature_streak,threeDFL_MEM_finger_streak,threeDFL_MEM_neighbor_streak)
+
+sonaHL_BIC = BIC(sonaHL_MEM_tree_streak,sonaHL_MEM_flat_streak,sonaHL_MEM_feature_streak,sonaHL_MEM_finger_streak,sonaHL_MEM_neighbor_streak)
+sonaHL_BIC$delta = sonaHL_BIC$BIC-sonaHL_BIC$BIC[1]
+sonaHL_BIC$model = c('tree','flat','feature','finger', 'neighbor')
+sonaHL_BIC_delta = sonaHL_BIC %>% filter(model != 'tree')
+
+fingerHL_BIC = BIC(fingerHL_MEM_tree_streak,fingerHL_MEM_flat_streak,fingerHL_MEM_feature_streak,fingerHL_MEM_finger_streak,fingerHL_MEM_neighbor_streak)
+fingerHL_BIC$delta = fingerHL_BIC$BIC-fingerHL_BIC$BIC[1]
+fingerHL_BIC$model = c('tree','flat','feature','finger', 'neighbor')
+fingerHL_BIC_delta = fingerHL_BIC %>% filter(model != 'tree')
+
+oneDFL_BIC = BIC(oneDFL_MEM_tree_streak,oneDFL_MEM_flat_streak,oneDFL_MEM_finger_streak,oneDFL_MEM_neighbor_streak)
+oneDFL_BIC$delta = oneDFL_BIC$BIC-oneDFL_BIC$BIC[1]
+oneDFL_BIC$model = c('tree','flat','finger', 'neighbor')
+oneDFL_BIC_delta = oneDFL_BIC %>% filter(model != 'tree')
+
+threeDFL_BIC = BIC(threeDFL_MEM_tree_streak,threeDFL_MEM_flat_streak,threeDFL_MEM_feature_streak,threeDFL_MEM_finger_streak,threeDFL_MEM_neighbor_streak)
+threeDFL_BIC$delta = threeDFL_BIC$BIC-threeDFL_BIC$BIC[1]
+threeDFL_BIC$model = c('tree','flat','feature','finger', 'neighbor')
+threeDFL_BIC_delta = threeDFL_BIC %>% filter(model != 'tree')
+
+ggplot(sonaHL_BIC_delta, aes(x = NA, y = delta, color = model))+geom_point()+
+  geom_hline(yintercept = 0)+
+   scale_y_continuous(expand = c(0,0), limits = c(-50, 800))+
+  theme(panel.grid = element_blank(),legend.position = 'none',
+        panel.background = element_rect(fill = "white", colour = "black"),
+        panel.border = element_rect(fill = NA, colour = "white"),
+        strip.text = element_text(size=axisTitleSize), 
+        axis.title.x = element_text(size = axisTitleSize), 
+        axis.title.y = element_text(size = axisTitleSize), 
+        axis.text.x = element_text(size = axisTextSize, color = textColor), 
+        axis.text.y = element_text(size = axisTextSize, color = textColor), 
+        axis.line.x.bottom=element_line(size=axisWidth), 
+        axis.line.y.left=element_line(size=axisWidth), 
+        axis.ticks = element_line(colour = axisColor, size = tickWidth), 
+        axis.ticks.length = unit(tickLength,"cm"),
+        legend.title = element_text(size = axisTextSize),
+        legend.text = element_text(size = axisTextSize))
+#ggsave('sonaHL_MEMresults_wneighbor.eps')
+ggplot(fingerHL_BIC_delta, aes(x = NA, y = delta,color = model ))+geom_point()+  
+    geom_hline(yintercept = 0)+
+   scale_y_continuous(expand = c(0,0),limits = c(-50, 250))+
+  theme(panel.grid = element_blank(),legend.position = 'none',
+        panel.background = element_rect(fill = "white", colour = "black"),
+        panel.border = element_rect(fill = NA, colour = "white"),
+        strip.text = element_text(size=axisTitleSize), 
+        axis.title.x = element_text(size = axisTitleSize), 
+        axis.title.y = element_text(size = axisTitleSize), 
+        axis.text.x = element_text(size = axisTextSize, color = textColor), 
+        axis.text.y = element_text(size = axisTextSize, color = textColor), 
+        axis.line.x.bottom=element_line(size=axisWidth), 
+        axis.line.y.left=element_line(size=axisWidth), 
+        axis.ticks = element_line(colour = axisColor, size = tickWidth), 
+        axis.ticks.length = unit(tickLength,"cm"),
+        legend.title = element_text(size = axisTextSize),
+        legend.text = element_text(size = axisTextSize))
+#ggsave('fingerHL_MEMresults_wneighbor.eps')
+
+ggplot(oneDFL_BIC_delta, aes(x = NA, y = delta, color = model ))+geom_point()+  
+   scale_y_continuous(expand = c(0,0), limits = c(-300,500))+
+  geom_hline(yintercept = 0)+
+  theme(panel.grid = element_blank(),legend.position = 'none',
+        panel.background = element_rect(fill = "white", colour = "black"),
+        panel.border = element_rect(fill = NA, colour = "white"),
+        strip.text = element_text(size=axisTitleSize), 
+        axis.title.x = element_text(size = axisTitleSize), 
+        axis.title.y = element_text(size = axisTitleSize), 
+        axis.text.x = element_text(size = axisTextSize, color = textColor), 
+        axis.text.y = element_text(size = axisTextSize, color = textColor), 
+        axis.line.x.bottom=element_line(size=axisWidth), 
+        axis.line.y.left=element_line(size=axisWidth), 
+        axis.ticks = element_line(colour = axisColor, size = tickWidth), 
+        axis.ticks.length = unit(tickLength,"cm"),
+        legend.title = element_text(size = axisTextSize),
+        legend.text = element_text(size = axisTextSize))
+#ggsave('oneDFL_MEMresults_wneighbor.eps')
+
+ggplot(threeDFL_BIC_delta, aes(x = NA, y = delta, color = model ))+geom_point()+  
+   scale_y_continuous(expand = c(0,0),limits = c(-75, 150))+
+  geom_hline(yintercept = 0)+
+  theme(panel.grid = element_blank(),legend.position = 'none',
+        panel.background = element_rect(fill = "white", colour = "black"),
+        panel.border = element_rect(fill = NA, colour = "white"),
+        strip.text = element_text(size=axisTitleSize), 
+        axis.title.x = element_text(size = axisTitleSize), 
+        axis.title.y = element_text(size = axisTitleSize), 
+        axis.text.x = element_text(size = axisTextSize, color = textColor), 
+        axis.text.y = element_text(size = axisTextSize, color = textColor), 
+        axis.line.x.bottom=element_line(size=axisWidth), 
+        axis.line.y.left=element_line(size=axisWidth), 
+        axis.ticks = element_line(colour = axisColor, size = tickWidth), 
+        axis.ticks.length = unit(tickLength,"cm"),
+        legend.title = element_text(size = axisTextSize),
+        legend.text = element_text(size = axisTextSize))
+#ggsave('threeDFL_MEMresults_wneighbor.eps')
+
+```
+
+\newpage
+# Idealized transitional heatmap matrices
+# Idealized tree transitional heatmap (extrinsic space)
+```{r, echo=F, message=F, warning=F, error=T, fig.width=4, fig.height=4, fig.align='center' }
+transitionRTs_heatmapData = compiledData %>% filter(!is.na(treeDistance)) %>% group_by(finger_press,finger_press_prev,treeDistance)
+
+transitionRTs_heatmapData$finger_press_prev = factor(transitionRTs_heatmapData$finger_press_prev, levels = c(8,7,6,5,4,3,2,1))
+transitionRTs_heatmapData$finger_press = factor(transitionRTs_heatmapData$finger_press, levels = c(1,2,3,4,5,6,7,8))
+
+ggplot(transitionRTs_heatmapData,aes(as.factor(finger_press), as.factor(finger_press_prev), fill = treeDistance))+geom_tile(color = "white")+
+  scale_fill_distiller(palette = "Blues", trans = "reverse")+coord_equal()+
+  geom_segment(aes(x=4.5 ,y=bottom,xend = 4.5, yend = top), size = handBoundaryWidth, color = boundaryColor)+
+  geom_segment(aes(x=left ,y=4.5,xend = right, yend = 4.5), size = handBoundaryWidth, color = boundaryColor)+
+  geom_segment(aes(x=2.5 ,y=bottom,xend = 2.5, yend = top), size = coupletBoundaryWidth, color = boundaryColor)+
+  geom_segment(aes(x=6.5 ,y=bottom,xend = 6.5, yend = top), size = coupletBoundaryWidth, color = boundaryColor)+
+  geom_segment(aes(x=left ,y=2.5,xend = right, yend = 2.5), size = coupletBoundaryWidth, color = boundaryColor)+
+  geom_segment(aes(x=left ,y=6.5,xend = right, yend = 6.5), size = coupletBoundaryWidth, color = boundaryColor)+
+  labs(x= 'current response', y = 'previous response')+
+  theme(panel.grid = element_blank(),
+        panel.background = element_rect(fill = "white", colour = "black"),
+        panel.border = element_rect(fill = NA, colour = "white"),
+        strip.text = element_text(size=axisTitleSize), 
+        axis.title.x = element_text(size = axisTitleSize), 
+        axis.title.y = element_text(size = axisTitleSize), 
+        axis.text.x = element_text(size = axisTextSize, color = textColor), 
+        axis.text.y = element_text(size = axisTextSize, color = textColor))
+
+```
+
+# Idealized feature-based transitional heatmap (extrinsic space)
+```{r, echo=F, message=F, warning=F, error=T, fig.width=4, fig.height=4, fig.align='center' }
+transitionRTs_heatmapData_feature = compiledData %>% filter(expt == 'B_sonaHL',!is.na(nFeatureSwitch),!is.na(finger_press), !is.na(finger_press_prev)) %>% group_by(finger_press,finger_press_prev,nFeatureSwitch)
+
+transitionRTs_heatmapData_feature$finger_press_prev = factor(transitionRTs_heatmapData_feature$finger_press_prev, levels = c(8,7,6,5,4,3,2,1))
+transitionRTs_heatmapData_feature$finger_press = factor(transitionRTs_heatmapData_feature$finger_press, levels = c(1,2,3,4,5,6,7,8))
+
+ggplot(transitionRTs_heatmapData_feature,aes(as.factor(finger_press), as.factor(finger_press_prev), fill = nFeatureSwitch))+geom_tile(color = "white")+
+  scale_fill_distiller(palette = "Blues", trans = "reverse")+coord_equal()+
+  geom_segment(aes(x=4.5 ,y=bottom,xend = 4.5, yend = top), size = handBoundaryWidth, color = boundaryColor)+
+  geom_segment(aes(x=left ,y=4.5,xend = right, yend = 4.5), size = handBoundaryWidth, color = boundaryColor)+
+  geom_segment(aes(x=2.5 ,y=bottom,xend = 2.5, yend = top), size = coupletBoundaryWidth, color = boundaryColor)+
+  geom_segment(aes(x=6.5 ,y=bottom,xend = 6.5, yend = top), size = coupletBoundaryWidth, color = boundaryColor)+
+  geom_segment(aes(x=left ,y=2.5,xend = right, yend = 2.5), size = coupletBoundaryWidth, color = boundaryColor)+
+  geom_segment(aes(x=left ,y=6.5,xend = right, yend = 6.5), size = coupletBoundaryWidth, color = boundaryColor)+
+  labs(x= 'current response', y = 'previous response')+
+  theme(panel.grid = element_blank(),
+        panel.background = element_rect(fill = "white", colour = "black"),
+        panel.border = element_rect(fill = NA, colour = "white"),
+        strip.text = element_text(size=axisTitleSize), 
+        axis.title.x = element_text(size = axisTitleSize), 
+        axis.title.y = element_text(size = axisTitleSize), 
+        axis.text.x = element_text(size = axisTextSize, color = textColor), 
+        axis.text.y = element_text(size = axisTextSize, color = textColor))
+
+```
+# Idealized flat transitional heatmap
+```{r, echo=F, message=F, warning=F, error=T, fig.width=4, fig.height=4, fig.align='center' }
+transitionRTs_heatmapData_flat = compiledData %>% filter(expt == 'B_sonaHL',!is.na(nFeatureSwitch),!is.na(finger_press), !is.na(finger_press_prev)) %>% group_by(finger_press,finger_press_prev,fingerSwitch_actual)
+
+transitionRTs_heatmapData_flat$finger_press_prev = factor(transitionRTs_heatmapData_flat$finger_press_prev, levels = c(8,7,6,5,4,3,2,1))
+transitionRTs_heatmapData_flat$finger_press = factor(transitionRTs_heatmapData_flat$finger_press, levels = c(1,2,3,4,5,6,7,8))
+
+ggplot(transitionRTs_heatmapData_flat,aes(as.factor(finger_press), as.factor(finger_press_prev), fill = fingerSwitch_actual))+geom_tile(color = "white")+
+  scale_fill_distiller(palette = "Blues", trans = "reverse")+coord_equal()+
+  geom_segment(aes(x=4.5 ,y=bottom,xend = 4.5, yend = top), size = handBoundaryWidth, color = boundaryColor)+
+  geom_segment(aes(x=left ,y=4.5,xend = right, yend = 4.5), size = handBoundaryWidth, color = boundaryColor)+
+  geom_segment(aes(x=2.5 ,y=bottom,xend = 2.5, yend = top), size = coupletBoundaryWidth, color = boundaryColor)+
+  geom_segment(aes(x=6.5 ,y=bottom,xend = 6.5, yend = top), size = coupletBoundaryWidth, color = boundaryColor)+
+  geom_segment(aes(x=left ,y=2.5,xend = right, yend = 2.5), size = coupletBoundaryWidth, color = boundaryColor)+
+  geom_segment(aes(x=left ,y=6.5,xend = right, yend = 6.5), size = coupletBoundaryWidth, color = boundaryColor)+
+  labs(x= 'current response', y = 'previous response')+
+  theme(panel.grid = element_blank(),
+        panel.background = element_rect(fill = "white", colour = "black"),
+        panel.border = element_rect(fill = NA, colour = "white"),
+        strip.text = element_text(size=axisTitleSize), 
+        axis.title.x = element_text(size = axisTitleSize), 
+        axis.title.y = element_text(size = axisTitleSize), 
+        axis.text.x = element_text(size = axisTextSize, color = textColor), 
+        axis.text.y = element_text(size = axisTextSize, color = textColor))
+
+```
+
+\newpage
+# clustering analyses
+# function for clustering and visualization
+```{r, echo=F, message=F, warning=F, error=T, fig.width=4, fig.height=4, fig.align='center' }
+# Helpful documentation for clustering package: https://uc-r.github.io/hc_clustering
+clustering_vis = function(mainData,type,iters,correct){
+  # function to plot the main clustering figures for hierlearn data
+  # It takes in a dataframe, arranges it into a currResp x prevResp RT matrix and then runs the clustering algorithms and visualizations
+  # first input is the dataframe with all data for the included subjects
+  # second input says whether it's learning or motor - 'learn' 'motor'
+  # third input tells it what iters to include 'all' - all, 'start' - first 20, 'end' - last 20 (ONLY AVAILABLE FOR LEARNING DATA)
+  # fourth says what trials to include 'all' 'corr' 'streak'
+  
+  if(type == 'learn'){
+    if(iters == 'all'){
+      if(correct == 'all'){
+      rt_mat = mainData %>% group_by(subject,finger_press, finger_press_prev) %>% dplyr::summarise(avgRT = mean(rt_corrected, na.rm = TRUE)) %>%group_by(finger_press,finger_press_prev) %>% dplyr::summarise(avgRT = mean(avgRT))
+      }else if(correct=='corr'){
+        rt_mat = mainData %>% filter(corr ==1) %>% group_by(subject,finger_press, finger_press_prev) %>% dplyr::summarise(avgRT = mean(rt_corrected, na.rm = TRUE)) %>%group_by(finger_press,finger_press_prev) %>% dplyr::summarise(avgRT = mean(avgRT))
+      }else if(correct=='streak'){
+
+        
+                rt_mat = mainData %>% filter(streak ==1) %>% group_by(subject,finger_press, finger_press_prev) %>% dplyr::summarise(avgRT = mean(rt_corrected, na.rm = TRUE)) %>%group_by(finger_press,finger_press_prev) %>% dplyr::summarise(avgRT = mean(avgRT))
+      }
+    }else if(iters == 'start'){
+      if(correct == 'all'){
+      rt_mat = mainData %>% filter(iter <26) %>% group_by(subject,finger_press, finger_press_prev) %>% dplyr::summarise(avgRT = mean(rt_corrected, na.rm = TRUE)) %>%group_by(finger_press,finger_press_prev) %>% dplyr::summarise(avgRT = mean(avgRT))
+      }else if(correct=='corr'){
+        rt_mat = mainData %>% filter(iter <26,corr ==1) %>% group_by(subject,finger_press, finger_press_prev) %>% dplyr::summarise(avgRT = mean(rt_corrected, na.rm = TRUE)) %>%group_by(finger_press,finger_press_prev) %>% dplyr::summarise(avgRT = mean(avgRT))
+      }else if(correct=='streak'){
+        rt_mat = mainData %>% filter(iter <26,streak ==1) %>% group_by(subject,finger_press, finger_press_prev) %>% dplyr::summarise(avgRT = mean(rt_corrected, na.rm = TRUE)) %>%group_by(finger_press,finger_press_prev) %>% dplyr::summarise(avgRT = mean(avgRT))
+      }
+    }else if(iters == 'end'){
+      if(correct == 'all'){
+      rt_mat = mainData %>% filter(iter >= (max(mainData$iter, na.rm = TRUE)-25)) %>% group_by(subject,finger_press, finger_press_prev) %>% dplyr::summarise(avgRT = mean(rt_corrected, na.rm = TRUE)) %>%group_by(finger_press,finger_press_prev) %>% dplyr::summarise(avgRT = mean(avgRT))
+      }else if(correct=='corr'){
+        rt_mat = mainData %>% filter(iter >= (max(mainData$iter, na.rm = TRUE)-25),corr ==1) %>% group_by(subject,finger_press, finger_press_prev) %>% dplyr::summarise(avgRT = mean(rt_corrected, na.rm = TRUE)) %>%group_by(finger_press,finger_press_prev) %>% dplyr::summarise(avgRT = mean(avgRT))
+      }else if(correct=='streak'){
+        rt_mat = mainData %>% filter(iter >= (max(mainData$iter, na.rm = TRUE)-25),streak ==1) %>% group_by(subject,finger_press, finger_press_prev) %>% dplyr::summarise(avgRT = mean(rt_corrected, na.rm = TRUE)) %>%group_by(finger_press,finger_press_prev) %>% dplyr::summarise(avgRT = mean(avgRT))
+      }
+    }
+  }else if(type == 'motor'){
+    if(iters == 'all'){
+      if(correct == 'all'){
+      rt_mat = mainData %>% group_by(subject,finger_press, finger_press_prev) %>% dplyr::summarise(avgRT = mean(rt, na.rm = TRUE)) %>%group_by(finger_press,finger_press_prev) %>% dplyr::summarise(avgRT = mean(avgRT))
+      }else if(correct=='corr'){
+        rt_mat = mainData %>% filter(corr ==1) %>% group_by(subject,finger_press, finger_press_prev) %>% dplyr::summarise(avgRT = mean(rt, na.rm = TRUE)) %>%group_by(finger_press,finger_press_prev) %>% dplyr::summarise(avgRT = mean(avgRT))
+      }else if(correct=='streak'){
+        print('NO STREAK TRIALS DEFINED FOR MOTOR DATA')
+      }
+    }else{
+      print('NO ITERS DEFINED FOR MOTOR DATA')
+    }
+  }else{
+    print('MUST INDICATE DATA TYPE')
+  }
+  
+  rt_mat_wide = rt_mat %>% pivot_wider(names_from = finger_press_prev,values_from=avgRT)
+  
+  distanceVec = get_dist(rt_mat_wide)
+  #fviz_dist(distanceVec, gradient = list(low = "#00AFBB", mid = "white", high = "#FC4E07"))
+  ka = kmeans(distanceVec,centers = 4, nstart = 25)
+  #fviz_cluster(ka, data = a)
+  hier_rt_mat = dist(rt_mat_wide, method = 'euclidean')
+  h1=hclust(hier_rt_mat, method = "complete")
+  list(fviz_dist(distanceVec, gradient = list(low = "#00AFBB", mid = "white", high = "#FC4E07")),fviz_cluster(ka, data = distanceVec),plot(h1, cex = 0.6, hang = -1))
+  #ggsave('dendro.eps',plot=as.ggplot(plot(h1, cex = 0.6, hang = -1)))
+}
+
+
+dendrogram_vis = function(mainData,type,iters,correct){
+  # function to plot the main clustering figures for hierlearn data
+  # It takes in a dataframe, arranges it into a currResp x prevResp RT matrix and then runs the clustering algorithms and visualizations
+  # first input is the dataframe with all data for the included subjects
+  # second input says whether it's learning or motor - 'learn' 'motor'
+  # third input tells it what iters to include 'all' - all, 'start' - first 20, 'end' - last 20 (ONLY AVAILABLE FOR LEARNING DATA)
+  # fourth says what trials to include 'all' 'corr' 'streak'
+  
+  if(type == 'learn'){
+    if(iters == 'all'){
+      if(correct == 'all'){
+      rt_mat = mainData %>% group_by(subject,finger_press, finger_press_prev) %>% dplyr::summarise(avgRT = mean(rt_corrected, na.rm = TRUE)) %>%group_by(finger_press,finger_press_prev) %>% dplyr::summarise(avgRT = mean(avgRT))
+      }else if(correct=='corr'){
+        rt_mat = mainData %>% filter(corr ==1) %>% group_by(subject,finger_press, finger_press_prev) %>% dplyr::summarise(avgRT = mean(rt_corrected, na.rm = TRUE)) %>%group_by(finger_press,finger_press_prev) %>% dplyr::summarise(avgRT = mean(avgRT))
+      }else if(correct=='streak'){
+        rt_mat = mainData %>% filter(streak ==1) %>% group_by(subject,finger_press, finger_press_prev) %>% dplyr::summarise(avgRT = mean(rt_corrected, na.rm = TRUE)) %>%group_by(finger_press,finger_press_prev) %>% dplyr::summarise(avgRT = mean(avgRT))
+      }
+    }else if(iters == 'start'){
+      if(correct == 'all'){
+      rt_mat = mainData %>% filter(iter <26) %>% group_by(subject,finger_press, finger_press_prev) %>% dplyr::summarise(avgRT = mean(rt_corrected, na.rm = TRUE)) %>%group_by(finger_press,finger_press_prev) %>% dplyr::summarise(avgRT = mean(avgRT))
+      }else if(correct=='corr'){
+        rt_mat = mainData %>% filter(iter <26,corr ==1) %>% group_by(subject,finger_press, finger_press_prev) %>% dplyr::summarise(avgRT = mean(rt_corrected, na.rm = TRUE)) %>%group_by(finger_press,finger_press_prev) %>% dplyr::summarise(avgRT = mean(avgRT))
+      }else if(correct=='streak'){
+        rt_mat = mainData %>% filter(iter <26,streak ==1) %>% group_by(subject,finger_press, finger_press_prev) %>% dplyr::summarise(avgRT = mean(rt_corrected, na.rm = TRUE)) %>%group_by(finger_press,finger_press_prev) %>% dplyr::summarise(avgRT = mean(avgRT))
+      }
+    }else if(iters == 'end'){
+      if(correct == 'all'){
+      rt_mat = mainData %>% filter(iter >= (max(mainData$iter, na.rm = TRUE)-25)) %>% group_by(subject,finger_press, finger_press_prev) %>% dplyr::summarise(avgRT = mean(rt_corrected, na.rm = TRUE)) %>%group_by(finger_press,finger_press_prev) %>% dplyr::summarise(avgRT = mean(avgRT))
+      }else if(correct=='corr'){
+        rt_mat = mainData %>% filter(iter >= (max(mainData$iter, na.rm = TRUE)-25),corr ==1) %>% group_by(subject,finger_press, finger_press_prev) %>% dplyr::summarise(avgRT = mean(rt_corrected, na.rm = TRUE)) %>%group_by(finger_press,finger_press_prev) %>% dplyr::summarise(avgRT = mean(avgRT))
+      }else if(correct=='streak'){
+        rt_mat = mainData %>% filter(iter >= (max(mainData$iter, na.rm = TRUE)-25),streak ==1) %>% group_by(subject,finger_press, finger_press_prev) %>% dplyr::summarise(avgRT = mean(rt_corrected, na.rm = TRUE)) %>%group_by(finger_press,finger_press_prev) %>% dplyr::summarise(avgRT = mean(avgRT))
+      }
+    }
+  }else if(type == 'motor'){
+    if(iters == 'all'){
+      if(correct == 'all'){
+      rt_mat = mainData %>% group_by(subject,finger_press, finger_press_prev) %>% dplyr::summarise(avgRT = mean(rt, na.rm = TRUE)) %>%group_by(finger_press,finger_press_prev) %>% dplyr::summarise(avgRT = mean(avgRT))
+      }else if(correct=='corr'){
+        rt_mat = mainData %>% filter(corr ==1) %>% group_by(subject,finger_press, finger_press_prev) %>% dplyr::summarise(avgRT = mean(rt, na.rm = TRUE)) %>%group_by(finger_press,finger_press_prev) %>% dplyr::summarise(avgRT = mean(avgRT))
+      }else if(correct=='streak'){
+        print('NO STREAK TRIALS DEFINED FOR MOTOR DATA')
+      }
+    }else{
+      print('NO ITERS DEFINED FOR MOTOR DATA')
+    }
+  }else{
+    print('MUST INDICATE DATA TYPE')
+  }
+  
+  rt_mat_wide = rt_mat %>% pivot_wider(names_from = finger_press_prev,values_from=avgRT)
+  
+  distanceVec = get_dist(rt_mat_wide)
+  #fviz_dist(distanceVec, gradient = list(low = "#00AFBB", mid = "white", high = "#FC4E07"))
+  ka = kmeans(distanceVec,centers = 4, nstart = 25)
+  #fviz_cluster(ka, data = a)
+  hier_rt_mat = dist(rt_mat_wide, method = 'euclidean')
+  h1=hclust(hier_rt_mat, method = "complete")
+#ggplot() +
+ # geom_dendrogram(data = h1, color = "blue", size = 2) +
+  #theme_minimal() +
+  #labs(title = "Hierarchical Clustering Dendrogram")
+  ggdendrogram(h1,, rotate = FALSE, size = 2)
+#ggsave('dendro.eps',plot=as.ggplot(plot(h1, cex = 0.6, hang = -1)))
+}
+```
+# clustering plots, learning, all iters, correct trials
+```{r, echo=F, message=F, warning=F, error=T, fig.width=4, fig.height=4, fig.align='center' }
+(clustering_vis(sonaHL,'learn','all','streak'))
+(clustering_vis(fingerHL,'learn','all','streak'))
+(clustering_vis(oneDFL,'learn','all','streak'))
+(clustering_vis(threeDFL,'learn','all','streak'))
+
+(dendrogram_vis(sonaHL,'learn','all','streak'))
+(dendrogram_vis(fingerHL,'learn','all','streak'))
+(dendrogram_vis(oneDFL,'learn','all','streak'))
+(dendrogram_vis(threeDFL,'learn','all','streak'))
+
+```
+
+# clustering with motor data
+# similarity matrix based on RT
+```{r, echo=F, message=F, warning=F, error=T, fig.width=4, fig.height=4, fig.align='center' }
+(clustering_vis(sonaHL_motor,'motor','all','all'))
+(clustering_vis(fingerHL_motor,'motor','all','all'))
+(clustering_vis(oneDFL_motor,'motor','all','all'))
+(clustering_vis(threeDFL_motor,'motor','all','all'))
+
+# mega motor data
+megaMotor = rbind(sonaHL_motor,fingerHL_motor,oneDFL_motor,threeDFL_motor)
+(dendrogram_vis(megaMotor,'motor','all','all'))
+```   

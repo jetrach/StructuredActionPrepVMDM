@@ -1,0 +1,1039 @@
+---
+title: "Experiment 6 (multiday) forced response analyses"
+author: "Juliana E Trach"
+date: "`r Sys.Date()`"
+output: pdf_document
+toc: yes
+toc_depth: 2
+fontsize: 12pt
+---
+
+\newpage
+
+# Abstract
+Analysis script for the forced response results from the Multi-day experiment
+
+\newpage
+```{r, echo=F, message=F, warning=F, error=T, fig.width=6, fig.height=4, fig.align='center'}
+# set up workspace
+rm(list=ls(all=TRUE))
+setwd("~/Documents/GitHub/StructuredActionPrepVMDM")
+
+# DAY 1
+datadir_one = "~/Documents/GitHub/StructuredActionPrepVMDM/rawData/Experiment6_multiday/data/first/wforced"
+# DAY 8
+datadir_eight = "~/Documents/GitHub/StructuredActionPrepVMDM/rawData/Experiment6_multiday/data/last/wforced"
+
+# load libraries
+library(ggplot2)
+library(gridExtra)
+library(ggpubr)
+library(reshape2)
+library(dplyr)
+library(tidyr)
+library(tidyverse)
+library(itsadug)
+library(RColorBrewer)
+library(knitr)
+library(extrafont)
+library(fs)
+library(fabricatr)
+library(Rmisc)
+library(lme4)
+library(rstatix)
+library(MuMIn)
+
+# read in compiled, data w exclusions FORCED
+  testData_forced_one = read_csv("~/Documents/GitHub/StructuredActionPrepVMDM/rawData/Experiment6_multiday/data/HierLearnDay01Forced_Data_exclusions.csv")
+  testData_forced_eight = read_csv("~/Documents/GitHub/StructuredActionPrepVMDM/rawData/Experiment6_multiday/data/HierLearnDay08Forced_Data_exclusions.csv")
+
+  testData_forced_wExclusions = rbind(testData_forced_one, testData_forced_eight)
+  # get some variables
+  subjNums_all = unique(testData_forced_wExclusions$subject)
+  N_all = length(subjNums_all)
+  
+  
+  # read in compiled, data w exclusions LEARN
+  testData = read_csv("~/Documents/GitHub/StructuredActionPrepVMDM/rawData/Experiment6_multiday/data/Experiment6_multiday_wexclusions.csv")
+
+  testData_wExclusions = testData %>% filter(subject %in% subjNums_all)
+  
+  testData_forced_wExclusions$eml_fine_actual = NA
+  testData_forced_wExclusions$eml_actual = NA
+
+  testData_forced_wExclusions$eml_actual[testData_forced_wExclusions$PT_actual <.5] = 'a_early'
+  testData_forced_wExclusions$eml_actual[testData_forced_wExclusions$PT_actual >=.5 & testData_forced_wExclusions$PT_actual <.9] = 'b_mid'
+  testData_forced_wExclusions$eml_actual[testData_forced_wExclusions$PT_actual >=.9] = 'c_late'
+
+  testData_forced_wExclusions$eml_fine_actual[testData_forced_wExclusions$PT_actual <.3] = 'a1_early'
+  testData_forced_wExclusions$eml_fine_actual[testData_forced_wExclusions$PT_actual >=.3 & testData_forced_wExclusions$PT_actual <.5] = 'a2_early'
+  testData_forced_wExclusions$eml_fine_actual[testData_forced_wExclusions$PT_actual >=.5 & testData_forced_wExclusions$PT_actual <.7] = 'b1_mid'
+  testData_forced_wExclusions$eml_fine_actual[testData_forced_wExclusions$PT_actual >=.7 & testData_forced_wExclusions$PT_actual <.9] = 'b2_mid'
+  testData_forced_wExclusions$eml_fine_actual[testData_forced_wExclusions$PT_actual >=.9 & testData_forced_wExclusions$PT_actual <1.1] = 'c1_late'
+  testData_forced_wExclusions$eml_fine_actual[testData_forced_wExclusions$PT_actual >=1.1] = 'c2_late'
+  
+  testData_forced_wExclusions$subject = as.factor(testData_forced_wExclusions$subject)
+  testData_forced_wExclusions$eml_actual = as.factor(testData_forced_wExclusions$eml_actual)
+  testData_forced_wExclusions$errorType2 = as.factor(testData_forced_wExclusions$errorType2)
+  testData_forced_wExclusions$eml_fine_actual = as.factor(testData_forced_wExclusions$eml_fine_actual)
+ 
+  allResps_new = c(65,83,68,70,72,74,75,76)
+  LH_new = c(65,83,68,70)
+  RH_new = c(72,74,75,76)
+  # changed couplets to finger space
+  coupletOne_new = c(68,70,72,74)
+  coupletTwo_new = c(65,83,75,76)
+  
+  allResps = c(1,2,3,4,5,6,7,8)
+  ns = length(allResps)
+
+
+# set up better plotting
+axisTitleSize = 25
+ribbonAlpha = 1
+textColor = "black"
+axisColor = "black"
+axisTitleSize = 20
+axisTextSize = 18
+axisWidth = 1
+tickWidth = 1
+lineWidth = 1
+tickLength = 1
+# learnData
+hierDyn = read_csv(file = 'compiledData/Experiment5_learn.csv')
+hierDyn <- hierDyn[ -c(1) ]
+
+# fix subnums and add expt info
+hierDyn$subject = paste(hierDyn$subject,'hier',sep = '_')
+hierDyn$expt = 'hierDyn'
+hierDyn$struct = 'hier'
+zscored = hierDyn%>% group_by(subject) %>% dplyr::summarize(z = scale(rt_corrected_both))
+hierDyn$rt_corrected_both_z = zscored$z
+
+hierDyn_forced = read_csv(file = 'compiledData/Experiment5_forced.csv')
+hierDyn_forced <- hierDyn_forced[ -c(1) ]
+
+hierDyn_forced$subject = paste(hierDyn_forced$subject,'hier',sep = '_')
+hierDyn_forced$expt = 'hierDyn'
+hierDyn_forced$struct = 'hier'
+
+subjNums_hierDyn = unique(hierDyn$subject)
+
+## FlatDyn ##
+#learnData
+flatDyn = read_csv(file = 'compiledData/Experiment6_learn.csv')
+flatDyn <- flatDyn[ -c(1) ]
+flatDyn$subject = paste(flatDyn$subject,'flat',sep = '_')
+flatDyn$expt = 'flatDyn'
+flatDyn$struct = 'flat'
+#fill columns that should be filled
+flatDyn$rt_corrected_both_z = NA
+zscored = flatDyn%>% group_by(subject) %>% dplyr::summarize(z = scale(rt_corrected_both))
+flatDyn$rt_corrected_both_z = zscored$z
+
+flatDyn_forced = read_csv(file = 'compiledData/Experiment6_forced.csv')
+flatDyn_forced <- flatDyn_forced[ -c(1) ]
+flatDyn_forced$subject = paste(flatDyn_forced$subject,'flat',sep = '_')
+flatDyn_forced$expt = 'flatDyn'
+flatDyn_forced$struct = 'flat'
+
+subjNums_flatDyn = unique(flatDyn$subject)
+
+
+# bind the data frames together
+compiledData = rbind(hierDyn, flatDyn)
+compiledData_forced = rbind(hierDyn_forced,flatDyn_forced)
+# add a finger_press_prev column for forced
+compiledData_forced$finger_press_prev = NA
+compiledData_forced$finger_press_prev[2:length(compiledData_forced$finger_press_prev)] = compiledData_forced$resp[1:length(compiledData_forced$finger_press_prev)-1]
+compiledData_forced$finger_press_prev[compiledData_forced$trialNum == 1] = NA
+
+compiledData_forced$corr_prev = NA
+compiledData_forced$corr_prev[2:length(compiledData_forced$corr_prev)] = compiledData_forced$corr[1:length(compiledData_forced$corr_prev)-1]
+compiledData_forced$corr_prev[compiledData_forced$trialNum == 1] = NA
+
+# add transition type column
+compiledData$transitionType = NA
+typeCounter = 0
+for(ai in 1:max(compiledData$finger_press_prev, na.rm = TRUE)){
+  for(bi in ai:max(compiledData$resp, na.rm = TRUE)){
+    typeCounter = typeCounter+1
+    compiledData$transitionType[compiledData$finger_press_prev == ai & compiledData$resp == bi] = typeCounter
+    compiledData$transitionType[compiledData$finger_press_prev == bi & compiledData$resp == ai] = typeCounter
+  }
+  }
+compiledData$transitionType[compiledData$trialNum == 1] = NA
+
+# add transition type column
+compiledData_forced$transitionType = NA
+typeCounter = 0
+for(ai in 1:max(compiledData_forced$finger_press_prev, na.rm = TRUE)){
+  for(bi in ai:max(compiledData_forced$resp, na.rm = TRUE)){
+    typeCounter = typeCounter+1
+    compiledData_forced$transitionType[compiledData_forced$finger_press_prev == ai & compiledData_forced$resp == bi] = typeCounter
+    compiledData_forced$transitionType[compiledData_forced$finger_press_prev == bi & compiledData_forced$resp == ai] = typeCounter
+  }
+  }
+compiledData_forced$transitionType[compiledData_forced$trialNum == 1] = NA
+
+# add some comlumns to LEARNDATA
+compiledData = compiledData %>% filter(iter < 56)
+compiledData$treeDistance = as.factor(compiledData$treeDistance)
+compiledData$nFeatureSwitch = as.factor(compiledData$nFeatureSwitch)
+compiledData$fingerDistance = as.factor(compiledData$fingerDistance)
+
+compiledData$corrHand_factor = as.factor(compiledData$corrHand)
+compiledData$corrCouplet_factor = as.factor(compiledData$corrCouplet)
+compiledData$corrFinger = NA
+compiledData$errorType = NA
+compiledData$errorType2 = NA
+
+
+compiledData$corrFinger[compiledData$resp %in% c(1,3,5,7) & compiledData$corrresp %in% c(1,3,5,7)] = 1
+compiledData$corrFinger[compiledData$resp %in% c(1,3,5,7) & compiledData$corrresp %in% c(2,4,6,8)] = 0
+compiledData$corrFinger[compiledData$resp %in% c(2,4,6,8) & compiledData$corrresp %in% c(2,4,6,8)] = 1
+compiledData$corrFinger[compiledData$resp %in% c(2,4,6,8) & compiledData$corrresp %in% c(1,3,5,7)] = 0
+
+compiledData$errorType[compiledData$corrHand == 1 & compiledData$corrCouplet == 1 & compiledData$corr == 0] = '1/1/0'
+compiledData$errorType[compiledData$corrHand == 1 & compiledData$corrCouplet == 1 & compiledData$corr == 1] = '1/1/1'
+compiledData$errorType[compiledData$corrHand == 0 & compiledData$corrCouplet == 1] = '0/1/0'
+compiledData$errorType[compiledData$corrHand == 0 & compiledData$corrCouplet == 0] = '0/0/0'
+
+
+# add some columns to FORCED DATA
+compiledData_forced$treeDistance_factor = as.factor(compiledData_forced$treeDistance)
+compiledData_forced$nFeatureSwitch_factor = as.factor(compiledData_forced$nFeatureSwitch)
+compiledData_forced$errorType = as.factor(compiledData_forced$errorType)
+compiledData_forced$errorType2 = as.factor(compiledData_forced$errorType2)
+
+compiledData_forced$corrHand_factor = as.factor(compiledData_forced$corrHand)
+compiledData_forced$corrCouplet_factor = as.factor(compiledData_forced$corrCouplet)
+compiledData_forced$corrFinger_factor = as.factor(compiledData_forced$corrFinger)
+
+compiledData_forced$eml3 = NA
+compiledData_forced$eml3[compiledData_forced$PT_actual <= .3] = 'a_early1'
+compiledData_forced$eml3[compiledData_forced$PT_actual  > .3 & compiledData_forced$PT_actual <= .5] = 'a_early2'
+compiledData_forced$eml3[compiledData_forced$PT_actual > .5 & compiledData_forced$PT_actual <= .7] = 'b_mid1'
+compiledData_forced$eml3[compiledData_forced$PT_actual > .7 & compiledData_forced$PT_actual <= .9] = 'b_mid2'
+compiledData_forced$eml3[compiledData_forced$PT_actual > .9& compiledData_forced$PT_actual <= 1.1] = 'c_late1'
+compiledData_forced$eml3[compiledData_forced$PT_actual > 1.1] = 'c_late2'
+
+compiledData_forced$errorDiff = NA
+compiledData_forced$errorDiff = abs(compiledData_forced$corrresp-compiledData_forced$resp)
+
+compiledData_forced$errorLevel = NA # hand/couplet/finger error based on cogsci description hand = 0/1/1;0/1/0;0/0/1;0/0/0 || couplet = 1/0/1;1/0/0 || finger = 1/1/0
+compiledData_forced$errorLevel[compiledData_forced$errorType2 %in% c('1/1/0')] = 'finger'
+compiledData_forced$errorLevel[compiledData_forced$errorType2 %in% c('1/0/1','1/0/0')] = 'couplet'
+compiledData_forced$errorLevel[compiledData_forced$errorType2 %in% c('0/1/1','0/1/0','0/0/1','0/0/0')] = 'hand'
+
+compiledData_forced$resp_dist = NA
+compiledData_forced$resp_dist = abs(compiledData_forced$resp - compiledData_forced$finger_press_prev)
+
+# add the UP information (i.e. relative to the previous response)
+compiledData_forced$errorType2_up = NA
+compiledData_forced$sameHand_up = NA
+compiledData_forced$sameCouplet_up = NA
+compiledData_forced$sameFinger_up = NA
+
+compiledData_forced$sameHand_up[compiledData_forced$finger_press_prev %in% c(1,2,3,4) & compiledData_forced$resp %in% c(1,2,3,4)] = 1
+compiledData_forced$sameHand_up[compiledData_forced$finger_press_prev %in% c(1,2,3,4) & compiledData_forced$resp %in% c(5,6,7,8)] = 0
+compiledData_forced$sameHand_up[compiledData_forced$finger_press_prev %in% c(5,6,7,8) & compiledData_forced$resp %in% c(5,6,7,8)] = 1
+compiledData_forced$sameHand_up[compiledData_forced$finger_press_prev %in% c(5,6,7,8) & compiledData_forced$resp %in% c(1,2,3,4)] = 0
+
+compiledData_forced$sameCouplet_up[compiledData_forced$finger_press_prev %in% c(1,2,5,6) & compiledData_forced$resp %in% c(1,2,5,6)] = 1
+compiledData_forced$sameCouplet_up[compiledData_forced$finger_press_prev %in% c(1,2,5,6) & compiledData_forced$resp %in% c(3,4,7,8)] = 0
+compiledData_forced$sameCouplet_up[compiledData_forced$finger_press_prev %in% c(3,4,7,8) & compiledData_forced$resp %in% c(3,4,7,8)] = 1
+compiledData_forced$sameCouplet_up[compiledData_forced$finger_press_prev %in% c(3,4,7,8) & compiledData_forced$resp %in% c(1,2,5,6)] = 0
+
+compiledData_forced$sameFinger_up[compiledData_forced$finger_press_prev %in% c(1,3,5,7) & compiledData_forced$resp %in% c(1,3,5,7)] = 1
+compiledData_forced$sameFinger_up[compiledData_forced$finger_press_prev %in% c(1,3,5,7) & compiledData_forced$resp %in% c(2,4,6,8)] = 0
+compiledData_forced$sameFinger_up[compiledData_forced$finger_press_prev %in% c(2,4,6,8) & compiledData_forced$resp %in% c(2,4,6,8)] = 1
+compiledData_forced$sameFinger_up[compiledData_forced$finger_press_prev %in% c(2,4,6,8) & compiledData_forced$resp %in% c(1,3,5,7)] = 0
+
+compiledData_forced$errorType2_up[compiledData_forced$sameHand_up == 1 & compiledData_forced$sameCouplet_up == 1 & compiledData_forced$sameFinger_up == 1] = '1/1/1'
+compiledData_forced$errorType2_up[compiledData_forced$sameHand_up == 1 & compiledData_forced$sameCouplet_up == 1 & compiledData_forced$sameFinger_up == 0] = '1/1/0'
+compiledData_forced$errorType2_up[compiledData_forced$sameHand_up == 1 & compiledData_forced$sameCouplet_up == 0 & compiledData_forced$sameFinger_up == 1] = '1/0/1'
+compiledData_forced$errorType2_up[compiledData_forced$sameHand_up == 1 & compiledData_forced$sameCouplet_up == 0 & compiledData_forced$sameFinger_up == 0] = '1/0/0'
+compiledData_forced$errorType2_up[compiledData_forced$sameHand_up == 0 & compiledData_forced$sameCouplet_up == 1 & compiledData_forced$sameFinger_up == 1] = '0/1/1'
+compiledData_forced$errorType2_up[compiledData_forced$sameHand_up == 0 & compiledData_forced$sameCouplet_up == 1 & compiledData_forced$sameFinger_up == 0] = '0/1/0'
+compiledData_forced$errorType2_up[compiledData_forced$sameHand_up == 0 & compiledData_forced$sameCouplet_up == 0 & compiledData_forced$sameFinger_up == 1] = '0/0/1'
+compiledData_forced$errorType2_up[compiledData_forced$sameHand_up == 0 & compiledData_forced$sameCouplet_up == 0 & compiledData_forced$sameFinger_up == 0] = '0/0/0'
+
+compiledData_forced$treeDistance_stim = NA
+compiledData_forced$treeDistance_stim[compiledData_forced$stim %in% c(1,2,3,4) & compiledData_forced$corrresp_prev %in% c(5,6,7,8)] = 6
+compiledData_forced$treeDistance_stim[compiledData_forced$stim %in% c(5,6,7,8) & compiledData_forced$corrresp_prev %in% c(1,2,3,4)] = 6
+
+compiledData_forced$treeDistance_stim[compiledData_forced$stim %in% c(1,2,3,4) & compiledData_forced$corrresp_prev %in% c(1,2,3,4)] = 4
+compiledData_forced$treeDistance_stim[compiledData_forced$stim %in% c(5,6,7,8) & compiledData_forced$corrresp_prev %in% c(5,6,7,8)] = 4
+
+compiledData_forced$treeDistance_stim[compiledData_forced$stim %in% c(1,2) & compiledData_forced$corrresp_prev %in% c(1,2)] = 2
+compiledData_forced$treeDistance_stim[compiledData_forced$stim %in% c(3,4) & compiledData_forced$corrresp_prev %in% c(3,4)] = 2
+compiledData_forced$treeDistance_stim[compiledData_forced$stim %in% c(5,6) & compiledData_forced$corrresp_prev %in% c(5,6)] = 2
+compiledData_forced$treeDistance_stim[compiledData_forced$stim %in% c(7,8) & compiledData_forced$corrresp_prev %in% c(7,8)] = 2
+
+compiledData_forced$treeDistance_stim[compiledData_forced$stim == compiledData_forced$corrresp_prev] = 0
+
+compiledData_forced$treeDistance_stim[compiledData_forced$trialNum == 1] = NA
+
+
+# CORRECT THE ZSCORE COLUMN
+compiledData$rt_corrected_both_z= NA
+compiledData = compiledData %>% group_by(subject) %>% dplyr::mutate(rt_corrected_both_z = scale(rt_corrected_both))
+
+# add bins for preliminary analyses
+compiledData_forced_trimmed = compiledData_forced %>% filter(PT_actual < 1.4)
+compiledData_forced_trimmed$PT_bins = NA
+compiledData_forced_trimmed$PT_bins[compiledData_forced_trimmed$PT_actual < .1] = 0
+compiledData_forced_trimmed$PT_bins[compiledData_forced_trimmed$PT_actual >= .1 & compiledData_forced_trimmed$PT_actual < .2] = .1
+compiledData_forced_trimmed$PT_bins[compiledData_forced_trimmed$PT_actual >= .2 & compiledData_forced_trimmed$PT_actual < .3] = .2
+compiledData_forced_trimmed$PT_bins[compiledData_forced_trimmed$PT_actual >= .3 & compiledData_forced_trimmed$PT_actual < .4] = .3
+compiledData_forced_trimmed$PT_bins[compiledData_forced_trimmed$PT_actual >= .4 & compiledData_forced_trimmed$PT_actual < .5] = .4
+compiledData_forced_trimmed$PT_bins[compiledData_forced_trimmed$PT_actual >= .5 & compiledData_forced_trimmed$PT_actual < .6] = .5
+compiledData_forced_trimmed$PT_bins[compiledData_forced_trimmed$PT_actual >= .6 & compiledData_forced_trimmed$PT_actual < .7] = .6
+compiledData_forced_trimmed$PT_bins[compiledData_forced_trimmed$PT_actual >= .7 & compiledData_forced_trimmed$PT_actual < .8] = .7
+compiledData_forced_trimmed$PT_bins[compiledData_forced_trimmed$PT_actual >= .8 & compiledData_forced_trimmed$PT_actual < .9] = .8
+compiledData_forced_trimmed$PT_bins[compiledData_forced_trimmed$PT_actual >= .9 & compiledData_forced_trimmed$PT_actual < 1] = .9
+compiledData_forced_trimmed$PT_bins[compiledData_forced_trimmed$PT_actual >= 1 & compiledData_forced_trimmed$PT_actual < 1.1] = 1
+compiledData_forced_trimmed$PT_bins[compiledData_forced_trimmed$PT_actual >= 1.1 & compiledData_forced_trimmed$PT_actual < 1.2] = 1.1
+compiledData_forced_trimmed$PT_bins[compiledData_forced_trimmed$PT_actual >= 1.2 & compiledData_forced_trimmed$PT_actual <= 1.3] = 1.2
+subjNums_dyn = unique(compiledData$subject)
+
+compiledData$neighbor = NA
+compiledData$neighbor[!is.na(compiledData$fingerDistance)] = 0
+compiledData$neighbor[compiledData$fingerDistance == 0] = 0
+compiledData$neighbor[compiledData$fingerDistance == 1] = 1
+names(compiledData_forced)[names(compiledData_forced) == "expt"] <- "day"
+
+```
+
+\newpage
+# Overall accuracy on day 1 vs 8 (with comparisons to Dyn expts)
+```{r, echo=F, message=F, warning=F, error=T, fig.width=6, fig.height=6, fig.align='center'}
+accu_days = testData_forced_wExclusions %>% filter(timing == 1, !is.na(treeDistance)) %>% group_by(subject,day) %>% dplyr::summarise(accu = mean(corr))
+accu_days_summary = summarySEwithin(accu_days, measurevar = 'accu',withinvars = c('day'), idvar = 'subject', na.rm = FALSE)
+ggplot(accu_days_summary, aes(x = day, y = accu)) + 
+  geom_bar(stat = "identity",position = "dodge")+
+  geom_errorbar(aes(ymin=accu-se, ymax=accu+se), width=.2,position=position_dodge(.9))+
+  labs(x= 'day', y = 'accu')+
+  scale_y_continuous(expand = c(0,0), limits = c(0,1))+
+  theme(panel.grid = element_blank(),
+        panel.background = element_rect(fill = "white", colour = "black"),
+        panel.border = element_rect(fill = NA, colour = "white"),
+        strip.text = element_text(size=axisTitleSize), 
+        axis.title.x = element_text(size = axisTitleSize), 
+        axis.title.y = element_text(size = axisTitleSize), 
+        axis.text.x = element_text(size = axisTextSize, color = textColor), 
+        axis.text.y = element_text(size = axisTextSize, color = textColor), 
+        axis.line.x.bottom=element_line(size=axisWidth), 
+        axis.line.y.left=element_line(size=axisWidth), 
+        axis.ticks = element_line(colour = axisColor, size = tickWidth), 
+        axis.ticks.length = unit(tickLength,"cm"))
+
+accu_days_dyn = compiledData_forced %>% filter(timing == 1, !is.na(treeDistance)) %>% group_by(subject,day) %>% dplyr::summarise(accu = mean(corr))
+ggplot(accu_days_dyn, aes(x = day, y = accu)) + 
+  geom_bar(stat = "summary",fun.y = "mean")+
+  geom_point()+
+  labs(x= 'day', y = 'accu')+
+  scale_y_continuous(expand = c(0,0), limits = c(0,1))+
+  theme(panel.grid = element_blank(),
+        panel.background = element_rect(fill = "white", colour = "black"),
+        panel.border = element_rect(fill = NA, colour = "white"),
+        strip.text = element_text(size=axisTitleSize), 
+        axis.title.x = element_text(size = axisTitleSize), 
+        axis.title.y = element_text(size = axisTitleSize), 
+        axis.text.x = element_text(size = axisTextSize, color = textColor), 
+        axis.text.y = element_text(size = axisTextSize, color = textColor), 
+        axis.line.x.bottom=element_line(size=axisWidth), 
+        axis.line.y.left=element_line(size=axisWidth), 
+        axis.ticks = element_line(colour = axisColor, size = tickWidth), 
+        axis.ticks.length = unit(tickLength,"cm"))
+
+t.test(accu_days$accu[accu_days$day == 1],accu_days$accu[accu_days$day == 8],paired = TRUE)
+t.test(accu_days_dyn$accu[accu_days_dyn$day == 'hierDyn'],accu_days_dyn$accu[accu_days_dyn$day == 'flatDyn'])
+t.test(accu_days_dyn$accu[accu_days_dyn$day == 'hierDyn'],accu_days$accu[accu_days$day == 1])
+t.test(accu_days_dyn$accu[accu_days_dyn$day == 'hierDyn'],accu_days$accu[accu_days$day == 8])
+t.test(accu_days_dyn$accu[accu_days_dyn$day == 'flatDyn'],accu_days$accu[accu_days$day == 1])
+t.test(accu_days_dyn$accu[accu_days_dyn$day == 'flatDyn'],accu_days$accu[accu_days$day == 8])
+
+```
+# errorType by eml_actual x errorLevel day 1 then day 8
+```{r, echo=F, message=F, warning=F, error=T, fig.width=10, fig.height=6, fig.align='center'}
+testData_forced_wExclusions$errorLevel = NA
+testData_forced_wExclusions$errorLevel[testData_forced_wExclusions$errorType2 %in% c('1/1/0')] = 'bbottom'
+testData_forced_wExclusions$errorLevel[testData_forced_wExclusions$errorType2 %in% c('1/0/1','1/0/0')] = 'cmid'
+testData_forced_wExclusions$errorLevel[testData_forced_wExclusions$errorType2 %in% c('0/1/1','0/1/0','0/0/1','0/0/0')] = 'dtop'
+testData_forced_wExclusions$errorLevel[testData_forced_wExclusions$errorType2 == '1/1/1'] = 'acorr'
+
+testData_forced_wExclusions$errorLevel = as.factor(testData_forced_wExclusions$errorLevel)
+
+# across PTs
+errorLevel_actual = testData_forced_wExclusions %>% filter(PT_actual <1.4, timing == 1) %>% group_by(subject,day,errorLevel, .drop = FALSE) %>% dplyr::summarise(counts = n()) %>% mutate(prop = counts/sum(counts))
+errorLevel_actual$prop_corrected = errorLevel_actual$prop
+errorLevel_actual$prop_corrected[errorLevel_actual$errorLevel =='cmid'] = errorLevel_actual$prop_corrected[errorLevel_actual$errorLevel == 'cmid']/2
+errorLevel_actual$prop_corrected[errorLevel_actual$errorLevel == 'dtop'] = errorLevel_actual$prop_corrected[errorLevel_actual$errorLevel == 'dtop']/4
+
+
+errorLevel_actual = errorLevel_actual %>% filter(errorLevel != 'acorr')
+ggplot(errorLevel_actual, aes(x = errorLevel, y = prop_corrected, fill = errorLevel ))+geom_bar(stat = 'summary', fun.y = 'mean', position = 'dodge')+geom_point(position = position_dodge(.9)) + facet_wrap(~day)
+anova_test(data.frame(errorLevel_actual), dv = prop_corrected, wid = subject, within = c( errorLevel,day), effect.size = 'pes')
+t.test(errorLevel_actual$prop_corrected[errorLevel_actual$errorLevel == 'dtop'& errorLevel_actual$day == 1],errorLevel_actual$prop_corrected[errorLevel_actual$errorLevel == 'cmid' & errorLevel_actual$day == 1],paired = TRUE)
+t.test(errorLevel_actual$prop_corrected[errorLevel_actual$errorLevel == 'bbottom'& errorLevel_actual$day == 1],errorLevel_actual$prop_corrected[errorLevel_actual$errorLevel == 'cmid'& errorLevel_actual$day == 1],paired = TRUE)
+
+t.test(errorLevel_actual$prop_corrected[errorLevel_actual$errorLevel == 'dtop'& errorLevel_actual$day == 8],errorLevel_actual$prop_corrected[errorLevel_actual$errorLevel == 'cmid' & errorLevel_actual$day == 8],paired = TRUE)
+t.test(errorLevel_actual$prop_corrected[errorLevel_actual$errorLevel == 'bbottom'& errorLevel_actual$day == 8],errorLevel_actual$prop_corrected[errorLevel_actual$errorLevel == 'cmid'& errorLevel_actual$day == 8],paired = TRUE)
+
+
+# by PT bin
+errorLevel_emlactual = testData_forced_wExclusions %>% filter(PT_actual <1.4) %>% group_by(subject,day,eml_actual,errorLevel, .drop = FALSE) %>% dplyr::summarise(counts = n()) %>% mutate(prop = counts/sum(counts))
+errorLevel_emlactual$prop_corrected = errorLevel_emlactual$prop
+errorLevel_emlactual$prop_corrected[errorLevel_emlactual$errorLevel =='cmid'] = errorLevel_emlactual$prop_corrected[errorLevel_emlactual$errorLevel == 'cmid']/2
+errorLevel_emlactual$prop_corrected[errorLevel_emlactual$errorLevel == 'dtop'] = errorLevel_emlactual$prop_corrected[errorLevel_emlactual$errorLevel == 'dtop']/4
+
+errorLevel_emlactual = errorLevel_emlactual %>% filter(errorLevel != 'acorr')
+ggplot(errorLevel_emlactual, aes(x = eml_actual, y = prop_corrected, fill = errorLevel ))+geom_bar(stat = 'identity') + facet_wrap(~subject+day)
+ggplot(errorLevel_emlactual, aes(x = eml_actual, y = prop_corrected, fill = errorLevel ))+geom_bar(stat = 'summary', fun.y = 'mean', position = 'dodge')+geom_point(position = position_dodge(.9)) + facet_wrap(~day)
+anova_test(data.frame(errorLevel_emlactual), dv = prop_corrected, wid = subject, within = c(eml_actual, errorLevel,day), effect.size = 'pes')
+
+errorLevel_emlactual$errorLevel_ordered = NA
+errorLevel_emlactual$errorLevel_ordered[errorLevel_emlactual$errorLevel == 'dtop'] = 'a'
+errorLevel_emlactual$errorLevel_ordered[errorLevel_emlactual$errorLevel == 'cmid'] = 'b'
+errorLevel_emlactual$errorLevel_ordered[errorLevel_emlactual$errorLevel == 'bbottom'] = 'c'
+
+errorLevel_emlactual_level_summary = summarySEwithin(errorLevel_emlactual, measurevar = 'prop_corrected',withinvars = c('day','eml_actual','errorLevel_ordered'), idvar = 'subject', na.rm = TRUE) %>% filter(!is.na(errorLevel_ordered))
+ggplot(errorLevel_emlactual_level_summary, aes(x = eml_actual, y = prop_corrected, fill = errorLevel_ordered ))+geom_bar(stat = 'identity', position = 'dodge')+geom_errorbar(aes(ymin = prop_corrected-se,ymax =prop_corrected+se), position = position_dodge(.9)) + facet_wrap(~day)+scale_y_continuous(expand = c(0,0), limits = c(0,.17))+
+  theme(axis.line=element_line(),
+        panel.grid = element_blank(),
+        panel.background = element_rect(fill = "white", colour = "black")
+        ,panel.border = element_rect(fill = NA, colour = "white"),
+        strip.text = element_text(size=axisTitleSize,face="bold"), 
+        axis.title.x = element_text(size = axisTitleSize, face = 'bold'), 
+        axis.title.y = element_text(size = axisTitleSize, face = 'bold'), 
+        axis.text.x = element_text(size = axisTextSize), 
+        axis.text.y = element_text(size = axisTextSize), 
+        legend.position = "right", 
+        legend.title = element_blank(),
+        legend.text = element_text(size = axisTextSize),
+        axis.line.x.bottom=element_line(size=axisWidth), 
+        axis.line.y.left=element_line(size=axisWidth), 
+        axis.ticks = element_line(colour = axisColor, size = tickWidth), 
+        axis.ticks.length = unit(tickLength,"cm"))
+
+#ggsave('multi_eml_errorLevel_nocorr.eps')
+```
+# top mid low level errors (corrected probabilities) across PTs
+```{r, echo=F, message=F, warning=F, error=T,fig.width=5, fig.height=5, fig.align='center'}
+#### DYN ######
+errorLevel_dyn = compiledData_forced_trimmed %>% filter(timing == 1,!is.na(errorType2)) %>% group_by(expt,subject,errorLevel, .drop = FALSE) %>% dplyr::summarize(counts = n()) %>% filter(!is.na(errorLevel)) %>% group_by(expt,subject,.drop = FALSE) %>% dplyr::mutate(prop = counts/sum(counts))
+
+errorLevel_dyn$prop_corrected = errorLevel_dyn$prop
+errorLevel_dyn$prop_corrected[errorLevel_dyn$errorLevel == 'dtop'] = errorLevel_dyn$prop_corrected[errorLevel_dyn$errorLevel == 'dtop']/4
+errorLevel_dyn$prop_corrected[errorLevel_dyn$errorLevel == 'cmid'] = errorLevel_dyn$prop_corrected[errorLevel_dyn$errorLevel == 'cmid']/2
+
+errorLevel_dyn_summary = summarySEwithin(errorLevel_dyn, measurevar = 'prop_corrected',withinvars = c('errorLevel'),betweenvars = 'expt', idvar = 'subject', na.rm = TRUE)
+errorLevel_dyn_summary_HD = errorLevel_dyn_summary %>% filter(expt == 'hierDyn')
+errorLevel_dyn_summary_FD = errorLevel_dyn_summary %>% filter(expt == 'flatDyn')
+
+
+ggplot(errorLevel_dyn_summary_HD, aes(x =errorLevel,y = prop_corrected, group = errorLevel,fill = errorLevel)) + geom_bar(stat = 'identity')+ geom_errorbar(aes(x = errorLevel,ymin = prop_corrected-se, ymax = prop_corrected+se), width = .2)+facet_wrap(~expt)+scale_y_continuous(expand = c(0,0))+
+  theme(axis.line=element_line(),
+        panel.grid = element_blank(),
+        panel.background = element_rect(fill = "white", colour = "black")
+        ,panel.border = element_rect(fill = NA, colour = "white"),
+        strip.text = element_text(size=axisTitleSize,face="bold"), 
+        axis.title.x = element_text(size = axisTitleSize, face = 'bold'), 
+        axis.title.y = element_text(size = axisTitleSize, face = 'bold'), 
+        axis.text.x = element_text(size = axisTextSize), 
+        axis.text.y = element_text(size = axisTextSize), 
+        legend.position = "right", 
+        legend.title = element_blank(),
+        legend.text = element_text(size = axisTextSize),
+        axis.line.x.bottom=element_line(size=axisWidth), 
+        axis.line.y.left=element_line(size=axisWidth), 
+        axis.ticks = element_line(colour = axisColor, size = tickWidth), 
+        axis.ticks.length = unit(tickLength,"cm"))
+
+ggplot(errorLevel_dyn_summary_FD, aes(x =errorLevel,y = prop_corrected, group = errorLevel,fill = errorLevel)) + geom_bar(stat = 'identity')+ geom_errorbar(aes(x = errorLevel,ymin = prop_corrected-se, ymax = prop_corrected+se), width = .2)+facet_wrap(~expt)+scale_y_continuous(expand = c(0,0))+
+  theme(axis.line=element_line(),
+        panel.grid = element_blank(),
+        panel.background = element_rect(fill = "white", colour = "black")
+        ,panel.border = element_rect(fill = NA, colour = "white"),
+        strip.text = element_text(size=axisTitleSize,face="bold"), 
+        axis.title.x = element_text(size = axisTitleSize, face = 'bold'), 
+        axis.title.y = element_text(size = axisTitleSize, face = 'bold'), 
+        axis.text.x = element_text(size = axisTextSize), 
+        axis.text.y = element_text(size = axisTextSize), 
+        legend.position = "right", 
+        legend.title = element_blank(),
+        legend.text = element_text(size = axisTextSize),
+        axis.line.x.bottom=element_line(size=axisWidth), 
+        axis.line.y.left=element_line(size=axisWidth), 
+        axis.ticks = element_line(colour = axisColor, size = tickWidth), 
+        axis.ticks.length = unit(tickLength,"cm"))
+errorLevel_dyn_levels = errorLevel_dyn %>% group_by(expt,subject,errorLevel) %>% dplyr::summarise(prop = mean(prop), prop_corrected = mean(prop_corrected))
+anova_test(data.frame(errorLevel_dyn_levels), dv = prop_corrected, wid = subject, between = expt, within = c(errorLevel), effect.size = 'pes')
+
+HL_errorLevel_dyn_levels = errorLevel_dyn_levels %>% filter(expt == 'hierDyn')
+FL_errorLevel_dyn_levels = errorLevel_dyn_levels %>% filter(expt == 'flatDyn')
+anova_test(data.frame(HL_errorLevel_dyn_levels), dv = prop_corrected, wid = subject,within = c(errorLevel), effect.size = 'pes')
+anova_test(data.frame(FL_errorLevel_dyn_levels), dv = prop_corrected, wid = subject, within = c(errorLevel), effect.size = 'pes')
+
+errorLevel_dyn_summary_nocorr = errorLevel_dyn_summary %>% filter(errorLevel != "acorr")
+ggplot(errorLevel_dyn_summary_nocorr, aes(x =errorLevel,y = prop_corrected, group = errorLevel,fill = errorLevel)) + geom_bar(stat = 'identity')+ geom_errorbar(aes(x = errorLevel,ymin = prop_corrected-se, ymax = prop_corrected+se), width = .2)+facet_wrap(~expt)+scale_y_continuous(expand = c(0,0))+
+  theme(axis.line=element_line(),
+        panel.grid = element_blank(),
+        panel.background = element_rect(fill = "white", colour = "black")
+        ,panel.border = element_rect(fill = NA, colour = "white"),
+        strip.text = element_text(size=axisTitleSize,face="bold"), 
+        axis.title.x = element_text(size = axisTitleSize, face = 'bold'), 
+        axis.title.y = element_text(size = axisTitleSize, face = 'bold'), 
+        axis.text.x = element_text(size = axisTextSize), 
+        axis.text.y = element_text(size = axisTextSize), 
+        legend.position = "right", 
+        legend.title = element_blank(),
+        legend.text = element_text(size = axisTextSize),
+        axis.line.x.bottom=element_line(size=axisWidth), 
+        axis.line.y.left=element_line(size=axisWidth), 
+        axis.ticks = element_line(colour = axisColor, size = tickWidth), 
+        axis.ticks.length = unit(tickLength,"cm"))
+
+```
+
+# error level w corrected prop
+```{r, echo=F, message=F, warning=F, error=T,fig.width=4, fig.height=4, fig.align='center'}
+errorLevel_across_corrected_errors= testData_forced_wExclusions %>% filter(timing == 1,,!is.na(errorLevel), corr != 1) %>% group_by(subject,day,errorLevel, .drop = FALSE) %>% dplyr::summarize(counts = n()) %>% filter(!is.na(errorLevel)) %>% group_by(subject,day,.drop = FALSE) %>% dplyr::mutate(prop = counts/sum(counts)) %>% filter(errorLevel != 'acorr')
+
+errorLevel_across_corrected_errors$prop_corrected = NA
+errorLevel_across_corrected_errors$prop_corrected[errorLevel_across_corrected_errors$errorLevel %in% c('bbottom')] = errorLevel_across_corrected_errors$prop[errorLevel_across_corrected_errors$errorLevel %in% c('bbottom')]/1
+errorLevel_across_corrected_errors$prop_corrected[errorLevel_across_corrected_errors$errorLevel %in% c('cmid')] = errorLevel_across_corrected_errors$prop[errorLevel_across_corrected_errors$errorLevel %in% c('cmid')]/2
+errorLevel_across_corrected_errors$prop_corrected[errorLevel_across_corrected_errors$errorLevel %in% c('dtop')] = errorLevel_across_corrected_errors$prop[errorLevel_across_corrected_errors$errorLevel %in% c('dtop')]/4
+
+errorLevel_across_corrected_errors_summary = summarySEwithin(errorLevel_across_corrected_errors, measurevar = 'prop_corrected',withinvars = c('day','errorLevel'), idvar = 'subject', na.rm = TRUE)
+
+ggplot(errorLevel_across_corrected_errors_summary, aes(x =errorLevel,y = prop_corrected, group = errorLevel,fill = errorLevel)) + geom_bar(stat = 'identity')+ geom_errorbar(aes(x = errorLevel,ymin = prop_corrected-se, ymax = prop_corrected+se), width = .2)+facet_wrap(~day,ncol = 2)+scale_y_continuous(expand = c(0,0), limits = c(0,.4))+
+  theme(axis.line=element_line(),
+        panel.grid = element_blank(),
+        panel.background = element_rect(fill = "white", colour = "black")
+        ,panel.border = element_rect(fill = NA, colour = "white"),
+        strip.text = element_text(size=axisTitleSize,face="bold"), 
+        axis.title.x = element_text(size = axisTitleSize, face = 'bold'), 
+        axis.title.y = element_text(size = axisTitleSize, face = 'bold'), 
+        axis.text.x = element_text(size = axisTextSize), 
+        axis.text.y = element_text(size = axisTextSize), 
+        legend.position = "right", 
+        legend.title = element_blank(),
+        legend.text = element_text(size = axisTextSize),
+        axis.line.x.bottom=element_line(size=axisWidth), 
+        axis.line.y.left=element_line(size=axisWidth), 
+        axis.ticks = element_line(colour = axisColor, size = tickWidth), 
+        axis.ticks.length = unit(tickLength,"cm"))
+
+anova_test(data.frame(errorLevel_across_corrected_errors), dv = prop_corrected, wid = subject,within = c(day,errorLevel), effect.size = 'pes')
+t.test(errorLevel_across_corrected_errors$prop_corrected[errorLevel_across_corrected_errors$day == 1 & errorLevel_across_corrected_errors$errorLevel =='bbottom'],errorLevel_across_corrected_errors$prop_corrected[errorLevel_across_corrected_errors$day == 1 & errorLevel_across_corrected_errors$errorLevel =='cmid'],paired = TRUE)
+t.test(errorLevel_across_corrected_errors$prop_corrected[errorLevel_across_corrected_errors$day == 1 & errorLevel_across_corrected_errors$errorLevel =='dtop'],errorLevel_across_corrected_errors$prop_corrected[errorLevel_across_corrected_errors$day == 1 & errorLevel_across_corrected_errors$errorLevel =='cmid'],paired = TRUE)
+
+t.test(errorLevel_across_corrected_errors$prop_corrected[errorLevel_across_corrected_errors$day == 8 & errorLevel_across_corrected_errors$errorLevel =='bbottom'],errorLevel_across_corrected_errors$prop_corrected[errorLevel_across_corrected_errors$day == 8 & errorLevel_across_corrected_errors$errorLevel =='cmid'],paired = TRUE)
+t.test(errorLevel_across_corrected_errors$prop_corrected[errorLevel_across_corrected_errors$day == 8 & errorLevel_across_corrected_errors$errorLevel =='dtop'],errorLevel_across_corrected_errors$prop_corrected[errorLevel_across_corrected_errors$day == 8 & errorLevel_across_corrected_errors$errorLevel =='cmid'],paired = TRUE)
+
+```
+# Multiday day 8 versus unstructed forced response data
+```{r, echo=F, message=F, warning=F, error=T,fig.width=4, fig.height=4, fig.align='center'}
+errorLevel_across_corrected_FD= compiledData_forced_trimmed %>% filter(timing == 1,,!is.na(errorLevel), expt == 'flatDyn') %>% group_by(subject,errorLevel, .drop = FALSE) %>% dplyr::summarize(counts = n()) %>% filter(!is.na(errorLevel)) %>% group_by(subject,.drop = FALSE) %>% dplyr::mutate(prop = counts/sum(counts)) %>% filter(errorLevel != 'acorr')
+
+errorLevel_across_corrected_FD$prop_corrected = NA
+errorLevel_across_corrected_FD$prop_corrected[errorLevel_across_corrected_FD$errorLevel %in% c('bbottom')] = errorLevel_across_corrected_FD$prop[errorLevel_across_corrected_FD$errorLevel %in% c('bbottom')]/1
+errorLevel_across_corrected_FD$prop_corrected[errorLevel_across_corrected_FD$errorLevel %in% c('cmid')] = errorLevel_across_corrected_FD$prop[errorLevel_across_corrected_FD$errorLevel %in% c('cmid')]/2
+errorLevel_across_corrected_FD$prop_corrected[errorLevel_across_corrected_FD$errorLevel %in% c('dtop')] = errorLevel_across_corrected_FD$prop[errorLevel_across_corrected_FD$errorLevel %in% c('dtop')]/4
+
+errorLevel_across_corrected_FD_summary = summarySEwithin(errorLevel_across_corrected_FD, measurevar = 'prop_corrected',withinvars = c('errorLevel'), idvar = 'subject', na.rm = TRUE)
+
+ggplot(errorLevel_across_corrected_FD_summary, aes(x =errorLevel,y = prop_corrected, group = errorLevel,fill = errorLevel)) + geom_bar(stat = 'identity')+ geom_errorbar(aes(x = errorLevel,ymin = prop_corrected-se, ymax = prop_corrected+se), width = .2)+scale_y_continuous(expand = c(0,0), limits = c(0,.16))+
+  theme(axis.line=element_line(),
+        panel.grid = element_blank(),
+        panel.background = element_rect(fill = "white", colour = "black")
+        ,panel.border = element_rect(fill = NA, colour = "white"),
+        strip.text = element_text(size=axisTitleSize,face="bold"), 
+        axis.title.x = element_text(size = axisTitleSize, face = 'bold'), 
+        axis.title.y = element_text(size = axisTitleSize, face = 'bold'), 
+        axis.text.x = element_text(size = axisTextSize), 
+        axis.text.y = element_text(size = axisTextSize), 
+        legend.position = "right", 
+        legend.title = element_blank(),
+        legend.text = element_text(size = axisTextSize),
+        axis.line.x.bottom=element_line(size=axisWidth), 
+        axis.line.y.left=element_line(size=axisWidth), 
+        axis.ticks = element_line(colour = axisColor, size = tickWidth), 
+        axis.ticks.length = unit(tickLength,"cm"))
+
+# put this dataframe together w the 8-day results
+errorLevel_across_corrected_FD$expt = 'flatDyn'
+errorLevel_across_corrected_last = errorLevel_across_corrected %>% filter(day == 8)
+errorLevel_across_corrected_last$expt = 'multi'
+errorLevel_across_corrected_both = rbind(errorLevel_across_corrected_last, errorLevel_across_corrected_FD)
+
+anova_test(data.frame(errorLevel_across_corrected_both), dv = prop_corrected, wid = subject,within = c(errorLevel),between = c(expt), effect.size = 'pes')
+
+```
+\newpage
+# Smoothed curves for across PT bins by error type2 DAY 1 then DAY 8
+```{r, echo=F, message=F, warning=F, error=T, fig.width=12, fig.height=6, fig.align='center'}
+# set up the timepoints
+minTime = min(testData_forced_wExclusions$PT_actual,na.rm = TRUE)
+maxTime = max(testData_forced_wExclusions$PT_actual,na.rm = TRUE)
+step = .01
+win = .05
+timepoints = seq(0,maxTime,step)
+
+# set up the dataframe
+smoothedData_errorType2_one= data.frame(matrix(NA, ncol = 11,nrow = length(timepoints)*length(subjNums_all)))
+colnames(smoothedData_errorType2_one) = c('subject','tp','tp_num', '1/1/1','1/1/0','1/0/1','1/0/0','0/1/1','0/1/0','0/0/1','0/0/0')
+
+for(si in 1:length(subjNums_all)){
+  subjData = testData_forced_wExclusions %>% filter(subject == subjNums_all[si], day == 1)
+  for(ti in 1:length(timepoints)){
+    #fill in data for first two columns (regardless of whether we actually end up having data there)
+    smoothedData_errorType2_one$subject[ti+(length(timepoints)*(si-1))] = subjNums_all[si]
+    smoothedData_errorType2_one$tp[ti+(length(timepoints)*(si-1))] = timepoints[ti]
+    smoothedData_errorType2_one$tp_num[ti+(length(timepoints)*(si-1))] = ti
+
+    # get the indices of PT within the window
+    idx = which(subjData$PT_actual > (timepoints[ti]-win) & subjData$PT_actual < (timepoints[ti] + win))
+    if(length(idx > 0)){
+      # filter to dataframe with just data with PT in the window
+      relData = subjData %>% filter(row_number() %in% idx)
+      # group dataframe and get proportions
+      relData_errorType = relData %>% group_by(errorType2, .drop = FALSE) %>% dplyr::summarize(counts = n()) %>% mutate(prop = counts/sum(counts))
+      smoothedData_errorType2_one$`1/1/1`[ti+(length(timepoints)*(si-1))] = relData_errorType$prop[relData_errorType$errorType2 == '1/1/1']
+      smoothedData_errorType2_one$`1/1/0`[ti+(length(timepoints)*(si-1))]= relData_errorType$prop[relData_errorType$errorType2 == '1/1/0']
+      smoothedData_errorType2_one$`1/0/1`[ti+(length(timepoints)*(si-1))]= relData_errorType$prop[relData_errorType$errorType2 == '1/0/1']
+      smoothedData_errorType2_one$`1/0/0`[ti+(length(timepoints)*(si-1))] = relData_errorType$prop[relData_errorType$errorType2 == '1/0/0']
+      
+      smoothedData_errorType2_one$`0/1/1`[ti+(length(timepoints)*(si-1))] = relData_errorType$prop[relData_errorType$errorType2 == '0/1/1']
+      smoothedData_errorType2_one$`0/1/0`[ti+(length(timepoints)*(si-1))] = relData_errorType$prop[relData_errorType$errorType2 == '0/1/0']
+      smoothedData_errorType2_one$`0/0/1`[ti+(length(timepoints)*(si-1))] = relData_errorType$prop[relData_errorType$errorType2 == '0/0/1']
+      smoothedData_errorType2_one$`0/0/0`[ti+(length(timepoints)*(si-1))] = relData_errorType$prop[relData_errorType$errorType2 == '0/0/0']
+    }else{
+      smoothedData_errorType2_one$`1/1/1`[ti+(length(timepoints)*(si-1))] = NA
+      smoothedData_errorType2_one$`1/1/0`[ti+(length(timepoints)*(si-1))]= NA
+      smoothedData_errorType2_one$`1/0/1`[ti+(length(timepoints)*(si-1))]= NA
+      smoothedData_errorType2_one$`1/0/0`[ti+(length(timepoints)*(si-1))] =NA
+      
+      smoothedData_errorType2_one$`0/1/1`[ti+(length(timepoints)*(si-1))] = NA
+      smoothedData_errorType2_one$`0/1/0`[ti+(length(timepoints)*(si-1))] = NA
+      smoothedData_errorType2_one$`0/0/1`[ti+(length(timepoints)*(si-1))] = NA
+      smoothedData_errorType2_one$`0/0/0`[ti+(length(timepoints)*(si-1))] = NA
+      }
+    }
+}
+
+smoothedData_errorType2_one = pivot_longer(smoothedData_errorType2_one, c(`1/1/1`,`1/1/0`,`1/0/1`,`1/0/0`,`0/1/1`,`0/1/0`,`0/0/1`,`0/0/0`), names_to = 'errorType2', values_to = 'prop')
+smoothedData_errorType2_one$subject=as.factor(smoothedData_errorType2_one$subject)
+smoothedData_errorType2_one$errorType2 = as.factor(smoothedData_errorType2_one$errorType2)
+
+smoothedData_errorType2_one_plotting = smoothedData_errorType2_one %>% group_by(subject, errorType2, .drop = FALSE) %>% filter(tp_num > 10, tp_num< 131)
+smoothedData_errorType2_one_all_summary = summarySEwithin(smoothedData_errorType2_one_plotting, measurevar = 'prop',withinvars = c('tp_num','errorType2'), idvar = 'subject', na.rm = TRUE)
+
+ggplot(smoothedData_errorType2_one_all_summary, aes(x =tp_num,y = prop, group = errorType2,color = errorType2)) + geom_line()+geom_ribbon(data=smoothedData_errorType2_one_all_summary,aes(x = tp_num,ymin = prop - se, ymax = prop + se, fill = errorType2), inherit.aes = TRUE, alpha = .5)+scale_x_discrete(name = 'prep time', breaks = c(11,21,31,41,51,61,71,81,91,101,111,121),labels = c(.1,.2,.3,.4,.5,.6,.7,.8,.9,1,1.1,1.2))
+
+#DAY 8 
+# set up the dataframe
+smoothedData_errorType2_eight= data.frame(matrix(NA, ncol = 11,nrow = length(timepoints)*length(subjNums_all)))
+colnames(smoothedData_errorType2_eight) = c('subject','tp','tp_num', '1/1/1','1/1/0','1/0/1','1/0/0','0/1/1','0/1/0','0/0/1','0/0/0')
+
+for(si in 1:length(subjNums_all)){
+  subjData = testData_forced_wExclusions %>% filter(subject == subjNums_all[si], day == 8)
+  for(ti in 1:length(timepoints)){
+    #fill in data for first two columns (regardless of whether we actually end up having data there)
+    smoothedData_errorType2_eight$subject[ti+(length(timepoints)*(si-1))] = subjNums_all[si]
+    smoothedData_errorType2_eight$tp[ti+(length(timepoints)*(si-1))] = timepoints[ti]
+    smoothedData_errorType2_eight$tp_num[ti+(length(timepoints)*(si-1))] = ti
+
+    # get the indices of PT within the window
+    idx = which(subjData$PT_actual > (timepoints[ti]-win) & subjData$PT_actual < (timepoints[ti] + win))
+    if(length(idx > 0)){
+      # filter to dataframe with just data with PT in the window
+      relData = subjData %>% filter(row_number() %in% idx)
+      # group dataframe and get proportions
+      relData_errorType = relData %>% group_by(errorType2, .drop = FALSE) %>% dplyr::summarize(counts = n()) %>% mutate(prop = counts/sum(counts))
+      smoothedData_errorType2_eight$`1/1/1`[ti+(length(timepoints)*(si-1))] = relData_errorType$prop[relData_errorType$errorType2 == '1/1/1']
+      smoothedData_errorType2_eight$`1/1/0`[ti+(length(timepoints)*(si-1))]= relData_errorType$prop[relData_errorType$errorType2 == '1/1/0']
+      smoothedData_errorType2_eight$`1/0/1`[ti+(length(timepoints)*(si-1))]= relData_errorType$prop[relData_errorType$errorType2 == '1/0/1']
+      smoothedData_errorType2_eight$`1/0/0`[ti+(length(timepoints)*(si-1))] = relData_errorType$prop[relData_errorType$errorType2 == '1/0/0']
+      
+      smoothedData_errorType2_eight$`0/1/1`[ti+(length(timepoints)*(si-1))] = relData_errorType$prop[relData_errorType$errorType2 == '0/1/1']
+      smoothedData_errorType2_eight$`0/1/0`[ti+(length(timepoints)*(si-1))] = relData_errorType$prop[relData_errorType$errorType2 == '0/1/0']
+      smoothedData_errorType2_eight$`0/0/1`[ti+(length(timepoints)*(si-1))] = relData_errorType$prop[relData_errorType$errorType2 == '0/0/1']
+      smoothedData_errorType2_eight$`0/0/0`[ti+(length(timepoints)*(si-1))] = relData_errorType$prop[relData_errorType$errorType2 == '0/0/0']
+    }else{
+      smoothedData_errorType2_eight$`1/1/1`[ti+(length(timepoints)*(si-1))] = NA
+      smoothedData_errorType2_eight$`1/1/0`[ti+(length(timepoints)*(si-1))]= NA
+      smoothedData_errorType2_eight$`1/0/1`[ti+(length(timepoints)*(si-1))]= NA
+      smoothedData_errorType2_eight$`1/0/0`[ti+(length(timepoints)*(si-1))] =NA
+      
+      smoothedData_errorType2_eight$`0/1/1`[ti+(length(timepoints)*(si-1))] = NA
+      smoothedData_errorType2_eight$`0/1/0`[ti+(length(timepoints)*(si-1))] = NA
+      smoothedData_errorType2_eight$`0/0/1`[ti+(length(timepoints)*(si-1))] = NA
+      smoothedData_errorType2_eight$`0/0/0`[ti+(length(timepoints)*(si-1))] = NA
+      }
+    }
+}
+
+smoothedData_errorType2_eight = pivot_longer(smoothedData_errorType2_eight, c(`1/1/1`,`1/1/0`,`1/0/1`,`1/0/0`,`0/1/1`,`0/1/0`,`0/0/1`,`0/0/0`), names_to = 'errorType2', values_to = 'prop')
+smoothedData_errorType2_eight$subject=as.factor(smoothedData_errorType2_eight$subject)
+smoothedData_errorType2_eight$errorType2 = as.factor(smoothedData_errorType2_eight$errorType2)
+
+smoothedData_errorType2_eight_plotting = smoothedData_errorType2_eight %>% group_by(subject, errorType2, .drop = FALSE) %>% filter(tp_num > 10, tp_num< 131)
+smoothedData_errorType2_eight_all_summary = summarySEwithin(smoothedData_errorType2_eight_plotting, measurevar = 'prop',withinvars = c('tp_num','errorType2'), idvar = 'subject', na.rm = TRUE)
+
+# plot smoothed curves
+alphaPlot = 1
+ggplot(smoothedData_errorType2_one_all_summary, aes(x = tp_num,y = prop, group = errorType2,color = errorType2)) + geom_line()+geom_ribbon(data=smoothedData_errorType2_one_all_summary,aes(x = tp_num,ymin = prop - se, ymax = prop + se, fill = errorType2), alpha = 1)+scale_x_discrete(name = 'prep time', breaks = c(11,21,31,41,51,61,71,81,91,101,111,121),labels = c(.1,.2,.3,.4,.5,.6,.7,.8,.9,1,1.1,1.2))+scale_y_continuous(expand = c(0,0),limits = c(0,1), breaks = c(0,.2,.4,.6,.8,1))+
+  theme(axis.line=element_line(),
+        panel.grid = element_blank(),
+        panel.background = element_rect(fill = "white", colour = "black")
+        ,panel.border = element_rect(fill = NA, colour = "white"),
+        strip.text = element_text(size=axisTitleSize,face="bold"), 
+        axis.title.x = element_text(size = axisTitleSize, face = 'bold'), 
+        axis.title.y = element_text(size = axisTitleSize, face = 'bold'), 
+        axis.text.x = element_text(size = axisTextSize), 
+        axis.text.y = element_text(size = axisTextSize), 
+        legend.position = "right", 
+        legend.title = element_blank(),
+        legend.text = element_text(size = axisTextSize),
+        axis.line.x.bottom=element_line(size=axisWidth), 
+        axis.line.y.left=element_line(size=axisWidth), 
+        axis.ticks = element_line(colour = axisColor, size = tickWidth), 
+        axis.ticks.length = unit(tickLength,"cm"))
+#ggsave('multiday08_errortype2xPT.eps')
+ggplot(smoothedData_errorType2_eight_all_summary, aes(x = tp_num,y = prop, group = errorType2,color = errorType2)) + geom_line()+geom_ribbon(data=smoothedData_errorType2_eight_all_summary,aes(x = tp_num,ymin = prop - se, ymax = prop + se, fill = errorType2), alpha = 1)+scale_x_discrete(name = 'prep time', breaks = c(11,21,31,41,51,61,71,81,91,101,111,121),labels = c(.1,.2,.3,.4,.5,.6,.7,.8,.9,1,1.1,1.2))+scale_y_continuous(expand = c(0,0),limits = c(0,1), breaks = c(0,.2,.4,.6,.8,1))+
+  theme(axis.line=element_line(),
+        panel.grid = element_blank(),
+        panel.background = element_rect(fill = "white", colour = "black")
+        ,panel.border = element_rect(fill = NA, colour = "white"),
+        strip.text = element_text(size=axisTitleSize,face="bold"), 
+        axis.title.x = element_text(size = axisTitleSize, face = 'bold'), 
+        axis.title.y = element_text(size = axisTitleSize, face = 'bold'), 
+        axis.text.x = element_text(size = axisTextSize), 
+        axis.text.y = element_text(size = axisTextSize), 
+        legend.position = "right", 
+        legend.title = element_blank(),
+        legend.text = element_text(size = axisTextSize),
+        axis.line.x.bottom=element_line(size=axisWidth), 
+        axis.line.y.left=element_line(size=axisWidth), 
+        axis.ticks = element_line(colour = axisColor, size = tickWidth), 
+        axis.ticks.length = unit(tickLength,"cm"))
+#ggsave('multiday08_errortype2xPT.eps')
+
+
+smoothedData_errorType2_one_all_summary_errors = smoothedData_errorType2_one_all_summary %>% filter(errorType2 != '1/1/1')
+ggplot(smoothedData_errorType2_one_all_summary_errors, aes(x = tp_num,y = prop, group = errorType2,color = errorType2)) + geom_line()+geom_ribbon(data=smoothedData_errorType2_one_all_summary_errors,aes(x = tp_num,ymin = prop - se, ymax = prop + se, fill = errorType2), alpha = alphaPlot)+scale_x_discrete(name = 'prep time', breaks = c(11,21,31,41,51,61,71,81,91,101,111,121),labels = c(.1,.2,.3,.4,.5,.6,.7,.8,.9,1,1.1,1.2))+scale_y_continuous(expand = c(0,0),limits = c(0,.3), breaks = c(0,.1,.2,.3))+
+  theme(axis.line=element_line(),
+        panel.grid = element_blank(),
+        panel.background = element_rect(fill = "white", colour = "black")
+        ,panel.border = element_rect(fill = NA, colour = "white"),
+        strip.text = element_text(size=axisTitleSize,face="bold"), 
+        axis.title.x = element_text(size = axisTitleSize, face = 'bold'), 
+        axis.title.y = element_text(size = axisTitleSize, face = 'bold'), 
+        axis.text.x = element_text(size = axisTextSize), 
+        axis.text.y = element_text(size = axisTextSize), 
+        legend.position = "right", 
+        legend.title = element_blank(),
+        legend.text = element_text(size = axisTextSize),
+        axis.line.x.bottom=element_line(size=axisWidth), 
+        axis.line.y.left=element_line(size=axisWidth), 
+        axis.ticks = element_line(colour = axisColor, size = tickWidth), 
+        axis.ticks.length = unit(tickLength,"cm"))
+#ggsave('multiday08_errortype2xPT_errors.eps')
+smoothedData_errorType2_eight_all_summary_errors = smoothedData_errorType2_eight_all_summary %>% filter(errorType2 != '1/1/1')
+ggplot(smoothedData_errorType2_eight_all_summary_errors, aes(x = tp_num,y = prop, group = errorType2,color = errorType2)) + geom_line()+geom_ribbon(data=smoothedData_errorType2_eight_all_summary_errors,aes(x = tp_num,ymin = prop - se, ymax = prop + se, fill = errorType2), alpha = alphaPlot)+scale_x_discrete(name = 'prep time', breaks = c(11,21,31,41,51,61,71,81,91,101,111,121),labels = c(.1,.2,.3,.4,.5,.6,.7,.8,.9,1,1.1,1.2))+scale_y_continuous(expand = c(0,0),limits = c(0,.3), breaks = c(0,.1,.2,.3))+
+  theme(axis.line=element_line(),
+        panel.grid = element_blank(),
+        panel.background = element_rect(fill = "white", colour = "black")
+        ,panel.border = element_rect(fill = NA, colour = "white"),
+        strip.text = element_text(size=axisTitleSize,face="bold"), 
+        axis.title.x = element_text(size = axisTitleSize, face = 'bold'), 
+        axis.title.y = element_text(size = axisTitleSize, face = 'bold'), 
+        axis.text.x = element_text(size = axisTextSize), 
+        axis.text.y = element_text(size = axisTextSize), 
+        legend.position = "right", 
+        legend.title = element_blank(),
+        legend.text = element_text(size = axisTextSize),
+        axis.line.x.bottom=element_line(size=axisWidth), 
+        axis.line.y.left=element_line(size=axisWidth), 
+        axis.ticks = element_line(colour = axisColor, size = tickWidth), 
+        axis.ticks.length = unit(tickLength,"cm"))
+#ggsave('multiday08_errortype2xPT_errors.eps')
+```
+# P(response level) x PT DAY ONE
+```{r, echo=F, message=F, warning=F, error=T, fig.width=12, fig.height=6, fig.align='center'}
+# 
+# set up the dataframe
+dayOne_smoothedData_errorLevel = data.frame(matrix(NA, ncol = 6,nrow = length(timepoints)*length(subjNums_all)))
+colnames(dayOne_smoothedData_errorLevel) = c('subject','tp', 'acorr', 'bbottom','cmid','dtop')
+testData_forced_wExclusions$errorLevel = as.factor(testData_forced_wExclusions$errorLevel)
+for(si in 1:length(subjNums_all)){
+  subjData = testData_forced_wExclusions %>% filter(subject == subjNums_all[si], day == 1)
+  for(ti in 1:length(timepoints)){
+    #fill in data for first two columns (regardless of whether we actually end up having data there)
+    dayOne_smoothedData_errorLevel$subject[ti+(length(timepoints)*(si-1))] = subjNums_all[si]
+    dayOne_smoothedData_errorLevel$tp[ti+(length(timepoints)*(si-1))] = timepoints[ti]
+    # get the indices of PT within the window
+    idx = which(subjData$PT_actual > (timepoints[ti]-win) & subjData$PT_actual < (timepoints[ti] + win))
+    if(length(idx > 0)){
+      # filter to dataframe with just data with PT in the window
+      dayOne_relData = subjData %>% filter(row_number() %in% idx)
+      # group dataframe and get proportions
+      dayOne_relData_errorLevel = dayOne_relData %>% group_by(errorLevel, .drop = FALSE) %>% dplyr::summarize(counts = n()) %>% dplyr::mutate(prop = counts/sum(counts))
+      dayOne_smoothedData_errorLevel$acorr[ti+(length(timepoints)*(si-1))] = dayOne_relData_errorLevel$prop[dayOne_relData_errorLevel$errorLevel == 'acorr']
+      dayOne_smoothedData_errorLevel$bbottom[ti+(length(timepoints)*(si-1))] = dayOne_relData_errorLevel$prop[dayOne_relData_errorLevel$errorLevel == 'bbottom']
+      dayOne_smoothedData_errorLevel$cmid[ti+(length(timepoints)*(si-1))]= dayOne_relData_errorLevel$prop[dayOne_relData_errorLevel$errorLevel == 'cmid']
+      dayOne_smoothedData_errorLevel$dtop[ti+(length(timepoints)*(si-1))]= dayOne_relData_errorLevel$prop[dayOne_relData_errorLevel$errorLevel == 'dtop']
+      }
+    }
+}
+
+dayOne_smoothedData_errorLevel = pivot_longer(dayOne_smoothedData_errorLevel, c(acorr,bbottom,cmid,dtop), names_to = 'errorLevel', values_to = 'prop')
+dayOne_smoothedData_errorLevel$subject=as.factor(dayOne_smoothedData_errorLevel$subject)
+dayOne_smoothedData_errorLevel$errorLevel = as.factor(dayOne_smoothedData_errorLevel$errorLevel)
+dayOne_smoothedData_errorLevel$tp = as.numeric(dayOne_smoothedData_errorLevel$tp)
+
+dayOne_smoothedData_errorLevel_plotting = dayOne_smoothedData_errorLevel %>% group_by(subject, errorLevel, .drop = FALSE) 
+dayOne_smoothedData_errorLevel_plotting_summary = summarySEwithin(dayOne_smoothedData_errorLevel, measurevar = 'prop',withinvars = c('tp','errorLevel'), idvar = 'subject', na.rm = TRUE)
+dayOne_smoothedData_errorLevel_plotting_summary$prop_corrected = dayOne_smoothedData_errorLevel_plotting_summary$prop
+dayOne_smoothedData_errorLevel_plotting_summary$prop_corrected[dayOne_smoothedData_errorLevel_plotting_summary$errorLevel == 'dtop'] = dayOne_smoothedData_errorLevel_plotting_summary$prop_corrected[dayOne_smoothedData_errorLevel_plotting_summary$errorLevel == 'dtop']/4
+dayOne_smoothedData_errorLevel_plotting_summary$prop_corrected[dayOne_smoothedData_errorLevel_plotting_summary$errorLevel == 'cmid'] = dayOne_smoothedData_errorLevel_plotting_summary$prop_corrected[dayOne_smoothedData_errorLevel_plotting_summary$errorLevel == 'cmid']/2
+
+# PLOT Experiment 5
+dayOne_smoothedData_errorLevel_plotting_summary_trimmed = dayOne_smoothedData_errorLevel_plotting_summary %>% filter(tp %in% seq(.1,1.2,step))
+ggplot(dayOne_smoothedData_errorLevel_plotting_summary_trimmed, aes(x =tp,y = prop_corrected, group = errorLevel,color = errorLevel)) + geom_line()+geom_ribbon(data=dayOne_smoothedData_errorLevel_plotting_summary_trimmed,aes(x = tp,ymin = prop_corrected - se, ymax = prop_corrected + se, fill = errorLevel), inherit.aes = TRUE, alpha = alpha)+scale_x_discrete(name = 'prep time', breaks = c(0,.1,.2,.3,.4,.5,.6,.7,.8,.9,1,1.1,1.2))+scale_y_continuous(expand = c(0,0),breaks = c(0,.2,.4,.6,.8,1))+
+  theme(axis.line=element_line(),
+        panel.grid = element_blank(),
+        panel.background = element_rect(fill = "white", colour = "black")
+        ,panel.border = element_rect(fill = NA, colour = "white"),
+        strip.text = element_text(size=axisTitleSize,face="bold"), 
+        axis.title.x = element_text(size = axisTitleSize, face = 'bold'), 
+        axis.title.y = element_text(size = axisTitleSize, face = 'bold'), 
+        axis.text.x = element_text(size = axisTextSize), 
+        axis.text.y = element_text(size = axisTextSize), 
+        legend.position = "right", 
+        legend.title = element_blank(),
+        legend.text = element_text(size = axisTextSize),
+        axis.line.x.bottom=element_line(size=axisWidth), 
+        axis.line.y.left=element_line(size=axisWidth), 
+        axis.ticks = element_line(colour = axisColor, size = tickWidth), 
+        axis.ticks.length = unit(tickLength,"cm"))
+#ggsave('multiday_one_errorLevelxPT.eps')
+
+dayOne_smoothedData_errorLevel_plotting_summary_trimmed_noCorr = dayOne_smoothedData_errorLevel_plotting_summary_trimmed %>% filter(errorLevel != 'acorr')
+ggplot(dayOne_smoothedData_errorLevel_plotting_summary_trimmed_noCorr, aes(x =tp,y = prop_corrected, group = errorLevel,color = errorLevel)) + geom_line()+geom_ribbon(data=dayOne_smoothedData_errorLevel_plotting_summary_trimmed_noCorr,aes(x = tp,ymin = prop_corrected - se, ymax = prop_corrected + se, fill = errorLevel), inherit.aes = TRUE, alpha = alpha)+scale_x_discrete(name = 'prep time', breaks = c(0,.1,.2,.3,.4,.5,.6,.7,.8,.9,1,1.1,1.2))+scale_y_continuous(expand = c(0,0),breaks = c(0,.2,.4,.6,.8,1))+
+  theme(axis.line=element_line(),
+        panel.grid = element_blank(),
+        panel.background = element_rect(fill = "white", colour = "black")
+        ,panel.border = element_rect(fill = NA, colour = "white"),
+        strip.text = element_text(size=axisTitleSize,face="bold"), 
+        axis.title.x = element_text(size = axisTitleSize, face = 'bold'), 
+        axis.title.y = element_text(size = axisTitleSize, face = 'bold'), 
+        axis.text.x = element_text(size = axisTextSize), 
+        axis.text.y = element_text(size = axisTextSize), 
+        legend.position = "right", 
+        legend.title = element_blank(),
+        legend.text = element_text(size = axisTextSize),
+        axis.line.x.bottom=element_line(size=axisWidth), 
+        axis.line.y.left=element_line(size=axisWidth), 
+        axis.ticks = element_line(colour = axisColor, size = tickWidth), 
+        axis.ticks.length = unit(tickLength,"cm"))
+#ggsave('multiday_one_errorLevelxPT_nocorr.eps')
+```
+
+# P(response level) x PT DAY Eight
+```{r, echo=F, message=F, warning=F, error=T, fig.width=12, fig.height=6, fig.align='center'}
+# 
+# set up the dataframe
+dayEight_smoothedData_errorLevel = data.frame(matrix(NA, ncol = 6,nrow = length(timepoints)*length(subjNums_all)))
+colnames(dayEight_smoothedData_errorLevel) = c('subject','tp', 'acorr', 'bbottom','cmid','dtop')
+testData_forced_wExclusions$errorLevel = as.factor(testData_forced_wExclusions$errorLevel)
+for(si in 1:length(subjNums_all)){
+  subjData = testData_forced_wExclusions %>% filter(subject == subjNums_all[si], day == 8)
+  for(ti in 1:length(timepoints)){
+    #fill in data for first two columns (regardless of whether we actually end up having data there)
+    dayEight_smoothedData_errorLevel$subject[ti+(length(timepoints)*(si-1))] = subjNums_all[si]
+    dayEight_smoothedData_errorLevel$tp[ti+(length(timepoints)*(si-1))] = timepoints[ti]
+    # get the indices of PT within the window
+    idx = which(subjData$PT_actual > (timepoints[ti]-win) & subjData$PT_actual < (timepoints[ti] + win))
+    if(length(idx > 0)){
+      # filter to dataframe with just data with PT in the window
+      dayEight_relData = subjData %>% filter(row_number() %in% idx)
+      # group dataframe and get proportions
+      dayEight_relData_errorLevel = dayEight_relData %>% group_by(errorLevel, .drop = FALSE) %>% dplyr::summarize(counts = n()) %>% dplyr::mutate(prop = counts/sum(counts))
+      dayEight_smoothedData_errorLevel$acorr[ti+(length(timepoints)*(si-1))] = dayEight_relData_errorLevel$prop[dayEight_relData_errorLevel$errorLevel == 'acorr']
+      dayEight_smoothedData_errorLevel$bbottom[ti+(length(timepoints)*(si-1))] = dayEight_relData_errorLevel$prop[dayEight_relData_errorLevel$errorLevel == 'bbottom']
+      dayEight_smoothedData_errorLevel$cmid[ti+(length(timepoints)*(si-1))]= dayEight_relData_errorLevel$prop[dayEight_relData_errorLevel$errorLevel == 'cmid']
+      dayEight_smoothedData_errorLevel$dtop[ti+(length(timepoints)*(si-1))]= dayEight_relData_errorLevel$prop[dayEight_relData_errorLevel$errorLevel == 'dtop']
+      }
+    }
+}
+
+dayEight_smoothedData_errorLevel = pivot_longer(dayEight_smoothedData_errorLevel, c(acorr,bbottom,cmid,dtop), names_to = 'errorLevel', values_to = 'prop')
+dayEight_smoothedData_errorLevel$subject=as.factor(dayEight_smoothedData_errorLevel$subject)
+dayEight_smoothedData_errorLevel$errorLevel = as.factor(dayEight_smoothedData_errorLevel$errorLevel)
+dayEight_smoothedData_errorLevel$tp = as.numeric(dayEight_smoothedData_errorLevel$tp)
+
+dayEight_smoothedData_errorLevel_plotting = dayEight_smoothedData_errorLevel %>% group_by(subject, errorLevel, .drop = FALSE) 
+dayEight_smoothedData_errorLevel_plotting_summary = summarySEwithin(dayEight_smoothedData_errorLevel, measurevar = 'prop',withinvars = c('tp','errorLevel'), idvar = 'subject', na.rm = TRUE)
+dayEight_smoothedData_errorLevel_plotting_summary$prop_corrected = dayEight_smoothedData_errorLevel_plotting_summary$prop
+dayEight_smoothedData_errorLevel_plotting_summary$prop_corrected[dayEight_smoothedData_errorLevel_plotting_summary$errorLevel == 'dtop'] = dayEight_smoothedData_errorLevel_plotting_summary$prop_corrected[dayEight_smoothedData_errorLevel_plotting_summary$errorLevel == 'dtop']/4
+dayEight_smoothedData_errorLevel_plotting_summary$prop_corrected[dayEight_smoothedData_errorLevel_plotting_summary$errorLevel == 'cmid'] = dayEight_smoothedData_errorLevel_plotting_summary$prop_corrected[dayEight_smoothedData_errorLevel_plotting_summary$errorLevel == 'cmid']/2
+
+dayEight_smoothedData_errorLevel_plotting_summary_trimmed = dayEight_smoothedData_errorLevel_plotting_summary %>% filter(tp %in% seq(.1,1.2,step))
+ggplot(dayEight_smoothedData_errorLevel_plotting_summary_trimmed, aes(x =tp,y = prop_corrected, group = errorLevel,color = errorLevel)) + geom_line()+geom_ribbon(data=dayEight_smoothedData_errorLevel_plotting_summary_trimmed,aes(x = tp,ymin = prop_corrected - se, ymax = prop_corrected + se, fill = errorLevel), inherit.aes = TRUE, alpha = alpha)+scale_x_discrete(name = 'prep time', breaks = c(0,.1,.2,.3,.4,.5,.6,.7,.8,.9,1,1.1,1.2))+scale_y_continuous(expand = c(0,0), breaks = c(0,.2,.4,.6,.8,1))+
+  theme(axis.line=element_line(),
+        panel.grid = element_blank(),
+        panel.background = element_rect(fill = "white", colour = "black")
+        ,panel.border = element_rect(fill = NA, colour = "white"),
+        strip.text = element_text(size=axisTitleSize,face="bold"), 
+        axis.title.x = element_text(size = axisTitleSize, face = 'bold'), 
+        axis.title.y = element_text(size = axisTitleSize, face = 'bold'), 
+        axis.text.x = element_text(size = axisTextSize), 
+        axis.text.y = element_text(size = axisTextSize), 
+        legend.position = "right", 
+        legend.title = element_blank(),
+        legend.text = element_text(size = axisTextSize),
+        axis.line.x.bottom=element_line(size=axisWidth), 
+        axis.line.y.left=element_line(size=axisWidth), 
+        axis.ticks = element_line(colour = axisColor, size = tickWidth), 
+        axis.ticks.length = unit(tickLength,"cm"))
+#ggsave('multiday_eight_errorLevelxPT.eps')
+
+dayEight_smoothedData_errorLevel_plotting_summary_trimmed_nocorr = dayEight_smoothedData_errorLevel_plotting_summary_trimmed %>% filter(errorLevel != 'acorr')
+ggplot(dayEight_smoothedData_errorLevel_plotting_summary_trimmed_nocorr, aes(x =tp,y = prop_corrected, group = errorLevel,color = errorLevel)) + geom_line()+geom_ribbon(data=dayEight_smoothedData_errorLevel_plotting_summary_trimmed_nocorr,aes(x = tp,ymin = prop_corrected - se, ymax = prop_corrected + se, fill = errorLevel), inherit.aes = TRUE, alpha = alpha)+scale_x_discrete(name = 'prep time', breaks = c(0,.1,.2,.3,.4,.5,.6,.7,.8,.9,1,1.1,1.2))+scale_y_continuous(expand = c(0,0), breaks = c(0,.2,.4,.6,.8,1))+
+  theme(axis.line=element_line(),
+        panel.grid = element_blank(),
+        panel.background = element_rect(fill = "white", colour = "black")
+        ,panel.border = element_rect(fill = NA, colour = "white"),
+        strip.text = element_text(size=axisTitleSize,face="bold"), 
+        axis.title.x = element_text(size = axisTitleSize, face = 'bold'), 
+        axis.title.y = element_text(size = axisTitleSize, face = 'bold'), 
+        axis.text.x = element_text(size = axisTextSize), 
+        axis.text.y = element_text(size = axisTextSize), 
+        legend.position = "right", 
+        legend.title = element_blank(),
+        legend.text = element_text(size = axisTextSize),
+        axis.line.x.bottom=element_line(size=axisWidth), 
+        axis.line.y.left=element_line(size=axisWidth), 
+        axis.ticks = element_line(colour = axisColor, size = tickWidth), 
+        axis.ticks.length = unit(tickLength,"cm"))
+#ggsave('multiday_eight_errorLevelxPT_nocorr.eps')
+
+```
+
+# Computational modeling results
+```{r, echo=F, message=F, warning=F, error=T,fig.width=4.5, fig.height=3, fig.align='center'}
+fittedVals = data.frame(matrix(NA, ncol = 7,nrow = length(subjNums_all)))
+colnames(fittedVals) = c('subject','mu_hand_one', 'mu_couplet_one', 'mu_finger_one','mu_hand_eight', 'mu_couplet_eight', 'mu_finger_eight')
+
+fittedVals$subject = c('sub17','sub18','sub19','sub20','sub22','sub23','sub24','sub26','sub27')
+fittedVals$mu_hand_one = c(1.39055581123744,0.812352749939711,0.524321971529384,0.383278662882127,0.545445182528444,0.603742890796569,0.973152720621651,0.878434796064426,0.675741704641053)
+fittedVals$mu_couplet_one = c(1.26479370168466,1.00563599227306,0.624041862988181,0.533277226108307,0.615290198945124,0.838950042186192,1.73789731286465,1.03588341140423,0.200000032822018)
+fittedVals$mu_finger_one = c(1.74306628724952,1.20453891310874,0.571541466125410,0.509112881138558,0.866645672127983,0.950458171985698,1.99999999779770,1.15719021527280,0.872224335976152)
+fittedVals$mu_hand_eight = c(0.743179319399242,0.491863371472134,0.318176041784958,0.462544412528167,0.622217040931962,0.506329707763594,1.09453117785778,0.769535050743805,0.293061641172525)
+fittedVals$mu_couplet_eight = c(0.664749995078445,0.563953224714785,0.403669437360298,0.420175265794212,0.700864273105201,0.430655577347392,1.67018605450147,0.804659110005963,0.787167272666915)
+fittedVals$mu_finger_eight = c(0.790830983779305,0.768884808756839,0.380450623210584,1.26788527237532,0.789871258684190,0.489341409508599,1.83256210863492,1.05701403373940,0.982371646930216)
+fittedVals_long = fittedVals %>% pivot_longer(names_to = 'valType',cols = c('mu_hand_one', 'mu_couplet_one', 'mu_finger_one','mu_hand_eight', 'mu_couplet_eight', 'mu_finger_eight'))
+
+muVals_one = fittedVals_long %>% filter(valType %in% c('mu_hand_one','mu_couplet_one', 'mu_finger_one'))
+muVals_eight = fittedVals_long %>% filter(valType %in% c('mu_hand_eight', 'mu_couplet_eight', 'mu_finger_eight'))
+muVals = fittedVals_long %>% filter(valType %in% c('mu_hand_one','mu_couplet_one', 'mu_finger_one','mu_hand_eight', 'mu_couplet_eight', 'mu_finger_eight'))
+muVals$valType = factor(muVals$valType, levels = c('mu_hand_one','mu_couplet_one', 'mu_finger_one','mu_hand_eight', 'mu_couplet_eight', 'mu_finger_eight'))
+muVals$day = NA
+muVals$day[muVals$valType %in% c('mu_hand_one','mu_couplet_one', 'mu_finger_one')] = 1
+muVals$day[muVals$valType %in% c('mu_hand_eight', 'mu_couplet_eight', 'mu_finger_eight')] = 8
+muVals$level = NA
+muVals$level[muVals$valType %in% c('mu_hand_one','mu_hand_eight')] = 'a'
+muVals$level[muVals$valType %in% c('mu_couplet_one', 'mu_couplet_eight')] = 'b'
+muVals$level[muVals$valType %in% c('mu_finger_one','mu_finger_eight')] = 'c'
+
+muVals_diff = data.frame(matrix(NA, ncol = 2,nrow = length(subjNums_all)*3))
+muVals_diff$subject = NA
+muVals_diff$level = NA
+muVals_diff$value = NA
+muVals_diff$subject =muVals_one$subject
+muVals_diff$level =muVals_one$valType
+muVals_diff$value = muVals_one$value-muVals_eight$value
+
+muVals_plot = muVals %>% group_by(day, level) %>% dplyr::summarise(mu = mean(value))
+ggplot(muVals_plot, aes(x = level, y = mu, fill = day))+geom_bar(stat = 'summary', fun.y= 'mean')+
+  scale_y_continuous(expand = c(0,0), limits = c(0,1.2))+
+        theme(panel.grid = element_blank(),
+        panel.background = element_rect(fill = "white", colour = "black"),
+        panel.border = element_rect(fill = NA, colour = "white"),
+        strip.text = element_text(size=axisTitleSize), 
+        axis.title.x = element_text(size = axisTitleSize), 
+        axis.title.y = element_text(size = axisTitleSize), 
+        axis.text.x = element_text(size = axisTextSize, color = textColor), 
+        axis.text.y = element_text(size = axisTextSize, color = textColor), 
+        axis.line.x.bottom=element_line(size=axisWidth), 
+        axis.line.y.left=element_line(size=axisWidth), 
+        axis.ticks = element_line(colour = axisColor, size = tickWidth), 
+        axis.ticks.length = unit(tickLength,"cm"))+facet_wrap(~day)
+ #ggsave('multiday_muvals.eps')
+
+```
+
+# p(one-away error within-couplet) vs p(other adjacent error)
+```{r, echo=F, message=F, warning=F, error=T,fig.width=4, fig.height=4, fig.align='center'}
+testData_forced_wExclusions$errorDiff = NA
+testData_forced_wExclusions$errorDiff = abs(testData_forced_wExclusions$corrresp-testData_forced_wExclusions$resp)
+
+oneaway = testData_forced_wExclusions %>% group_by(day, subject, corrCouplet,errorDiff) %>% filter(!(resp %in% c(1,4,5,8)),errorDiff == 1, PT_actual<=1.3) %>% dplyr::summarise(counts = n()) %>% group_by(day,subject, errorDiff.drop = FALSE) %>% dplyr::mutate(prop = counts/sum(counts))
+
+anova_test(data.frame(oneaway), dv = prop, wid = subject, between = c(day,corrCouplet), effect.size = 'pes')
+
+oneaway_summary = summarySEwithin(oneaway,measurevar="prop", withinvars=c("corrCouplet","day"),idvar="subject", na.rm=FALSE, conf.interval=.95)
+
+ggplot(oneaway_summary, aes(x = corrCouplet, y = prop))+geom_bar(stat = 'summary', fun.y = 'mean')+geom_errorbar(aes(ymin=prop-se, ymax=prop+se), width=.2)+facet_wrap(~day)+
+  scale_y_continuous(expand = c(0,0), limits = c(0,.75))+
+    theme(axis.line=element_line(),
+        panel.grid = element_blank(),
+        panel.background = element_rect(fill = "white", colour = "black")
+        ,panel.border = element_rect(fill = NA, colour = "white"), 
+        legend.position = "right", 
+        legend.title = element_blank(),
+        legend.text = element_text(size = axisTextSize),
+        axis.line.x.bottom=element_line(size=axisWidth), 
+        axis.line.y.left=element_line(size=axisWidth), 
+        axis.ticks = element_line(colour = axisColor, size = tickWidth), 
+        axis.ticks.length = unit(tickLength,"cm"))
+#ggsave('multi_oneaway.eps')
+oneaway_summary_one = oneaway_summary %>% filter(day == 1)
+oneaway_summary_eight = oneaway_summary %>% filter(day == 8)
+t.test(oneaway$prop[oneaway$day == 1 & oneaway$corrCouplet == 0],oneaway$prop[oneaway$day == 1 & oneaway$corrCouplet == 1], paired = TRUE)
+
+t.test(oneaway$prop[oneaway$day == 8 & oneaway$corrCouplet == 0],oneaway$prop[oneaway$day == 8 & oneaway$corrCouplet == 1], paired = TRUE)
+
+ggplot(oneaway_summary_one, aes(x = corrCouplet, y = prop))+geom_bar(stat = 'summary', fun.y = 'mean')+geom_errorbar(aes(ymin=prop-se, ymax=prop+se), width=.2)+
+  scale_y_continuous(expand = c(0,0), limits = c(0,.75))+
+    theme(axis.line=element_line(),
+        panel.grid = element_blank(),
+        panel.background = element_rect(fill = "white", colour = "black")
+        ,panel.border = element_rect(fill = NA, colour = "white"), 
+        legend.position = "right", 
+        legend.title = element_blank(),
+        legend.text = element_text(size = axisTextSize),
+        axis.line.x.bottom=element_line(size=axisWidth), 
+        axis.line.y.left=element_line(size=axisWidth), 
+        axis.ticks = element_line(colour = axisColor, size = tickWidth), 
+        axis.ticks.length = unit(tickLength,"cm"))
+ggplot(oneaway_summary_eight, aes(x = corrCouplet, y = prop))+geom_bar(stat = 'summary', fun.y = 'mean')+geom_errorbar(aes(ymin=prop-se, ymax=prop+se), width=.2)+
+  scale_y_continuous(expand = c(0,0), limits = c(0,.75))+
+    theme(axis.line=element_line(),
+        panel.grid = element_blank(),
+        panel.background = element_rect(fill = "white", colour = "black")
+        ,panel.border = element_rect(fill = NA, colour = "white"), 
+        legend.position = "right", 
+        legend.title = element_blank(),
+        legend.text = element_text(size = axisTextSize),
+        axis.line.x.bottom=element_line(size=axisWidth), 
+        axis.line.y.left=element_line(size=axisWidth), 
+        axis.ticks = element_line(colour = axisColor, size = tickWidth), 
+        axis.ticks.length = unit(tickLength,"cm"))
+
+```

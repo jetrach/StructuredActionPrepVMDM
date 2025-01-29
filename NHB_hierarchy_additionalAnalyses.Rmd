@@ -1,0 +1,1098 @@
+---
+title: "NHB_hierarchy_additionalAnalyses"
+author: "Juliana E Trach"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+\newpage
+# Abstract
+Additional analyses for 
+
+\newpage
+```{r, echo=F, message=F, warning=F, error=T, fig.width=6, fig.height=4, fig.align='center'}
+# set up workspace
+rm(list=ls(all=TRUE))
+# set WD where data is
+setwd("~/Documents/GitHub/StructuredActionPrepVMDM")
+datadir = "~/Documents/GitHub/StructuredActionPrepVMDM/compiledData/"
+# load libraries
+library(ggplot2)
+library(gridExtra)
+library(ggpubr)
+library(reshape2)
+library(dplyr)
+library(tidyr)
+library(tidyverse)
+library(itsadug)
+library(RColorBrewer)
+library(knitr)
+library(extrafont)
+library(fs)
+library(fabricatr)
+library(Rmisc)
+library(lme4)
+library(lmerTest)
+library(rstatix)
+library(MuMIn)
+library(factoextra)
+library(cluster)
+library(effsize)
+library(ggdendro)
+
+####### READ IN RL DATA FOR EACH TASK #########
+
+# set up the column order for all data frames
+colOrder = c('rt',	'subject',	'prolificID',	'trialType',	'key_press',	'corrresp',	'phase',	'stimNum',	'trialNum',	'corr',	'hierarchy',	'corrrespAll',	'finger_press',	'iter',	'zscoredRTs',	'logRTs',	'hand',	'couplet',	'handSwitch',	'coupletSwitch',	'fingerSwitch',	'handSwitch_actual',	'coupletSwitch_actual',	'fingerSwitch_actual',	'respHand',	'respCouplet',	'corrHand',	'corrCouplet',	'combinedType',	'treeDistance', 'includeStrict',	'fingerDistance',	'corrrespAll_prev',	'finger_press_prev',	'nFeatureSwitch',	'topType',	'midType',	'lowType',	'rt_corrected_both',	'rt_corrected', 'rt_corrected_both_z', 'streak', 'expt', 'struct')
+
+## STUDY 1 ### SONA HIERLEARN
+sonaHL = read_csv(file = '~/Documents/GitHub/StructuredActionPrepVMDM/compiledData/Experiment1.csv')
+sonaHL = subset(sonaHL, select = -c(time_elapsed, responses, question_order, stim, repeatTrial,motorSwitch, pracCounter,demoID,medRT_corrected, medRT_corrected_both,rt_strict_corrected,medRT_strict_corrected,longStreak) )
+sonaHL <- sonaHL[ -c(1) ]
+sonaHL$rt_corrected_both_z = NA
+sonaHL$expt = 'B_sonaHL'
+sonaHL$struct = 'hier'
+#fill columns that should be filled
+zscored = sonaHL%>% group_by(subject) %>% dplyr::summarize(z = scale(rt_corrected))
+sonaHL$rt_corrected_both_z = zscored$z
+#order cols
+sonaHL = sonaHL[,colOrder]
+subjNums_sonaHL = unique(sonaHL$subject)
+
+
+## STUDY 3 ### 1D FLATLEARN 
+oneDFL = read_csv(file = '~/Documents/GitHub/StructuredActionPrepVMDM/compiledData/Experiment3.csv')
+oneDFL = subset(oneDFL, select = -c(time_elapsed, responses, question_order, stim, repeatTrial,motorSwitch, pracCounter,demoID, medRT_corrected,medRT_corrected_both,longStreak) )
+oneDFL <- oneDFL[ -c(1) ]
+oneDFL$includeStrict = NA  #stay NA
+oneDFL$rt_corrected_both_z = NA
+oneDFL$hierarchy = NA
+oneDFL$hierarchy = oneDFL$type
+oneDFL = subset(oneDFL, select = -c(type) )
+oneDFL$treeDistance = NA
+oneDFL$treeDistance[oneDFL$coupletSwitch_actual == 0&oneDFL$handSwitch_actual == 0] = 2
+oneDFL$treeDistance[oneDFL$coupletSwitch_actual == 0&oneDFL$handSwitch_actual == 1] = 6
+oneDFL$treeDistance[oneDFL$coupletSwitch_actual == 1&oneDFL$handSwitch_actual == 0] =4
+oneDFL$treeDistance[oneDFL$coupletSwitch_actual == 1&oneDFL$handSwitch_actual == 1] = 6
+oneDFL$treeDistance[oneDFL$fingerSwitch_actual == 0] = 0
+oneDFL$treeDistance[oneDFL$trialNum == 1] = NA
+oneDFL$expt = 'C_oneDFL'
+oneDFL$struct = 'flat'
+
+#fill columns that should be filled
+zscored = oneDFL%>% group_by(subject) %>% dplyr::summarize(z = scale(rt_corrected))
+oneDFL$rt_corrected_both_z = zscored$z
+#order cols
+oneDFL = oneDFL[,colOrder]
+subjNums_oneDFL = unique(oneDFL$subject)
+
+## STUDY 4 ### 3D FLATLEARN
+threeDFL = read_csv(file = '~/Documents/GitHub/StructuredActionPrepVMDM/compiledData/Experiment4.csv')
+threeDFL = subset(threeDFL, select = -c(time_elapsed, responses, stim, repeatTrial,motorSwitch, pracCounter,demoID,rt_strict_corrected) )
+#threeDFL <- threeDFL[ -c(1) ]
+threeDFL$rt_corrected = NA
+threeDFL$rt_corrected = threeDFL$rt_corrected_both
+threeDFL$rt_corrected_both_z = NA
+threeDFL$expt = 'D_threeDFL'
+threeDFL$struct = 'flat'
+#fill columns that should be filled
+zscored = threeDFL%>% group_by(subject) %>% dplyr::summarize(z = scale(rt_corrected))
+threeDFL$rt_corrected_both_z = zscored$z
+
+subjNums_threeDFL = unique(threeDFL$subject)
+
+threeDFL$errorDiff = NA
+threeDFL$errorDiff = abs(threeDFL$stimNum-threeDFL$finger_press)
+#order cols
+threeDFL = threeDFL[,colOrder]
+
+## STUDY 2 ### FINGERSPACE HIERLEARN
+fingerHL = read_csv(file = '~/Documents/GitHub/StructuredActionPrepVMDM/compiledData/Experiment2.csv')
+fingerHL = subset(fingerHL, select = -c(time_elapsed, responses, repeatTrial,motorSwitch, pracCounter,demoID,stimulus,medRT_corrected_both,rt_strict_corrected,medRT_strict_corrected,longStreak) )
+fingerHL <- fingerHL[ -c(1) ]
+fingerHL$rt_corrected = NA
+fingerHL$rt_corrected = fingerHL$rt_corrected_both
+fingerHL$expt = 'E_fingerHL'
+fingerHL$struct = 'hier'
+#order cols
+fingerHL = fingerHL[,colOrder]
+subjNums_fingerHL = unique(fingerHL$subject)
+
+################################
+# bind the data frames together
+compiledData = rbind(sonaHL, oneDFL, threeDFL,fingerHL)
+
+# add transition type column
+compiledData$transitionType = NA
+typeCounter = 0
+for(ai in 1:max(compiledData$finger_press_prev, na.rm = TRUE)){
+  for(bi in ai:max(compiledData$finger_press, na.rm = TRUE)){
+    typeCounter = typeCounter+1
+    compiledData$transitionType[compiledData$finger_press_prev == ai & compiledData$finger_press == bi] = typeCounter
+    compiledData$transitionType[compiledData$finger_press_prev == bi & compiledData$finger_press == ai] = typeCounter
+  }
+  }
+compiledData$transitionType[compiledData$trialNum == 1] = NA
+
+# CORRECT THE ZSCORE COLUMN
+compiledData$rt_corrected_both_z= NA
+compiledData = compiledData %>% group_by(subject) %>% mutate(rt_corrected_both_z = scale(rt_corrected_both))
+subjNums_all = unique(compiledData$subject)
+compiledData$hierarchy[compiledData$expt == 'D_threeDFL'] = 'shuffled'
+compiledData$hierarchy[compiledData$hierarchy == 'shape;pattern;color'] = 'shape,pattern,color'
+compiledData$hierarchy[compiledData$hierarchy == 'pattern;color;shape'] = 'pattern,color,shape'
+compiledData$hierarchy[compiledData$hierarchy == 'shape;color;pattern'] = 'shape,color,pattern'
+compiledData$hierarchy[compiledData$hierarchy == 'color;pattern;shape'] = 'color,pattern,shape'
+compiledData$hierarchy[compiledData$hierarchy == 'color;shape;pattern'] = 'color,shape,pattern'
+
+######## set up motor arrays ########
+# set up the column order for all data frames
+colOrder_motor = c('rt',	'subject',	'prolificID',	'trialType',	'key_press',	'corrresp',	'phase',	'stimNum',	'trialNum',	'corr',	'hierarchy',	'corrrespAll',	'finger_press',		'zscoredRTs',	'logRTs',	'hand',	'couplet',	'handSwitch',	'coupletSwitch',	'fingerSwitch',	'handSwitch_actual',	'coupletSwitch_actual',	'fingerSwitch_actual',	'respHand',	'respCouplet',	'corrHand',	'corrCouplet',	'combinedType',	'treeDistance',	'expt', 'struct')
+
+
+## STUDY 1 ### SONA HIERLEARN
+sonaHL_motor = read_csv(file = '~/Documents/GitHub/StructuredActionPrepVMDM/compiledData/motorData_Experiment1.csv')
+sonaHL_motor = subset(sonaHL_motor, select = -c(time_elapsed, responses, question_order, stim, repeatTrial,motorSwitch, pracCounter,demoID,rtStrict,iter) )
+sonaHL_motor <- sonaHL_motor[ -c(1) ]
+sonaHL_motor$expt = 'B_sonaHL'
+sonaHL_motor$struct = 'hier'
+
+#order cols
+sonaHL_motor = sonaHL_motor[,colOrder_motor]
+
+
+## STUDY 3 ### 1D FLATLEARN
+oneDFL_motor = read_csv(file = '~/Documents/GitHub/StructuredActionPrepVMDM/compiledData/motorData_Experiment3.csv')
+oneDFL_motor = subset(oneDFL_motor, select = -c(time_elapsed, responses, question_order, stim, repeatTrial,motorSwitch, pracCounter,demoID,iter, rtStrict) )
+oneDFL_motor <- oneDFL_motor[ -c(1) ]
+oneDFL_motor$treeDistance = NA
+oneDFL_motor$treeDistance[oneDFL_motor$coupletSwitch_actual == 0&oneDFL_motor$handSwitch_actual == 0] = 2
+oneDFL_motor$treeDistance[oneDFL_motor$coupletSwitch_actual == 0&oneDFL_motor$handSwitch_actual == 1] = 6
+oneDFL_motor$treeDistance[oneDFL_motor$coupletSwitch_actual == 1&oneDFL_motor$handSwitch_actual == 0] =4
+oneDFL_motor$treeDistance[oneDFL_motor$coupletSwitch_actual == 1&oneDFL_motor$handSwitch_actual == 1] = 6
+oneDFL_motor$treeDistance[oneDFL_motor$fingerSwitch_actual == 0] = 0
+oneDFL_motor$treeDistance[oneDFL_motor$trialNum == 1] = NA
+oneDFL_motor$hierarchy = NA
+oneDFL_motor$hierarchy = oneDFL_motor$type
+oneDFL_motor = subset(oneDFL_motor, select = -c(type) )
+oneDFL_motor$expt = 'C_oneDFL'
+oneDFL_motor$struct = 'flat'
+
+#order cols
+oneDFL_motor = oneDFL_motor[,colOrder_motor]
+
+## STUDY 4 ### 3D FLATLEARN
+threeDFL_motor = read_csv(file = '~/Documents/GitHub/StructuredActionPrepVMDM/compiledData/motorData_Experiment4.csv')
+threeDFL_motor = subset(threeDFL_motor, select = -c(time_elapsed, responses, stim, repeatTrial,motorSwitch, pracCounter,demoID, includeStrict,iter,rtStrict) )
+threeDFL_motor <- threeDFL_motor[ -c(1) ]
+threeDFL_motor$expt = 'D_threeDFL'
+threeDFL_motor$struct = 'flat'
+
+#order cols
+threeDFL_motor = threeDFL_motor[,colOrder_motor]
+
+## STUDY 2 ### FINGERSPACE HIERLEARN
+fingerHL_motor = read_csv(file = '~/Documents/GitHub/StructuredActionPrepVMDM/compiledData/motorData_Experiment2.csv')
+fingerHL_motor = subset(fingerHL_motor, select = -c(time_elapsed, responses, repeatTrial,motorSwitch, pracCounter,demoID,stimulus, includeStrict,iter) )
+fingerHL_motor <- fingerHL_motor[ -c(1) ]
+
+fingerHL_motor$expt = 'E_fingerHL'
+fingerHL_motor$struct = 'finger'
+#order cols
+fingerHL_motor = fingerHL_motor[,colOrder_motor]
+
+## STUDY 4 ### HIERDYN
+# bind the data frames together
+motorCompiledData = rbind(sonaHL_motor, oneDFL_motor, threeDFL_motor,fingerHL_motor)
+
+# create separate data frames by experiment
+sonaHL = compiledData %>% filter(expt == 'B_sonaHL')
+sonaHL_motor = motorCompiledData %>% filter(expt == 'B_sonaHL')
+fingerHL = compiledData %>% filter(expt == 'E_fingerHL')
+fingerHL_motor = motorCompiledData %>% filter(expt == 'E_fingerHL')
+oneDFL = compiledData %>% filter(expt == 'C_oneDFL')
+oneDFL_motor = motorCompiledData %>% filter(expt == 'C_oneDFL')
+threeDFL = compiledData %>% filter(expt == 'D_threeDFL')
+threeDFL_motor = motorCompiledData %>% filter(expt == 'D_threeDFL')
+
+## HierDyn ##
+# learnData
+hierDyn = read_csv(file = 'compiledData/Experiment5_learn.csv')
+hierDyn <- hierDyn[ -c(1) ]
+
+# fix subnums and add expt info
+hierDyn$subject = paste(hierDyn$subject,'hier',sep = '_')
+hierDyn$expt = 'hierDyn'
+hierDyn$struct = 'hier'
+zscored = hierDyn%>% group_by(subject) %>% dplyr::summarize(z = scale(rt_corrected_both))
+hierDyn$rt_corrected_both_z = zscored$z
+
+hierDyn_forced = read_csv(file = 'compiledData/Experiment5_forced.csv')
+hierDyn_forced <- hierDyn_forced[ -c(1) ]
+
+hierDyn_forced$subject = paste(hierDyn_forced$subject,'hier',sep = '_')
+hierDyn_forced$expt = 'hierDyn'
+hierDyn_forced$struct = 'hier'
+
+subjNums_hierDyn = unique(hierDyn$subject)
+
+## FlatDyn ##
+#learnData
+flatDyn = read_csv(file = 'compiledData/Experiment6_learn.csv')
+flatDyn <- flatDyn[ -c(1) ]
+flatDyn$subject = paste(flatDyn$subject,'flat',sep = '_')
+flatDyn$expt = 'flatDyn'
+flatDyn$struct = 'flat'
+#fill columns that should be filled
+flatDyn$rt_corrected_both_z = NA
+zscored = flatDyn%>% group_by(subject) %>% dplyr::summarize(z = scale(rt_corrected_both))
+flatDyn$rt_corrected_both_z = zscored$z
+
+flatDyn_forced = read_csv(file = 'compiledData/Experiment6_forced.csv')
+flatDyn_forced <- flatDyn_forced[ -c(1) ]
+flatDyn_forced$subject = paste(flatDyn_forced$subject,'flat',sep = '_')
+flatDyn_forced$expt = 'flatDyn'
+flatDyn_forced$struct = 'flat'
+
+subjNums_flatDyn = unique(flatDyn$subject)
+
+
+# bind the data frames together
+compiledData_Dyn = rbind(hierDyn, flatDyn)
+compiledData_forced = rbind(hierDyn_forced,flatDyn_forced)
+# add a finger_press_prev column for forced
+compiledData_forced$finger_press_prev = NA
+compiledData_forced$finger_press_prev[2:length(compiledData_forced$finger_press_prev)] = compiledData_forced$resp[1:length(compiledData_forced$finger_press_prev)-1]
+compiledData_forced$finger_press_prev[compiledData_forced$trialNum == 1] = NA
+
+compiledData_forced$corr_prev = NA
+compiledData_forced$corr_prev[2:length(compiledData_forced$corr_prev)] = compiledData_forced$corr[1:length(compiledData_forced$corr_prev)-1]
+compiledData_forced$corr_prev[compiledData_forced$trialNum == 1] = NA
+
+
+# add some comlumns to LEARNDATA
+compiledData_Dyn = compiledData_Dyn %>% filter(iter < 56)
+compiledData_Dyn$treeDistance = as.factor(compiledData_Dyn$treeDistance)
+compiledData_Dyn$nFeatureSwitch = as.factor(compiledData_Dyn$nFeatureSwitch)
+compiledData_Dyn$fingerDistance = as.factor(compiledData_Dyn$fingerDistance)
+
+compiledData_Dyn$corrHand_factor = as.factor(compiledData_Dyn$corrHand)
+compiledData_Dyn$corrCouplet_factor = as.factor(compiledData_Dyn$corrCouplet)
+compiledData_Dyn$corrFinger = NA
+compiledData_Dyn$errorType = NA
+compiledData_Dyn$errorType2 = NA
+
+
+compiledData_Dyn$corrFinger[compiledData_Dyn$resp %in% c(1,3,5,7) & compiledData_Dyn$corrresp %in% c(1,3,5,7)] = 1
+compiledData_Dyn$corrFinger[compiledData_Dyn$resp %in% c(1,3,5,7) & compiledData_Dyn$corrresp %in% c(2,4,6,8)] = 0
+compiledData_Dyn$corrFinger[compiledData_Dyn$resp %in% c(2,4,6,8) & compiledData_Dyn$corrresp %in% c(2,4,6,8)] = 1
+compiledData_Dyn$corrFinger[compiledData_Dyn$resp %in% c(2,4,6,8) & compiledData_Dyn$corrresp %in% c(1,3,5,7)] = 0
+
+compiledData_Dyn$errorType[compiledData_Dyn$corrHand == 1 & compiledData_Dyn$corrCouplet == 1 & compiledData_Dyn$corr == 0] = '1/1/0'
+compiledData_Dyn$errorType[compiledData_Dyn$corrHand == 1 & compiledData_Dyn$corrCouplet == 1 & compiledData_Dyn$corr == 1] = '1/1/1'
+compiledData_Dyn$errorType[compiledData_Dyn$corrHand == 0 & compiledData_Dyn$corrCouplet == 1] = '0/1/0'
+compiledData_Dyn$errorType[compiledData_Dyn$corrHand == 0 & compiledData_Dyn$corrCouplet == 0] = '0/0/0'
+
+
+# add some columns to FORCED DATA
+compiledData_forced$treeDistance_factor = as.factor(compiledData_forced$treeDistance)
+compiledData_forced$nFeatureSwitch_factor = as.factor(compiledData_forced$nFeatureSwitch)
+compiledData_forced$errorType = as.factor(compiledData_forced$errorType)
+compiledData_forced$errorType2 = as.factor(compiledData_forced$errorType2)
+
+compiledData_forced$corrHand_factor = as.factor(compiledData_forced$corrHand)
+compiledData_forced$corrCouplet_factor = as.factor(compiledData_forced$corrCouplet)
+compiledData_forced$corrFinger_factor = as.factor(compiledData_forced$corrFinger)
+
+compiledData_forced$eml3 = NA
+compiledData_forced$eml3[compiledData_forced$PT_actual <= .3] = 'a_early1'
+compiledData_forced$eml3[compiledData_forced$PT_actual  > .3 & compiledData_forced$PT_actual <= .5] = 'a_early2'
+compiledData_forced$eml3[compiledData_forced$PT_actual > .5 & compiledData_forced$PT_actual <= .7] = 'b_mid1'
+compiledData_forced$eml3[compiledData_forced$PT_actual > .7 & compiledData_forced$PT_actual <= .9] = 'b_mid2'
+compiledData_forced$eml3[compiledData_forced$PT_actual > .9& compiledData_forced$PT_actual <= 1.1] = 'c_late1'
+compiledData_forced$eml3[compiledData_forced$PT_actual > 1.1] = 'c_late2'
+
+compiledData_forced$errorDiff = NA
+compiledData_forced$errorDiff = abs(compiledData_forced$corrresp-compiledData_forced$resp)
+
+compiledData_forced$errorLevel = NA # hand/couplet/finger error based on cogsci description hand = 0/1/1;0/1/0;0/0/1;0/0/0 || couplet = 1/0/1;1/0/0 || finger = 1/1/0
+compiledData_forced$errorLevel[compiledData_forced$errorType2 %in% c('1/1/0')] = 'finger'
+compiledData_forced$errorLevel[compiledData_forced$errorType2 %in% c('1/0/1','1/0/0')] = 'couplet'
+compiledData_forced$errorLevel[compiledData_forced$errorType2 %in% c('0/1/1','0/1/0','0/0/1','0/0/0')] = 'hand'
+
+compiledData_forced$resp_dist = NA
+compiledData_forced$resp_dist = abs(compiledData_forced$resp - compiledData_forced$finger_press_prev)
+
+# add the UP information (i.e. relative to the previous response)
+compiledData_forced$errorType2_up = NA
+compiledData_forced$sameHand_up = NA
+compiledData_forced$sameCouplet_up = NA
+compiledData_forced$sameFinger_up = NA
+
+compiledData_forced$sameHand_up[compiledData_forced$finger_press_prev %in% c(1,2,3,4) & compiledData_forced$resp %in% c(1,2,3,4)] = 1
+compiledData_forced$sameHand_up[compiledData_forced$finger_press_prev %in% c(1,2,3,4) & compiledData_forced$resp %in% c(5,6,7,8)] = 0
+compiledData_forced$sameHand_up[compiledData_forced$finger_press_prev %in% c(5,6,7,8) & compiledData_forced$resp %in% c(5,6,7,8)] = 1
+compiledData_forced$sameHand_up[compiledData_forced$finger_press_prev %in% c(5,6,7,8) & compiledData_forced$resp %in% c(1,2,3,4)] = 0
+
+compiledData_forced$sameCouplet_up[compiledData_forced$finger_press_prev %in% c(1,2,5,6) & compiledData_forced$resp %in% c(1,2,5,6)] = 1
+compiledData_forced$sameCouplet_up[compiledData_forced$finger_press_prev %in% c(1,2,5,6) & compiledData_forced$resp %in% c(3,4,7,8)] = 0
+compiledData_forced$sameCouplet_up[compiledData_forced$finger_press_prev %in% c(3,4,7,8) & compiledData_forced$resp %in% c(3,4,7,8)] = 1
+compiledData_forced$sameCouplet_up[compiledData_forced$finger_press_prev %in% c(3,4,7,8) & compiledData_forced$resp %in% c(1,2,5,6)] = 0
+
+compiledData_forced$sameFinger_up[compiledData_forced$finger_press_prev %in% c(1,3,5,7) & compiledData_forced$resp %in% c(1,3,5,7)] = 1
+compiledData_forced$sameFinger_up[compiledData_forced$finger_press_prev %in% c(1,3,5,7) & compiledData_forced$resp %in% c(2,4,6,8)] = 0
+compiledData_forced$sameFinger_up[compiledData_forced$finger_press_prev %in% c(2,4,6,8) & compiledData_forced$resp %in% c(2,4,6,8)] = 1
+compiledData_forced$sameFinger_up[compiledData_forced$finger_press_prev %in% c(2,4,6,8) & compiledData_forced$resp %in% c(1,3,5,7)] = 0
+
+compiledData_forced$errorType2_up[compiledData_forced$sameHand_up == 1 & compiledData_forced$sameCouplet_up == 1 & compiledData_forced$sameFinger_up == 1] = '1/1/1'
+compiledData_forced$errorType2_up[compiledData_forced$sameHand_up == 1 & compiledData_forced$sameCouplet_up == 1 & compiledData_forced$sameFinger_up == 0] = '1/1/0'
+compiledData_forced$errorType2_up[compiledData_forced$sameHand_up == 1 & compiledData_forced$sameCouplet_up == 0 & compiledData_forced$sameFinger_up == 1] = '1/0/1'
+compiledData_forced$errorType2_up[compiledData_forced$sameHand_up == 1 & compiledData_forced$sameCouplet_up == 0 & compiledData_forced$sameFinger_up == 0] = '1/0/0'
+compiledData_forced$errorType2_up[compiledData_forced$sameHand_up == 0 & compiledData_forced$sameCouplet_up == 1 & compiledData_forced$sameFinger_up == 1] = '0/1/1'
+compiledData_forced$errorType2_up[compiledData_forced$sameHand_up == 0 & compiledData_forced$sameCouplet_up == 1 & compiledData_forced$sameFinger_up == 0] = '0/1/0'
+compiledData_forced$errorType2_up[compiledData_forced$sameHand_up == 0 & compiledData_forced$sameCouplet_up == 0 & compiledData_forced$sameFinger_up == 1] = '0/0/1'
+compiledData_forced$errorType2_up[compiledData_forced$sameHand_up == 0 & compiledData_forced$sameCouplet_up == 0 & compiledData_forced$sameFinger_up == 0] = '0/0/0'
+
+compiledData_forced$treeDistance_stim = NA
+compiledData_forced$treeDistance_stim[compiledData_forced$stim %in% c(1,2,3,4) & compiledData_forced$corrresp_prev %in% c(5,6,7,8)] = 6
+compiledData_forced$treeDistance_stim[compiledData_forced$stim %in% c(5,6,7,8) & compiledData_forced$corrresp_prev %in% c(1,2,3,4)] = 6
+
+compiledData_forced$treeDistance_stim[compiledData_forced$stim %in% c(1,2,3,4) & compiledData_forced$corrresp_prev %in% c(1,2,3,4)] = 4
+compiledData_forced$treeDistance_stim[compiledData_forced$stim %in% c(5,6,7,8) & compiledData_forced$corrresp_prev %in% c(5,6,7,8)] = 4
+
+compiledData_forced$treeDistance_stim[compiledData_forced$stim %in% c(1,2) & compiledData_forced$corrresp_prev %in% c(1,2)] = 2
+compiledData_forced$treeDistance_stim[compiledData_forced$stim %in% c(3,4) & compiledData_forced$corrresp_prev %in% c(3,4)] = 2
+compiledData_forced$treeDistance_stim[compiledData_forced$stim %in% c(5,6) & compiledData_forced$corrresp_prev %in% c(5,6)] = 2
+compiledData_forced$treeDistance_stim[compiledData_forced$stim %in% c(7,8) & compiledData_forced$corrresp_prev %in% c(7,8)] = 2
+
+compiledData_forced$treeDistance_stim[compiledData_forced$stim == compiledData_forced$corrresp_prev] = 0
+
+compiledData_forced$treeDistance_stim[compiledData_forced$trialNum == 1] = NA
+
+
+# CORRECT THE ZSCORE COLUMN
+compiledData$rt_corrected_both_z= NA
+compiledData = compiledData %>% group_by(subject) %>% dplyr::mutate(rt_corrected_both_z = scale(rt_corrected_both))
+
+# add bins for preliminary analyses
+compiledData_forced_trimmed = compiledData_forced %>% filter(PT_actual < 1.4)
+compiledData_forced_trimmed$PT_bins = NA
+compiledData_forced_trimmed$PT_bins[compiledData_forced_trimmed$PT_actual < .1] = 0
+compiledData_forced_trimmed$PT_bins[compiledData_forced_trimmed$PT_actual >= .1 & compiledData_forced_trimmed$PT_actual < .2] = .1
+compiledData_forced_trimmed$PT_bins[compiledData_forced_trimmed$PT_actual >= .2 & compiledData_forced_trimmed$PT_actual < .3] = .2
+compiledData_forced_trimmed$PT_bins[compiledData_forced_trimmed$PT_actual >= .3 & compiledData_forced_trimmed$PT_actual < .4] = .3
+compiledData_forced_trimmed$PT_bins[compiledData_forced_trimmed$PT_actual >= .4 & compiledData_forced_trimmed$PT_actual < .5] = .4
+compiledData_forced_trimmed$PT_bins[compiledData_forced_trimmed$PT_actual >= .5 & compiledData_forced_trimmed$PT_actual < .6] = .5
+compiledData_forced_trimmed$PT_bins[compiledData_forced_trimmed$PT_actual >= .6 & compiledData_forced_trimmed$PT_actual < .7] = .6
+compiledData_forced_trimmed$PT_bins[compiledData_forced_trimmed$PT_actual >= .7 & compiledData_forced_trimmed$PT_actual < .8] = .7
+compiledData_forced_trimmed$PT_bins[compiledData_forced_trimmed$PT_actual >= .8 & compiledData_forced_trimmed$PT_actual < .9] = .8
+compiledData_forced_trimmed$PT_bins[compiledData_forced_trimmed$PT_actual >= .9 & compiledData_forced_trimmed$PT_actual < 1] = .9
+compiledData_forced_trimmed$PT_bins[compiledData_forced_trimmed$PT_actual >= 1 & compiledData_forced_trimmed$PT_actual < 1.1] = 1
+compiledData_forced_trimmed$PT_bins[compiledData_forced_trimmed$PT_actual >= 1.1 & compiledData_forced_trimmed$PT_actual < 1.2] = 1.1
+compiledData_forced_trimmed$PT_bins[compiledData_forced_trimmed$PT_actual >= 1.2 & compiledData_forced_trimmed$PT_actual <= 1.3] = 1.2
+subjNums_all = unique(compiledData$subject)
+compiledData_Dyn$finger_press = compiledData_Dyn$resp
+compiledData_Dyn$stimNum = compiledData_Dyn$stim
+
+hierDyn = compiledData_Dyn %>% filter(expt == 'hierDyn')
+flatDyn = compiledData_Dyn %>% filter(expt == 'flatDyn')
+
+compiledData_Dyn$hierarchy = compiledData_Dyn$group
+compiledData_Dyn$hierarchy[compiledData_Dyn$group == 6] = "color,shape,pattern"
+compiledData_Dyn$hierarchy[compiledData_Dyn$group == 5] = "color,pattern,shape"
+compiledData_Dyn$hierarchy[compiledData_Dyn$group == 4] = "shape,color,pattern"
+compiledData_Dyn$hierarchy[compiledData_Dyn$group == 3] = "shape,pattern,color"
+compiledData_Dyn$hierarchy[compiledData_Dyn$group == 2] = "pattern,color,shape"
+compiledData_Dyn$hierarchy[compiledData_Dyn$group == 1] = "pattern,shape,color"
+  
+# talk figures
+ribbonAlpha = 1
+textColor = "black"
+axisColor = "black"
+axisTitleSize = 20
+axisTextSize = 18
+axisWidth = 1
+tickWidth = 1
+lineWidth = 1
+tickLength = .25
+compiledData$treeDistance = as.factor(compiledData$treeDistance)
+compiledData$fingerDistance = as.factor(compiledData$fingerDistance)
+compiledData$nFeatureSwitch = as.factor(compiledData$nFeatureSwitch)
+
+commonCols = intersect(colnames(compiledData),colnames(compiledData_Dyn))
+compiledData_all = rbind(subset(compiledData, select = commonCols),subset(compiledData_Dyn, select = commonCols))
+
+compiledData_all$exptName = compiledData_all$expt
+compiledData_all$expt[compiledData_all$expt == 'B_sonaHL'] = 'Expt1'
+compiledData_all$expt[compiledData_all$expt == 'E_fingerHL'] = 'Expt2'
+compiledData_all$expt[compiledData_all$expt == 'C_oneDFL'] = 'Expt3'
+compiledData_all$expt[compiledData_all$expt == 'D_threeDFL'] = 'Expt4'
+compiledData_all$expt[compiledData_all$expt == 'hierDyn'] = 'Expt5'
+compiledData_all$expt[compiledData_all$expt == 'flatDyn'] = 'Expt6'
+compiledData_all$topFeature = NA
+compiledData_all$topFeature[compiledData_all$hierarchy %in% c('color,shape,pattern','color,pattern,shape')] = 'color'
+compiledData_all$topFeature[compiledData_all$hierarchy %in% c('shape,color,pattern','shape,pattern,color')] = 'shape'
+compiledData_all$topFeature[compiledData_all$hierarchy %in% c('pattern,color,shape','pattern,shape,color')] = 'pattern'
+compiledData_all$expt_new = NA
+compiledData_all$expt_new[compiledData_all$expt == 'Expt1'] = 'Expt1'
+compiledData_all$expt_new[compiledData_all$expt == 'Expt2'] = 'structureControl'
+compiledData_all$expt_new[compiledData_all$expt == 'Expt3'] = 'Expt2'
+compiledData_all$expt_new[compiledData_all$expt == 'Expt4'] = 'Expt3'
+compiledData_all$expt_new[compiledData_all$expt == 'Expt5'] = 'Expt4'
+compiledData_all$expt_new[compiledData_all$expt == 'Expt6'] = 'Expt5'
+
+modelingwStructure = read_csv(file = 'modelingData_wstruct.csv')
+```
+# Difference in modeling by hierarchy
+```{r, echo=F, message=F, warning=F, error=T,fig.width=12, fig.height=4, fig.align='center'  }
+modelingwStructure$subject = as.character(modelingwStructure$subject)
+modelingwStructure$BIC_diff = modelingwStructure$BIC_hier-modelingwStructure$BIC_flat
+modelingwStructure$topFeature = NA
+modelingwStructure$topFeature[modelingwStructure$struct %in% c('cps','csp')] = 'color'
+modelingwStructure$topFeature[modelingwStructure$struct %in% c('spc','scp')] = 'shape'
+modelingwStructure$topFeature[modelingwStructure$struct %in% c('psc','pcs')] = 'pattern'
+
+modelingwStructure %>% group_by(subject,struct) %>% ggplot(aes(x = subject, y = BIC_diff))+geom_bar(stat = 'identity')+facet_wrap(~struct)
+
+ggplot(modelingwStructure, aes(x = subject, y = BIC_diff, fill = struct))+geom_bar(stat = 'identity')
+ggplot(modelingwStructure, aes(x = subject, y = BIC_diff, fill = topFeature))+geom_bar(stat = 'identity')+facet_wrap(~topFeature)
+ggplot(modelingwStructure, aes(x = subject, y = BIC_diff, fill = topFeature))+geom_bar(stat = 'identity')+geom_hline(yintercept = 0)+
+  theme(panel.grid = element_blank(),
+        panel.background = element_rect(fill = "white", colour = "black"),
+        panel.border = element_rect(fill = NA, colour = "white"),
+        axis.title.x = element_text(size = axisTitleSize, face = 'bold'), 
+        axis.title.y = element_text(size = axisTitleSize, face = 'bold'), 
+        axis.text.x = element_text(size = 12), 
+        axis.text.y = element_text(size = axisTextSize),
+        axis.line = element_line(size = 1))
+#ggsave('modelingcomparison_topfeature.png')
+modelingwStructure_long =modelingwStructure %>% pivot_longer(cols = c('top','mid','low'),names_to = 'level', values_to = 'mu')
+modelingwStructure_long$level_corrected = NA
+modelingwStructure_long$level_corrected[modelingwStructure_long$level=='top'] = 'low'
+modelingwStructure_long$level_corrected[modelingwStructure_long$level=='mid'] = 'mid'
+modelingwStructure_long$level_corrected[modelingwStructure_long$level=='low'] = 'top'
+modelingwStructure_long$level_corrected <- factor(modelingwStructure_long$level_corrected, 
+                                                  levels = c("top", "mid", "low"))
+
+ggplot(modelingwStructure_long, aes(x = level_corrected, y = mu))+geom_bar(stat = 'summary',fun.y='mean')+geom_point()+facet_wrap(~topFeature)+ scale_y_continuous(expand = c(0,0))+
+  theme(panel.grid = element_blank(),
+        panel.background = element_rect(fill = "white", colour = "black"),
+        panel.border = element_rect(fill = NA, colour = "white"),
+        axis.title.x = element_text(size = axisTitleSize, face = 'bold'), 
+        axis.title.y = element_text(size = axisTitleSize, face = 'bold'), 
+        axis.text.x = element_text(size = axisTextSize), 
+        axis.text.y = element_text(size = axisTextSize),
+        axis.line.x.bottom=element_line(size=axisWidth), 
+        axis.line.y.left=element_line(size=axisWidth),
+        strip.text = element_text(size = 20))
+#ggsave('muval_topfeature.png')
+```
+
+# Differences in hierarchies
+```{r, echo=F, message=F, warning=F, error=T,fig.width=12, fig.height=4, fig.align='center'  }
+compiledData$topFeature[compiledData$hierarchy %in% c('color,shape,pattern','color,pattern,shape')] = 'color'
+compiledData$topFeature[compiledData$hierarchy %in% c('shape,color,pattern','shape,pattern,color')] = 'shape'
+compiledData$topFeature[compiledData$hierarchy %in% c('pattern,color,shape','pattern,shape,color')] = 'pattern'
+# all structures sonaHL and fingerHL
+hierarchyCounts = compiledData %>% filter(trialNum == 10, struct == 'hier') %>% group_by(expt,hierarchy) %>% dplyr::summarise(counts = n())
+hierarchyLearn = compiledData %>% filter(iter < 57, struct == 'hier') %>% group_by(expt,subject,hierarchy) %>% dplyr::summarise(accu = mean(corr, na.rm = TRUE))
+ggplot(hierarchyLearn, aes(x = hierarchy, y = accu, fill = hierarchy))+geom_bar(stat='summary', fun.y = 'mean')+geom_point()+facet_wrap(~expt)+
+  scale_y_continuous(expand = c(0,0))+
+  theme(panel.grid = element_blank(),
+        panel.background = element_rect(fill = "white", colour = "black"),
+        panel.border = element_rect(fill = NA, colour = "white"))
+#ggsave('accuByStruct.eps')
+anova_test(data.frame(hierarchyLearn), dv = accu, wid = subject, between = c(expt,hierarchy), effect.size = 'pes')
+
+# by top features sonaHL and finger HL
+hierarchyCounts_top = compiledData %>% filter(trialNum == 10, struct == 'hier') %>% group_by(expt,topFeature) %>% dplyr::summarise(counts = n())
+hierarchyLearn_top = compiledData %>% filter(iter < 57, struct == 'hier') %>% group_by(expt,subject,topFeature) %>% dplyr::summarise(accu = mean(corr, na.rm = TRUE))
+ggplot(hierarchyLearn_top, aes(x = topFeature, y = accu))+geom_bar(stat='summary', fun.y = 'mean')+geom_point()+facet_wrap(~expt)
+ggplot(hierarchyLearn_top, aes(x = topFeature, y = accu))+geom_bar(stat='summary', fun.y = 'mean')+geom_point()
+anova_test(data.frame(hierarchyLearn_top), dv = accu, wid = subject, between = c(expt,topFeature), effect.size = 'pes')
+anova_test(data.frame(hierarchyLearn_top), dv = accu, wid = subject, between = c(topFeature), effect.size = 'pes')
+
+# sonaHL WHOLE experiment
+hierarchyCounts_sonaHL = compiledData %>% filter(trialNum == 10, expt == 'B_sonaHL') %>% group_by(hierarchy) %>% dplyr::summarise(counts = n())
+hierarchyLearn_sonaHL = compiledData %>% filter(expt == 'B_sonaHL') %>% group_by(subject,hierarchy) %>% dplyr::summarise(accu = mean(corr, na.rm = TRUE))
+ggplot(hierarchyLearn_sonaHL, aes(x = hierarchy, y = accu))+geom_bar(stat='summary', fun.y = 'mean')+geom_point()
+anova_test(data.frame(hierarchyLearn_sonaHL), dv = accu, wid = subject, between = c(hierarchy), effect.size = 'pes')
+hierarchyLearn_top_sonaHL = compiledData %>% filter(expt == 'B_sonaHL') %>% group_by(subject,topFeature) %>% dplyr::summarise(accu = mean(corr, na.rm = TRUE))
+ggplot(hierarchyLearn_top_sonaHL, aes(x = topFeature, y = accu))+geom_bar(stat='summary', fun.y = 'mean')+geom_point()
+anova_test(data.frame(hierarchyLearn_top_sonaHL), dv = accu, wid = subject, between = c(topFeature), effect.size = 'pes')
+
+
+hierarchyCounts_dyn = compiledData_Dyn %>% filter(trialNum == 10, expt == 'hierDyn') %>% group_by(expt,group) %>% dplyr::summarise(counts = n())
+hierarchyLearn_dyn = compiledData_Dyn %>% filter(iter < 57, expt == 'hierDyn') %>% group_by(subject,group) %>% dplyr::summarise(accu = mean(corr, na.rm = TRUE))
+ggplot(hierarchyLearn_dyn, aes(x = group, y = accu))+geom_bar(stat='summary', fun.y = 'mean')+geom_point()
+anova_test(data.frame(hierarchyLearn_dyn), dv = accu, wid = subject, between = c(group), effect.size = 'pes')
+
+# Across all three Experiments
+hierarchyLearn_each = compiledData_all %>% filter(iter <57, struct == 'hier') %>% group_by(subject,expt_new,hierarchy) %>% dplyr::summarise(accu = mean(corr, na.rm = TRUE))
+ggplot(hierarchyLearn_each, aes(x = hierarchy, y = accu, fill = hierarchy))+geom_bar(stat = 'summary', fun.y = 'mean')+geom_point()+facet_wrap(~expt_new)+
+  scale_y_continuous(expand = c(0,0), limits = c(0,1.01))+
+  theme(panel.grid = element_blank(),
+        panel.background = element_rect(fill = "white", colour = "black"),
+        panel.border = element_rect(fill = NA, colour = "white"),
+        axis.title.x = element_text(size = axisTitleSize, face = 'bold'), 
+        axis.title.y = element_text(size = axisTitleSize, face = 'bold'), 
+        axis.text.x = element_blank(), 
+        axis.text.y = element_text(size = axisTextSize),
+        axis.line.x.bottom=element_line(size=axisWidth), 
+        axis.line.y.left=element_line(size=axisWidth),
+        strip.text = element_text(size = 20))
+#ggsave('accuxhierarchy.png')
+anova_test(data.frame(hierarchyLearn_each), dv = accu, wid = subject, between = c(expt,hierarchy), effect.size = 'pes')
+
+hierarchyLearn_all = compiledData_all %>% filter(iter <57, struct == 'hier') %>% group_by(subject,hierarchy) %>% dplyr::summarise(accu = mean(corr, na.rm = TRUE))
+ggplot(hierarchyLearn_all, aes(x = hierarchy, y = accu, fill = hierarchy))+geom_bar(stat = 'summary', fun.y = 'mean')+geom_point()+
+  scale_y_continuous(expand = c(0,0), limits = c(0,1.01))+
+  theme(panel.grid = element_blank(),
+        panel.background = element_rect(fill = "white", colour = "black"),
+        panel.border = element_rect(fill = NA, colour = "white"),
+        axis.title.x = element_text(size = axisTitleSize, face = 'bold'), 
+        axis.title.y = element_text(size = axisTitleSize, face = 'bold'), 
+        axis.text.x = element_blank(), 
+        axis.text.y = element_text(size = axisTextSize),
+        axis.line.x.bottom=element_line(size=axisWidth), 
+        axis.line.y.left=element_line(size=axisWidth),
+        strip.text = element_text(size = 20))
+#ggsave('accuxhierarchy_across.png')
+anova_test(data.frame(hierarchyLearn_all), dv = accu, wid = subject, between = c(hierarchy), effect.size = 'pes')
+
+## topFeature
+topFeatureLearn_each = compiledData_all %>% filter(iter <57, struct == 'hier') %>% group_by(subject,expt,topFeature) %>% dplyr::summarise(accu = mean(corr, na.rm = TRUE))
+ggplot(topFeatureLearn_each, aes(x = topFeature, y = accu, fill = topFeature))+geom_bar(stat = 'summary', fun.y = 'mean')+geom_point()+facet_wrap(~expt)+
+  scale_y_continuous(expand = c(0,0))+
+  theme(panel.grid = element_blank(),
+        panel.background = element_rect(fill = "white", colour = "black"),
+        panel.border = element_rect(fill = NA, colour = "white"))
+#ggsave('accuxtopFeature.png')
+anova_test(data.frame(topFeatureLearn_each), dv = accu, wid = subject, between = c(expt,topFeature), effect.size = 'pes')
+
+topFeatureLearn_all = compiledData_all %>% filter(iter <57, struct == 'hier') %>% group_by(subject,topFeature) %>% dplyr::summarise(accu = mean(corr, na.rm = TRUE))
+ggplot(topFeatureLearn_all, aes(x = topFeature, y = accu, fill = topFeature))+geom_bar(stat = 'summary', fun.y = 'mean')+geom_point()+
+  scale_y_continuous(expand = c(0,0), limits = c(0,1.05))+
+  theme(panel.grid = element_blank(),
+        panel.background = element_rect(fill = "white", colour = "black"),
+        panel.border = element_rect(fill = NA, colour = "white"),
+        axis.title.x = element_text(size = axisTitleSize, face = 'bold'), 
+        axis.title.y = element_text(size = axisTitleSize, face = 'bold'), 
+        axis.text.x = element_text(size = axisTextSize), 
+        axis.text.y = element_text(size = axisTextSize),
+        axis.line.x.bottom=element_line(size=axisWidth), 
+        axis.line.y.left=element_line(size=axisWidth),
+        strip.text = element_text(size = 20))
+#ggsave('accuxtopFeature_across.png')
+anova_test(data.frame(topFeatureLearn_all), dv = accu, wid = subject, between = c(topFeature), effect.size = 'pes')
+
+```
+# Differences in hierarchies RT
+```{r, echo=F, message=F, warning=F, error=T,fig.width=12, fig.height=4, fig.align='center'  }
+hierarchyLearn_rt = compiledData %>% filter(iter < 57, struct == 'hier', streak == 1) %>% group_by(expt,subject,hierarchy) %>% dplyr::summarise(avgRT = mean(rt_corrected_both, na.rm = TRUE))
+ggplot(hierarchyLearn_rt, aes(x = hierarchy, y = avgRT, fill = hierarchy))+geom_bar(stat='summary', fun.y = 'mean')+geom_point()+facet_wrap(~expt)+
+  scale_y_continuous(expand = c(0,0))+
+  theme(panel.grid = element_blank(),
+        panel.background = element_rect(fill = "white", colour = "black"),
+        panel.border = element_rect(fill = NA, colour = "white"))
+#ggsave('rtByStruct.eps')
+anova_test(data.frame(hierarchyLearn_rt), dv = avgRT, wid = subject, between = c(expt,hierarchy), effect.size = 'pes')
+# by top features sonaHL and finger HL
+hierarchyLearn_top_rt = compiledData %>% filter(iter < 57, struct == 'hier',streak == 1) %>% group_by(expt,subject,topFeature) %>% dplyr::summarise(avgRT = mean(rt_corrected_both, na.rm = TRUE))
+ggplot(hierarchyLearn_top_rt, aes(x = topFeature, y = avgRT))+geom_bar(stat='summary', fun.y = 'mean')+geom_point()+facet_wrap(~expt)
+ggplot(hierarchyLearn_top_rt, aes(x = topFeature, y = avgRT))+geom_bar(stat='summary', fun.y = 'mean')+geom_point()
+anova_test(data.frame(hierarchyLearn_top_rt), dv = avgRT, wid = subject, between = c(expt,topFeature), effect.size = 'pes')
+anova_test(data.frame(hierarchyLearn_top_rt), dv = avgRT, wid = subject, between = c(topFeature), effect.size = 'pes')
+t.test(hierarchyLearn_top_rt$avgRT[hierarchyLearn_top_rt$topFeature == 'color' & hierarchyLearn_top_rt$expt == 'B_sonaHL'],hierarchyLearn_top_rt$avgRT[hierarchyLearn_top_rt$topFeature == 'pattern' & hierarchyLearn_top_rt$expt == 'B_sonaHL'])
+t.test(hierarchyLearn_top_rt$avgRT[hierarchyLearn_top_rt$topFeature == 'color' & hierarchyLearn_top_rt$expt == 'B_sonaHL'],hierarchyLearn_top_rt$avgRT[hierarchyLearn_top_rt$topFeature == 'shape' & hierarchyLearn_top_rt$expt == 'B_sonaHL'])
+t.test(hierarchyLearn_top_rt$avgRT[hierarchyLearn_top_rt$topFeature == 'shape' & hierarchyLearn_top_rt$expt == 'B_sonaHL'],hierarchyLearn_top_rt$avgRT[hierarchyLearn_top_rt$topFeature == 'pattern' & hierarchyLearn_top_rt$expt == 'B_sonaHL'])
+
+t.test(hierarchyLearn_top_rt$avgRT[hierarchyLearn_top_rt$topFeature == 'color' & hierarchyLearn_top_rt$expt == 'E_fingerHL'],hierarchyLearn_top_rt$avgRT[hierarchyLearn_top_rt$topFeature == 'pattern' & hierarchyLearn_top_rt$expt == 'E_fingerHL'])
+t.test(hierarchyLearn_top_rt$avgRT[hierarchyLearn_top_rt$topFeature == 'color' & hierarchyLearn_top_rt$expt == 'E_fingerHL'],hierarchyLearn_top_rt$avgRT[hierarchyLearn_top_rt$topFeature == 'shape' & hierarchyLearn_top_rt$expt == 'E_fingerHL'])
+t.test(hierarchyLearn_top_rt$avgRT[hierarchyLearn_top_rt$topFeature == 'shape' & hierarchyLearn_top_rt$expt == 'E_fingerHL'],hierarchyLearn_top_rt$avgRT[hierarchyLearn_top_rt$topFeature == 'pattern' & hierarchyLearn_top_rt$expt == 'E_fingerHL'])
+
+t.test(hierarchyLearn_top_rt$avgRT[hierarchyLearn_top_rt$topFeature == 'color'],hierarchyLearn_top_rt$avgRT[hierarchyLearn_top_rt$topFeature == 'pattern'])
+t.test(hierarchyLearn_top_rt$avgRT[hierarchyLearn_top_rt$topFeature == 'color'],hierarchyLearn_top_rt$avgRT[hierarchyLearn_top_rt$topFeature == 'shape'])
+t.test(hierarchyLearn_top_rt$avgRT[hierarchyLearn_top_rt$topFeature == 'shape'],hierarchyLearn_top_rt$avgRT[hierarchyLearn_top_rt$topFeature == 'pattern'])
+
+hierarchyLearn_dyn_rt = compiledData_Dyn %>% filter(iter < 57, expt == 'hierDyn', streak == 1) %>% group_by(subject,group) %>% dplyr::summarise(avgRT = mean(rt_corrected_both, na.rm = TRUE))
+ggplot(hierarchyLearn_dyn_rt, aes(x = group, y = avgRT))+geom_bar(stat='summary', fun.y = 'mean')+geom_point()
+anova_test(data.frame(hierarchyLearn_dyn_rt), dv = avgRT, wid = subject, between = c(group), effect.size = 'pes')
+
+# Across all three Experiments
+hierarchyLearn_each_rt = compiledData_all %>% filter(streak == 1, iter <57, struct == 'hier') %>% group_by(subject,expt_new,hierarchy) %>% dplyr::summarise(avgRT = mean(rt, na.rm = TRUE))
+ggplot(hierarchyLearn_each_rt, aes(x = hierarchy, y = avgRT, fill = hierarchy))+geom_bar(stat = 'summary', fun.y = 'mean')+geom_point()+facet_wrap(~expt_new)+
+  scale_y_continuous(expand = c(0,0),limits = c(0,1750))+
+  theme(panel.grid = element_blank(),
+        panel.background = element_rect(fill = "white", colour = "black"),
+        panel.border = element_rect(fill = NA, colour = "white"),
+        axis.title.x = element_text(size = axisTitleSize, face = 'bold'), 
+        axis.title.y = element_text(size = axisTitleSize, face = 'bold'), 
+        axis.text.x = element_blank(), 
+        axis.text.y = element_text(size = axisTextSize),
+        axis.line.x.bottom=element_line(size=axisWidth), 
+        axis.line.y.left=element_line(size=axisWidth),
+        strip.text = element_text(size = 20))
+#ggsave('rtxhierarchy.png')
+anova_test(data.frame(hierarchyLearn_each_rt), dv = avgRT, wid = subject, between = c(expt_new,hierarchy), effect.size = 'pes')
+
+hierarchyLearn_all_rt = compiledData_all %>% filter(streak == 1, iter <57, struct == 'hier') %>% group_by(subject,hierarchy) %>% dplyr::summarise(avgRT = mean(rt, na.rm = TRUE))
+ggplot(hierarchyLearn_all_rt, aes(x = hierarchy, y = avgRT, fill = hierarchy))+geom_bar(stat = 'summary', fun.y = 'mean')+geom_point()+
+  scale_y_continuous(expand = c(0,0), limits = c(0,1700))+
+  theme(panel.grid = element_blank(),
+        panel.background = element_rect(fill = "white", colour = "black"),
+        panel.border = element_rect(fill = NA, colour = "white"),
+        axis.title.x = element_text(size = axisTitleSize, face = 'bold'), 
+        axis.title.y = element_text(size = axisTitleSize, face = 'bold'), 
+        axis.text.x = element_blank(), 
+        axis.text.y = element_text(size = axisTextSize),
+        axis.line.x.bottom=element_line(size=axisWidth), 
+        axis.line.y.left=element_line(size=axisWidth),
+        strip.text = element_text(size = 20))
+#ggsave('rtxhierarchy_across.png')
+anova_test(data.frame(hierarchyLearn_all_rt), dv = avgRT, wid = subject, between = c(hierarchy), effect.size = 'pes')
+
+# top feature
+topFeatureLearn_each_rt = compiledData_all %>% filter(streak == 1, iter <57, struct == 'hier') %>% group_by(subject,expt,topFeature) %>% dplyr::summarise(avgRT = mean(rt, na.rm = TRUE))
+ggplot(topFeatureLearn_each_rt, aes(x = topFeature, y = avgRT, fill = topFeature))+geom_bar(stat = 'summary', fun.y = 'mean')+geom_point()+facet_wrap(~expt)+
+  scale_y_continuous(expand = c(0,0))+
+  theme(panel.grid = element_blank(),
+        panel.background = element_rect(fill = "white", colour = "black"),
+        panel.border = element_rect(fill = NA, colour = "white"))
+#ggsave('rtxtopFeature.png')
+anova_test(data.frame(topFeatureLearn_each_rt), dv = avgRT, wid = subject, between = c(expt,topFeature), effect.size = 'pes')
+
+topFeatureLearn_all_rt = compiledData_all %>% filter(streak == 1, iter <57, struct == 'hier') %>% group_by(subject,topFeature) %>% dplyr::summarise(avgRT = mean(rt, na.rm = TRUE))
+ggplot(topFeatureLearn_all_rt, aes(x = topFeature, y = avgRT, fill = topFeature))+geom_bar(stat = 'summary', fun.y = 'mean')+geom_point()+
+  scale_y_continuous(expand = c(0,0), limits = c(0,1550))+
+  theme(panel.grid = element_blank(),
+        panel.background = element_rect(fill = "white", colour = "black"),
+        panel.border = element_rect(fill = NA, colour = "white"),
+        axis.title.x = element_text(size = axisTitleSize, face = 'bold'), 
+        axis.title.y = element_text(size = axisTitleSize, face = 'bold'), 
+        axis.text.x = element_text(size = axisTextSize), 
+        axis.text.y = element_text(size = axisTextSize),
+        axis.line.x.bottom=element_line(size=axisWidth), 
+        axis.line.y.left=element_line(size=axisWidth),
+        strip.text = element_text(size = 20))
+#ggsave('rtxtopFeature_across.png')
+anova_test(data.frame(topFeatureLearn_all_rt), dv = avgRT, wid = subject, between = c(topFeature), effect.size = 'pes')
+t.test(topFeatureLearn_all_rt$avgRT[topFeatureLearn_all_rt$topFeature == 'color'],topFeatureLearn_all_rt$avgRT[topFeatureLearn_all_rt$topFeature == 'pattern'])
+t.test(topFeatureLearn_all_rt$avgRT[topFeatureLearn_all_rt$topFeature == 'shape'],topFeatureLearn_all_rt$avgRT[topFeatureLearn_all_rt$topFeature == 'pattern'])
+t.test(topFeatureLearn_all_rt$avgRT[topFeatureLearn_all_rt$topFeature == 'shape'],topFeatureLearn_all_rt$avgRT[topFeatureLearn_all_rt$topFeature == 'color'])
+```
+# Differences in hierarchies -- path distance RT
+```{r, echo=F, message=F, warning=F, error=T,fig.width=12, fig.height=12, fig.align='center'  }
+hierarchyLearn_pathDistance = compiledData %>% filter(iter<57,struct == 'hier', streak == 1, !is.na(treeDistance)) %>% group_by(expt,subject,hierarchy,treeDistance) %>% dplyr::summarise(avgRT = mean(rt_corrected_both, na.rm = TRUE))
+ggplot(hierarchyLearn_pathDistance, aes(x = treeDistance, y = avgRT, fill = hierarchy))+geom_bar(stat='summary', fun.y = 'mean')+geom_point()+facet_wrap(~expt)+
+  scale_y_continuous(expand = c(0,0))+
+  theme(panel.grid = element_blank(),
+        panel.background = element_rect(fill = "white", colour = "black"),
+        panel.border = element_rect(fill = NA, colour = "white"))+facet_wrap(~expt+hierarchy)
+ggplot(hierarchyLearn_pathDistance, aes(x = treeDistance, y = avgRT, fill = hierarchy))+geom_bar(stat='summary', fun.y = 'mean')+geom_point()+facet_wrap(~expt)+
+  scale_y_continuous(expand = c(0,0))+
+  theme(panel.grid = element_blank(),
+        panel.background = element_rect(fill = "white", colour = "black"),
+        panel.border = element_rect(fill = NA, colour = "white"))+facet_wrap(~hierarchy)
+#ggsave('rtByStruct.eps')
+hierarchyLearn_pathDistance_sonaHL = hierarchyLearn_pathDistance %>% filter(expt == 'B_sonaHL')
+hierarchyLearn_pathDistance_fingerHL = hierarchyLearn_pathDistance %>% filter(expt == 'E_fingerHL')
+anova_test(data.frame(hierarchyLearn_pathDistance_sonaHL), dv = avgRT, wid = subject, within = treeDistance,between = c(hierarchy), effect.size = 'pes')
+anova_test(data.frame(hierarchyLearn_pathDistance_fingerHL), dv = avgRT, wid = subject, within = treeDistance,between = c(hierarchy), effect.size = 'pes')
+anova_test(data.frame(hierarchyLearn_pathDistance), dv = avgRT, wid = subject, within = treeDistance,between = c(expt,hierarchy), effect.size = 'pes')
+# by top features sonaHL and finger HL
+hierarchyLearn_top_pathDistance = compiledData %>% filter(iter < 57, struct == 'hier',streak == 1) %>% group_by(expt,subject,topFeature) %>% dplyr::summarise(avgRT = mean(rt_corrected_both, na.rm = TRUE))
+ggplot(hierarchyLearn_top_pathDistance, aes(x = topFeature, y = avgRT))+geom_bar(stat='summary', fun.y = 'mean')+geom_point()+facet_wrap(~expt)
+ggplot(hierarchyLearn_top_pathDistance, aes(x = topFeature, y = avgRT))+geom_bar(stat='summary', fun.y = 'mean')+geom_point()
+anova_test(data.frame(hierarchyLearn_top_pathDistance), dv = avgRT, wid = subject, between = c(expt,topFeature), effect.size = 'pes')
+anova_test(data.frame(hierarchyLearn_top_pathDistance), dv = avgRT, wid = subject, between = c(topFeature), effect.size = 'pes')
+t.test(hierarchyLearn_top_pathDistance$avgRT[hierarchyLearn_top_pathDistance$topFeature == 'color' & hierarchyLearn_top_pathDistance$expt == 'B_sonaHL'],hierarchyLearn_top_pathDistance$avgRT[hierarchyLearn_top_pathDistance$topFeature == 'pattern' & hierarchyLearn_top_pathDistance$expt == 'B_sonaHL'])
+t.test(hierarchyLearn_top_pathDistance$avgRT[hierarchyLearn_top_pathDistance$topFeature == 'color' & hierarchyLearn_top_pathDistance$expt == 'B_sonaHL'],hierarchyLearn_top_pathDistance$avgRT[hierarchyLearn_top_pathDistance$topFeature == 'shape' & hierarchyLearn_top_pathDistance$expt == 'B_sonaHL'])
+t.test(hierarchyLearn_top_pathDistance$avgRT[hierarchyLearn_top_pathDistance$topFeature == 'shape' & hierarchyLearn_top_pathDistance$expt == 'B_sonaHL'],hierarchyLearn_top_pathDistance$avgRT[hierarchyLearn_top_pathDistance$topFeature == 'pattern' & hierarchyLearn_top_pathDistance$expt == 'B_sonaHL'])
+
+t.test(hierarchyLearn_top_pathDistance$avgRT[hierarchyLearn_top_pathDistance$topFeature == 'color' & hierarchyLearn_top_pathDistance$expt == 'E_fingerHL'],hierarchyLearn_top_pathDistance$avgRT[hierarchyLearn_top_pathDistance$topFeature == 'pattern' & hierarchyLearn_top_pathDistance$expt == 'E_fingerHL'])
+t.test(hierarchyLearn_top_pathDistance$avgRT[hierarchyLearn_top_pathDistance$topFeature == 'color' & hierarchyLearn_top_pathDistance$expt == 'E_fingerHL'],hierarchyLearn_top_pathDistance$avgRT[hierarchyLearn_top_pathDistance$topFeature == 'shape' & hierarchyLearn_top_pathDistance$expt == 'E_fingerHL'])
+t.test(hierarchyLearn_top_pathDistance$avgRT[hierarchyLearn_top_pathDistance$topFeature == 'shape' & hierarchyLearn_top_pathDistance$expt == 'E_fingerHL'],hierarchyLearn_top_pathDistance$avgRT[hierarchyLearn_top_pathDistance$topFeature == 'pattern' & hierarchyLearn_top_pathDistance$expt == 'E_fingerHL'])
+
+hierarchyLearn_dyn_pathDistance = compiledData_Dyn %>% filter(iter < 57, expt == 'hierDyn', streak == 1) %>% group_by(subject,group, treeDistance) %>% dplyr::summarise(avgRT = mean(rt_corrected_both, na.rm = TRUE))
+ggplot(hierarchyLearn_dyn_pathDistance, aes(x = treeDistance, y = avgRT, fill =group))+geom_bar(stat='summary', fun.y = 'mean')+geom_point()+facet_wrap(~group)+
+  scale_y_continuous(expand = c(0,0))+
+  theme(panel.grid = element_blank(),
+        panel.background = element_rect(fill = "white", colour = "black"),
+        panel.border = element_rect(fill = NA, colour = "white"))+facet_wrap(~group)
+#ggsave('rtByStruct.eps')
+
+hierarchyLearn_dyn_pathDistance$expt = 'hierDyn'
+hierarchyLearn_dyn_pathDistance$group[hierarchyLearn_dyn_pathDistance$group == 6] = "color,shape,pattern"
+hierarchyLearn_dyn_pathDistance$group[hierarchyLearn_dyn_pathDistance$group == 5] = "color,pattern,shape"
+hierarchyLearn_dyn_pathDistance$group[hierarchyLearn_dyn_pathDistance$group == 4] = "shape,color,pattern"
+hierarchyLearn_dyn_pathDistance$group[hierarchyLearn_dyn_pathDistance$group == 3] = "shape,pattern,color"
+hierarchyLearn_dyn_pathDistance$group[hierarchyLearn_dyn_pathDistance$group == 2] = "pattern,color,shape"
+hierarchyLearn_dyn_pathDistance$group[hierarchyLearn_dyn_pathDistance$group == 1] = "pattern,shape,color"
+colnames(hierarchyLearn_dyn_pathDistance)[2] <- "hierarchy"
+anova_test(data.frame(hierarchyLearn_dyn_pathDistance), dv = avgRT, wid = subject, within = treeDistance, between = c(hierarchy), effect.size = 'pes')
+
+hierarchyLearn_pathDistance_hier = rbind(hierarchyLearn_pathDistance,hierarchyLearn_dyn_pathDistance)
+anova_test(data.frame(hierarchyLearn_pathDistance_hier), dv = avgRT, wid = subject, within = treeDistance, between = c(expt,hierarchy), effect.size = 'pes')
+anova_test(data.frame(hierarchyLearn_pathDistance_hier), dv = avgRT, wid = subject, between = c(expt,hierarchy), effect.size = 'pes')
+anova_test(data.frame(hierarchyLearn_pathDistance_hier), dv = avgRT, wid = subject,within=treeDistance, between = c(hierarchy), effect.size = 'pes')
+```
+
+# Expt 1: corrected rt x tree distance, first half vs second half
+```{r, echo=F, message=F, warning=F, error=T,fig.width=8, fig.height=4, fig.align='center'  }
+sonaHL$half = NA
+sonaHL$half[sonaHL$iter > 63] = 2
+sonaHL$half[sonaHL$iter <= 63] = 1
+# how many streak trials for each bin
+sonaHL %>% filter(!is.na(treeDistance)) %>% group_by(subject, half, streak) %>% dplyr::summarise(counts = n()) %>% ggplot(aes(x = subject, y = counts, fill = streak))+geom_bar(stat = 'identity')+facet_wrap(~half)
+
+Expt1_firstsecond_treeDist = sonaHL %>% filter(!is.na(treeDistance), streak == 1) %>% group_by(subject, half, treeDistance) %>% dplyr::summarise(avgRT = mean(rt_corrected_both, na.rm = TRUE), avgRT_first = mean(rt_corrected,na.rm = TRUE))
+ggplot(Expt1_firstsecond_treeDist, aes(x = treeDistance, y = avgRT))+geom_bar(stat = 'summary', fun.y = 'mean')+geom_point()+facet_wrap(~half)+
+  scale_y_continuous(expand = c(0,0))+
+  theme(panel.grid = element_blank(),
+        panel.background = element_rect(fill = "white", colour = "black"),
+        panel.border = element_rect(fill = NA, colour = "white"))
+#ggsave('expt1_firstvssecond_treeDistance.eps')
+anova_test(data.frame(Expt1_firstsecond_treeDist), dv = avgRT, wid = subject, within = c(treeDistance,half), effect.size = 'pes')
+
+Expt1_firstsecond_treeDist_summary = summarySEwithin(Expt1_firstsecond_treeDist,measurevar="avgRT", withinvars=c("treeDistance","half"),idvar="subject", na.rm=FALSE, conf.interval=.95)
+ggplot(Expt1_firstsecond_treeDist_summary, aes(x = treeDistance, y = avgRT))+geom_bar(stat = 'summary', fun.y = 'mean')+geom_errorbar(aes(ymin=avgRT-se,ymax=avgRT+se),width=.2)+facet_wrap(~half)+
+  scale_y_continuous(expand = c(0,0),limits = c(0,750))+
+  theme(panel.grid = element_blank(),
+        panel.background = element_rect(fill = "white", colour = "black"),
+        panel.border = element_rect(fill = NA, colour = "white"),axis.line.x.bottom=element_line(size=.5), 
+        axis.line.y.left=element_line(size=.5),)
+#ggsave('expt1_firstvssecond_treeDistance_errorbars.eps')
+ggplot(Expt1_firstsecond_treeDist, aes(x = treeDistance, y = avgRT_first))+geom_bar(stat = 'summary', fun.y = 'mean')+geom_point()+facet_wrap(~half)
+anova_test(data.frame(Expt1_firstsecond_treeDist), dv = avgRT_first, wid = subject, within = c(treeDistance,half), effect.size = 'pes')
+
+t.test(Expt1_firstsecond_treeDist$avgRT[Expt1_firstsecond_treeDist$half == 1 & Expt1_firstsecond_treeDist$treeDistance == 0],Expt1_firstsecond_treeDist$avgRT[Expt1_firstsecond_treeDist$half == 1 & Expt1_firstsecond_treeDist$treeDistance == 2], paired = TRUE)
+t.test(Expt1_firstsecond_treeDist$avgRT[Expt1_firstsecond_treeDist$half == 1 & Expt1_firstsecond_treeDist$treeDistance == 2],Expt1_firstsecond_treeDist$avgRT[Expt1_firstsecond_treeDist$half == 1 & Expt1_firstsecond_treeDist$treeDistance == 4], paired = TRUE)
+t.test(Expt1_firstsecond_treeDist$avgRT[Expt1_firstsecond_treeDist$half == 1 & Expt1_firstsecond_treeDist$treeDistance == 4],Expt1_firstsecond_treeDist$avgRT[Expt1_firstsecond_treeDist$half == 1 & Expt1_firstsecond_treeDist$treeDistance == 6], paired = TRUE)
+t.test(Expt1_firstsecond_treeDist$avgRT_first[Expt1_firstsecond_treeDist$half == 1 & Expt1_firstsecond_treeDist$treeDistance == 4],Expt1_firstsecond_treeDist$avgRT_first[Expt1_firstsecond_treeDist$half == 1 & Expt1_firstsecond_treeDist$treeDistance == 6], paired = TRUE)
+
+
+t.test(Expt1_firstsecond_treeDist$avgRT[Expt1_firstsecond_treeDist$half == 2 & Expt1_firstsecond_treeDist$treeDistance == 0],Expt1_firstsecond_treeDist$avgRT[Expt1_firstsecond_treeDist$half == 2 & Expt1_firstsecond_treeDist$treeDistance == 2], paired = TRUE)
+t.test(Expt1_firstsecond_treeDist$avgRT[Expt1_firstsecond_treeDist$half == 2 & Expt1_firstsecond_treeDist$treeDistance == 2],Expt1_firstsecond_treeDist$avgRT[Expt1_firstsecond_treeDist$half ==2 & Expt1_firstsecond_treeDist$treeDistance == 4], paired = TRUE)
+t.test(Expt1_firstsecond_treeDist$avgRT[Expt1_firstsecond_treeDist$half == 2 & Expt1_firstsecond_treeDist$treeDistance == 4],Expt1_firstsecond_treeDist$avgRT[Expt1_firstsecond_treeDist$half == 2 & Expt1_firstsecond_treeDist$treeDistance == 6], paired = TRUE)
+
+```
+# Expt 1 vs Expt 5: corrected rt x tree distance (all, at same trial num)
+```{r, echo=F, message=F, warning=F, error=T,fig.width=8, fig.height=4, fig.align='center'  }
+Expt1v5_treeDist_same_avgRT = compiledData_all %>% filter(!is.na(treeDistance), streak == 1, expt_new%in% c('Expt1', 'Expt4'), iter<=55) %>% group_by(expt_new, subject) %>% dplyr::summarise(avgRT = mean(rt_corrected_both,na.rm = TRUE), counts = n())
+Expt1v5_treeDist_same_avgRT_across = Expt1v5_treeDist_same_avgRT %>% group_by(expt_new) %>% dplyr::summarise(avgRT= mean(avgRT), nTrials=mean(counts))
+t.test(Expt1v5_treeDist_same_avgRT$counts[Expt1v5_treeDist_same_avgRT$expt_new== 'Expt1'],Expt1v5_treeDist_same_avgRT$counts[Expt1v5_treeDist_same_avgRT$expt_new== 'Expt4'])
+t.test(Expt1v5_treeDist_same_avgRT$avgRT[Expt1v5_treeDist_same_avgRT$expt_new== 'Expt1'],Expt1v5_treeDist_same_avgRT$avgRT[Expt1v5_treeDist_same_avgRT$expt_new== 'Expt4'])
+Expt1v5_treeDist_same_accu = compiledData_all %>% filter(!is.na(treeDistance), expt_new%in% c('Expt1', 'Expt4'), iter<=55) %>% group_by(expt_new, subject) %>% dplyr::summarise(accu = mean(corr,na.rm = TRUE))
+t.test(Expt1v5_treeDist_same_accu$accu[Expt1v5_treeDist_same_accu$expt_new== 'Expt1'],Expt1v5_treeDist_same_accu$accu[Expt1v5_treeDist_same_accu$expt_new== 'Expt4'])
+
+Expt1v5_treeDist_same = compiledData_all %>% filter(!is.na(treeDistance), streak == 1, expt_new%in% c('Expt1', 'Expt4'), iter<=55) %>% group_by(expt_new, subject, treeDistance) %>% dplyr::summarise(avgRT = mean(rt_corrected_both,na.rm = TRUE), counts = n())
+ggplot(Expt1v5_treeDist_same,aes(x = treeDistance, y = avgRT))+geom_bar(stat = 'summary', fun.y = 'mean')+geom_point()+facet_wrap(~expt_new)+
+  scale_y_continuous(expand = c(0,0), limits = c(0,1650))+
+  theme(panel.grid = element_blank(),
+        panel.background = element_rect(fill = "white", colour = "black"),
+        panel.border = element_rect(fill = NA, colour = "white"),
+        axis.title.x = element_text(size = axisTitleSize, face = 'bold'), 
+        axis.title.y = element_text(size = axisTitleSize, face = 'bold'), 
+        axis.text.x = element_text(size = axisTextSize), 
+        axis.text.y = element_text(size = axisTextSize),
+        axis.line.x.bottom=element_line(size=axisWidth), 
+        axis.line.y.left=element_line(size=axisWidth),
+        strip.text = element_text(size = 20))
+#ggsave('expt1vsstructuredForced_treeDistance.png')
+anova_test(data.frame(Expt1v5_treeDist_same), dv = avgRT, wid = subject, within = c(treeDistance),between=expt, effect.size = 'pes')
+t.test(Expt1v5_treeDist_same$avgRT[Expt1v5_treeDist_same$expt_new== 'Expt1' & Expt1v5_treeDist_same$treeDistance == 0],Expt1v5_treeDist_same$avgRT[Expt1v5_treeDist_same$expt_new== 'Expt1' & Expt1v5_treeDist_same$treeDistance == 2], paired = TRUE)
+t.test(Expt1v5_treeDist_same$avgRT[Expt1v5_treeDist_same$expt_new== 'Expt1' & Expt1v5_treeDist_same$treeDistance == 2],Expt1v5_treeDist_same$avgRT[Expt1v5_treeDist_same$expt_new== 'Expt1' & Expt1v5_treeDist_same$treeDistance == 4], paired = TRUE)
+t.test(Expt1v5_treeDist_same$avgRT[Expt1v5_treeDist_same$expt_new== 'Expt1' & Expt1v5_treeDist_same$treeDistance == 4],Expt1v5_treeDist_same$avgRT[Expt1v5_treeDist_same$expt_new== 'Expt1' & Expt1v5_treeDist_same$treeDistance == 6], paired = TRUE)
+
+t.test(Expt1v5_treeDist_same$avgRT[Expt1v5_treeDist_same$expt_new== 'Expt4' & Expt1v5_treeDist_same$treeDistance == 0],Expt1v5_treeDist_same$avgRT[Expt1v5_treeDist_same$expt_new== 'Expt4' & Expt1v5_treeDist_same$treeDistance == 2], paired = TRUE)
+t.test(Expt1v5_treeDist_same$avgRT[Expt1v5_treeDist_same$expt_new== 'Expt4' & Expt1v5_treeDist_same$treeDistance == 2],Expt1v5_treeDist_same$avgRT[Expt1v5_treeDist_same$expt_new== 'Expt4' & Expt1v5_treeDist_same$treeDistance == 4], paired = TRUE)
+t.test(Expt1v5_treeDist_same$avgRT[Expt1v5_treeDist_same$expt_new== 'Expt4' & Expt1v5_treeDist_same$treeDistance == 4],Expt1v5_treeDist_same$avgRT[Expt1v5_treeDist_same$expt_new== 'Expt4' & Expt1v5_treeDist_same$treeDistance == 6], paired = TRUE)
+
+t.test(Expt1v5_treeDist_same$avgRT[Expt1v5_treeDist_same$expt_new== 'Expt1' & Expt1v5_treeDist_same$treeDistance == 0],Expt1v5_treeDist_same$avgRT[Expt1v5_treeDist_same$expt_new== 'Expt4' & Expt1v5_treeDist_same$treeDistance == 0])
+t.test(Expt1v5_treeDist_same$avgRT[Expt1v5_treeDist_same$expt_new== 'Expt1' & Expt1v5_treeDist_same$treeDistance == 2],Expt1v5_treeDist_same$avgRT[Expt1v5_treeDist_same$expt_new== 'Expt4' & Expt1v5_treeDist_same$treeDistance == 2])
+t.test(Expt1v5_treeDist_same$avgRT[Expt1v5_treeDist_same$expt_new== 'Expt1' & Expt1v5_treeDist_same$treeDistance == 4],Expt1v5_treeDist_same$avgRT[Expt1v5_treeDist_same$expt_new== 'Expt4' & Expt1v5_treeDist_same$treeDistance == 4])
+t.test(Expt1v5_treeDist_same$avgRT[Expt1v5_treeDist_same$expt_new== 'Expt1' & Expt1v5_treeDist_same$treeDistance == 6],Expt1v5_treeDist_same$avgRT[Expt1v5_treeDist_same$expt_new== 'Expt4' & Expt1v5_treeDist_same$treeDistance == 6])
+```
+# Expt 1 vs Expt 4: corrected rt x tree distance (all, at same trial num)
+```{r, echo=F, message=F, warning=F, error=T,fig.width=8, fig.height=4, fig.align='center'  }
+Expt1v4_treeDist_all = compiledData_all %>% filter(!is.na(treeDistance), streak == 1, expt %in% c('Expt1', 'Expt4')) %>% group_by(expt,subject,treeDistance) %>% dplyr::summarise(avgRT = mean(rt_corrected_both,na.rm = TRUE))
+ggplot(Expt1v4_treeDist_all,aes(x = treeDistance, y = avgRT))+geom_bar(stat = 'summary', fun.y = 'mean')+geom_point()+facet_wrap(~expt)
+anova_test(data.frame(Expt1v4_treeDist_all), dv = avgRT, wid = subject, within = c(treeDistance),between=expt, effect.size = 'pes')
+
+Expt1v4_treeDist_same = compiledData_all %>% filter(!is.na(treeDistance), streak == 1, expt_new %in% c('Expt1', 'Expt3'), iter<=56) %>% group_by(expt_new,subject,treeDistance) %>% dplyr::summarise(avgRT = mean(rt_corrected_both,na.rm = TRUE))
+ggplot(Expt1v4_treeDist_same,aes(x = treeDistance, y = avgRT))+geom_bar(stat = 'summary', fun.y = 'mean')+geom_point()+facet_wrap(~expt_new)+
+  scale_y_continuous(expand = c(0,0))+
+  theme(panel.grid = element_blank(),
+        panel.background = element_rect(fill = "white", colour = "black"),
+        panel.border = element_rect(fill = NA, colour = "white"),
+        axis.title.x = element_text(size = axisTitleSize, face = 'bold'), 
+        axis.title.y = element_text(size = axisTitleSize, face = 'bold'), 
+        axis.text.x = element_text(size = axisTextSize), 
+        axis.text.y = element_text(size = axisTextSize),
+        axis.line.x.bottom=element_line(size=axisWidth), 
+        axis.line.y.left=element_line(size=axisWidth),
+        strip.text = element_text(size = 20))
+#ggsave('expt1vthreeDFL_treedistance.png')
+
+anova_test(data.frame(Expt1v4_treeDist_same), dv = avgRT, wid = subject, within = c(treeDistance),between=expt, effect.size = 'pes')
+```
+# Expt 5 vs Expt 4: corrected rt x tree distance (all, at same trial num)
+```{r, echo=F, message=F, warning=F, error=T,fig.width=8, fig.height=4, fig.align='center'  }
+Expt5v4_treeDist_all = compiledData_all %>% filter(!is.na(treeDistance), streak == 1, expt %in% c('Expt5', 'Expt4')) %>% group_by(expt,subject,treeDistance) %>% dplyr::summarise(avgRT = mean(rt_corrected_both,na.rm = TRUE))
+ggplot(Expt5v4_treeDist_all,aes(x = treeDistance, y = avgRT))+geom_bar(stat = 'summary', fun.y = 'mean')+geom_point()+facet_wrap(~expt)
+anova_test(data.frame(Expt5v4_treeDist_all), dv = avgRT, wid = subject, within = c(treeDistance),between=expt, effect.size = 'pes')
+
+Expt5v4_treeDist_same = compiledData_all %>% filter(!is.na(treeDistance), streak == 1, expt_new %in% c('Expt3', 'Expt4'), iter<=56) %>% group_by(expt_new,subject,treeDistance) %>% dplyr::summarise(avgRT = mean(rt_corrected_both,na.rm = TRUE))
+ggplot(Expt5v4_treeDist_same,aes(x = treeDistance, y = avgRT))+geom_bar(stat = 'summary', fun.y = 'mean')+geom_point()+facet_wrap(~expt_new)+
+  scale_y_continuous(expand = c(0,0))+
+  theme(panel.grid = element_blank(),
+        panel.background = element_rect(fill = "white", colour = "black"),
+        panel.border = element_rect(fill = NA, colour = "white"),
+        axis.title.x = element_text(size = axisTitleSize, face = 'bold'), 
+        axis.title.y = element_text(size = axisTitleSize, face = 'bold'), 
+        axis.text.x = element_text(size = axisTextSize), 
+        axis.text.y = element_text(size = axisTextSize),
+        axis.line.x.bottom=element_line(size=axisWidth), 
+        axis.line.y.left=element_line(size=axisWidth),
+        strip.text = element_text(size = 20))
+#ggsave('expt4vsexpt5_treeDistance.png')
+anova_test(data.frame(Expt5v4_treeDist_same), dv = avgRT, wid = subject, within = c(treeDistance),between=expt, effect.size = 'pes')
+
+```
+# Expts 1-6: RT x iter, corrected RT x iter
+```{r, echo=F, message=F, warning=F, error=T,fig.width=5, fig.height=4, fig.align='center'  }
+sonaHL_rt_iter = sonaHL %>% group_by(subject, iter, .drop = FALSE) %>% dplyr::summarise(avgRT = mean(rt, na.rm = TRUE), avgRT_corrected = mean(rt_corrected_both)) %>% group_by(iter) %>% dplyr::summarise(avgRT_across = mean(avgRT), SE = se(avgRT),avgRT_corrected_across = mean(avgRT_corrected), SE_corrected = se(avgRT_corrected))
+ggplot(sonaHL_rt_iter, aes(x = iter))+geom_line(aes(y = avgRT_across))+geom_ribbon(aes(x = iter,ymin= avgRT_across-SE, ymax = avgRT_across+SE), alpha = .5)+geom_line(aes(y = avgRT_corrected_across))+geom_ribbon(aes(x = iter,ymin= avgRT_corrected_across-SE_corrected, ymax = avgRT_corrected_across+SE_corrected), alpha = .5)+ggtitle('sonaHL')
+
+fingerHL_rt_iter = fingerHL %>% group_by(subject, iter, .drop = FALSE) %>% dplyr::summarise(avgRT = mean(rt, na.rm = TRUE), avgRT_corrected = mean(rt_corrected_both)) %>% group_by(iter) %>% dplyr::summarise(avgRT_across = mean(avgRT), SE = se(avgRT),avgRT_corrected_across = mean(avgRT_corrected), SE_corrected = se(avgRT_corrected))
+ggplot(fingerHL_rt_iter, aes(x = iter))+geom_line(aes(y = avgRT_across))+geom_ribbon(aes(x = iter,ymin= avgRT_across-SE, ymax = avgRT_across+SE), alpha = .5)+geom_line(aes(y = avgRT_corrected_across))+geom_ribbon(aes(x = iter,ymin= avgRT_corrected_across-SE_corrected, ymax = avgRT_corrected_across+SE_corrected), alpha = .5)+ggtitle('fingerHL')
+
+oneDFL_rt_iter = oneDFL %>% group_by(subject, iter, .drop = FALSE) %>% dplyr::summarise(avgRT = mean(rt, na.rm = TRUE), avgRT_corrected = mean(rt_corrected_both)) %>% group_by(iter) %>% dplyr::summarise(avgRT_across = mean(avgRT), SE = se(avgRT),avgRT_corrected_across = mean(avgRT_corrected), SE_corrected = se(avgRT_corrected))
+ggplot(oneDFL_rt_iter, aes(x = iter))+geom_line(aes(y = avgRT_across))+geom_ribbon(aes(x = iter,ymin= avgRT_across-SE, ymax = avgRT_across+SE), alpha = .5)+geom_line(aes(y = avgRT_corrected_across))+geom_ribbon(aes(x = iter,ymin= avgRT_corrected_across-SE_corrected, ymax = avgRT_corrected_across+SE_corrected), alpha = .5)+ggtitle('oneDFL')
+
+threeDFL_rt_iter = threeDFL %>% group_by(subject, iter, .drop = FALSE) %>% dplyr::summarise(avgRT = mean(rt, na.rm = TRUE), avgRT_corrected = mean(rt_corrected_both)) %>% group_by(iter) %>% dplyr::summarise(avgRT_across = mean(avgRT), SE = se(avgRT),avgRT_corrected_across = mean(avgRT_corrected), SE_corrected = se(avgRT_corrected))
+ggplot(threeDFL_rt_iter, aes(x = iter))+geom_line(aes(y = avgRT_across))+geom_ribbon(aes(x = iter,ymin= avgRT_across-SE, ymax = avgRT_across+SE), alpha = .5)+geom_line(aes(y = avgRT_corrected_across))+geom_ribbon(aes(x = iter,ymin= avgRT_corrected_across-SE_corrected, ymax = avgRT_corrected_across+SE_corrected), alpha = .5)+ggtitle('threeDFL')
+
+hierDyn_rt_iter = hierDyn %>% group_by(subject, iter, .drop = FALSE) %>% dplyr::summarise(avgRT = mean(rt, na.rm = TRUE), avgRT_corrected = mean(rt_corrected_both)) %>% group_by(iter) %>% dplyr::summarise(avgRT_across = mean(avgRT), SE = se(avgRT),avgRT_corrected_across = mean(avgRT_corrected), SE_corrected = se(avgRT_corrected))
+ggplot(hierDyn_rt_iter, aes(x = iter))+geom_line(aes(y = avgRT_across))+geom_ribbon(aes(x = iter,ymin= avgRT_across-SE, ymax = avgRT_across+SE), alpha = .5)+geom_line(aes(y = avgRT_corrected_across))+geom_ribbon(aes(x = iter,ymin= avgRT_corrected_across-SE_corrected, ymax = avgRT_corrected_across+SE_corrected), alpha = .5)+ggtitle('hierDyn')
+
+flatDyn_rt_iter = flatDyn %>% group_by(subject, iter, .drop = FALSE) %>% dplyr::summarise(avgRT = mean(rt, na.rm = TRUE), avgRT_corrected = mean(rt_corrected_both)) %>% group_by(iter) %>% dplyr::summarise(avgRT_across = mean(avgRT), SE = se(avgRT),avgRT_corrected_across = mean(avgRT_corrected), SE_corrected = se(avgRT_corrected))
+ggplot(flatDyn_rt_iter, aes(x = iter))+geom_line(aes(y = avgRT_across))+geom_ribbon(aes(x = iter,ymin= avgRT_across-SE, ymax = avgRT_across+SE), alpha = .5)+geom_line(aes(y = avgRT_corrected_across))+geom_ribbon(aes(x = iter,ymin= avgRT_corrected_across-SE_corrected, ymax = avgRT_corrected_across+SE_corrected), alpha = .5)+ggtitle('flatDyn')
+
+ggplot(sonaHL_rt_iter, aes(x = iter))+geom_line(aes(y = avgRT_across))+geom_ribbon(aes(x = iter,ymin= avgRT_across-SE, ymax = avgRT_across+SE), fill = "purple", alpha = .5)+geom_line(data = fingerHL_rt_iter,aes(y = avgRT_across))+geom_ribbon(data = fingerHL_rt_iter,aes(x = iter,ymin= avgRT_across-SE, ymax = avgRT_across+SE), fill = "blue", alpha = .5)+geom_line(data = sonaHL_rt_iter,aes(y = avgRT_corrected_across))+geom_ribbon(data = sonaHL_rt_iter,aes(x = iter,ymin= avgRT_corrected_across-SE_corrected, ymax = avgRT_corrected_across+SE_corrected), fill = "purple", alpha = .5)+geom_line(data = fingerHL_rt_iter,aes(y = avgRT_corrected_across))+geom_ribbon(data = fingerHL_rt_iter,aes(x = iter,ymin= avgRT_corrected_across-SE_corrected, ymax = avgRT_corrected_across+SE_corrected), fill = "blue", alpha = .5)+ggtitle('Expts 1 & 2: avgRT x iteration')+
+  scale_y_continuous(expand = c(0,0))+
+  theme(panel.grid = element_blank(),
+        panel.background = element_rect(fill = "white", colour = "black"),
+        panel.border = element_rect(fill = NA, colour = "white"))
+
+ggplot(oneDFL_rt_iter, aes(x = iter))+geom_line(aes(y = avgRT_across))+geom_ribbon(aes(x = iter,ymin= avgRT_across-SE, ymax = avgRT_across+SE), fill = "red", alpha = .5)+geom_line(data = threeDFL_rt_iter,aes(y = avgRT_across))+geom_ribbon(data = threeDFL_rt_iter,aes(x = iter,ymin= avgRT_across-SE, ymax = avgRT_across+SE), fill = "darkorange", alpha = .5)+geom_line(data = oneDFL_rt_iter,aes(y = avgRT_corrected_across))+geom_ribbon(data = oneDFL_rt_iter,aes(x = iter,ymin= avgRT_corrected_across-SE_corrected, ymax = avgRT_corrected_across+SE_corrected), fill = "red", alpha = .5)+geom_line(data = threeDFL_rt_iter,aes(y = avgRT_corrected_across))+geom_ribbon(data = threeDFL_rt_iter,aes(x = iter,ymin= avgRT_corrected_across-SE_corrected, ymax = avgRT_corrected_across+SE_corrected), fill = "darkorange", alpha = .5)+ggtitle('Expts 3 & 4: avgRT x iteration')+scale_y_continuous(expand = c(0,0))+
+  theme(panel.grid = element_blank(),
+        panel.background = element_rect(fill = "white", colour = "black"),
+        panel.border = element_rect(fill = NA, colour = "white"))
+
+ggplot(sonaHL_rt_iter, aes(x = iter))+geom_line(aes(y = avgRT_across))+geom_ribbon(aes(x = iter,ymin= avgRT_across-SE, ymax = avgRT_across+SE), fill = "purple", alpha = .5)+geom_line(data = fingerHL_rt_iter,aes(y = avgRT_across))+geom_ribbon(data = fingerHL_rt_iter,aes(x = iter,ymin= avgRT_across-SE, ymax = avgRT_across+SE), fill = "blue", alpha = .5)+geom_line(data = oneDFL_rt_iter,aes(y = avgRT_across))+geom_ribbon(data = oneDFL_rt_iter,aes(x = iter,ymin= avgRT_across-SE, ymax = avgRT_across+SE), fill = "red", alpha = .5)+geom_line(data = threeDFL_rt_iter,aes(y = avgRT_across))+geom_ribbon(data = threeDFL_rt_iter,aes(x = iter,ymin= avgRT_across-SE, ymax = avgRT_across+SE), fill = "orange", alpha = .5)+ggtitle('Expts 1-4: avgRT x iteration')+
+  scale_y_continuous(expand = c(0,0), limits = c(250,1500))+
+  theme(panel.grid = element_blank(),
+        panel.background = element_rect(fill = "white", colour = "black"),
+        panel.border = element_rect(fill = NA, colour = "white"),axis.line.x.bottom=element_line(size=.5), 
+        axis.line.y.left=element_line(size=.5))
+#ggsave('expt1234_rtxiter.png')
+ggplot(sonaHL_rt_iter, aes(x = iter))+geom_line(aes(y = avgRT_corrected_across))+geom_ribbon(aes(x = iter,ymin= avgRT_corrected_across-SE_corrected, ymax = avgRT_corrected_across+SE_corrected), fill = "purple", alpha = .5)+geom_line(data = fingerHL_rt_iter,aes(y = avgRT_corrected_across))+geom_ribbon(data = fingerHL_rt_iter,aes(x = iter,ymin= avgRT_corrected_across-SE_corrected, ymax = avgRT_corrected_across+SE_corrected), fill = "blue", alpha = .5)+geom_line(data = oneDFL_rt_iter,aes(y = avgRT_corrected_across))+geom_ribbon(data = oneDFL_rt_iter,aes(x = iter,ymin= avgRT_corrected_across-SE_corrected, ymax = avgRT_corrected_across+SE_corrected), fill = "red", alpha = .5)+geom_line(data = threeDFL_rt_iter,aes(y = avgRT_corrected_across))+geom_ribbon(data = threeDFL_rt_iter,aes(x = iter,ymin= avgRT_corrected_across-SE_corrected, ymax = avgRT_corrected_across+SE_corrected), fill = "orange", alpha = .5)+ggtitle('Expts 1-4: avgRT_corrected x iteration')+
+  scale_y_continuous(expand = c(0,0), limits = c(250,1500))+
+  theme(panel.grid = element_blank(),
+        panel.background = element_rect(fill = "white", colour = "black"),
+        panel.border = element_rect(fill = NA, colour = "white"),axis.line.x.bottom=element_line(size=.5), 
+        axis.line.y.left=element_line(size=.5))
+#ggsave('expt1234_rt_correctedxiter.png')
+
+```
+
+# Expts 1-6: error analyses - what types of errors do people make?
+```{r, echo=F, message=F, warning=F, error=T,fig.width=6, fig.height=4, fig.align='center'  }
+errors = compiledData_all %>% filter(corr == 0)
+errors$errorDist = abs(errors$finger_press-errors$stimNum)
+errors$errorType = NA
+
+#1/1/0
+errors$errorType[errors$expt %in% c('Expt1','Expt5','Expt3','Expt4','Expt6') & errors$corrHand == 1 & errors$corrCouplet == 1 & errors$finger_press %in% c(1,3,5,7) & errors$stimNum %in% c(2,4,6,8)] = '1/1/0'
+errors$errorType[errors$expt %in% c('Expt1','Expt5','Expt3','Expt4','Expt6') & errors$corrHand == 1 & errors$corrCouplet == 1 & errors$finger_press %in% c(2,4,6,8) & errors$stimNum %in% c(1,3,5,7)] = '1/1/0'
+# 1/0/1
+errors$errorType[errors$expt %in% c('Expt1','Expt5','Expt3','Expt4','Expt6') & errors$corrHand == 1 & errors$corrCouplet == 0 & errors$finger_press %in% c(1,3,5,7) & errors$stimNum %in% c(1,3,5,7)] = '1/0/1'
+errors$errorType[errors$expt %in% c('Expt1','Expt5','Expt3','Expt4','Expt6') & errors$corrHand == 1 & errors$corrCouplet == 0 & errors$finger_press %in% c(2,4,6,8) & errors$stimNum %in% c(2,4,6,8)] = '1/0/1'
+
+#1/0/0
+errors$errorType[errors$expt %in% c('Expt1','Expt5','Expt3','Expt4','Expt6') & errors$corrHand == 1 & errors$corrCouplet == 0 & errors$finger_press %in% c(1,3,5,7) & errors$stimNum %in% c(2,4,6,8)] = '1/0/0'
+errors$errorType[errors$expt %in% c('Expt1','Expt5','Expt3','Expt4','Expt6') & errors$corrHand == 1 & errors$corrCouplet == 0 & errors$finger_press %in% c(2,4,6,8) & errors$stimNum %in% c(1,3,5,7)] = '1/0/0'
+
+# 0/1/1
+errors$errorType[errors$expt %in% c('Expt1','Expt5','Expt3','Expt4','Expt6') & errors$corrHand == 0 & errors$corrCouplet == 1 & errors$finger_press %in% c(1,3,5,7) & errors$stimNum %in% c(1,3,5,7)] = '0/1/1'
+errors$errorType[errors$expt %in% c('Expt1','Expt5','Expt3','Expt4','Expt6') & errors$corrHand == 0 & errors$corrCouplet == 1 & errors$finger_press %in% c(2,4,6,8) & errors$stimNum %in% c(2,4,6,8)] = '0/1/1'
+# 0/1/0
+errors$errorType[errors$expt %in% c('Expt1','Expt5','Expt3','Expt4','Expt6') & errors$corrHand == 0 & errors$corrCouplet == 1 & errors$finger_press %in% c(1,3,5,7) & errors$stimNum %in% c(2,4,6,8)] = '0/1/0'
+errors$errorType[errors$expt %in% c('Expt1','Expt5','Expt3','Expt4','Expt6') & errors$corrHand == 0 & errors$corrCouplet == 1 & errors$finger_press %in% c(2,4,6,8) & errors$stimNum %in% c(1,3,5,7)] = '0/1/0'
+#0/0/1
+errors$errorType[errors$expt %in% c('Expt1','Expt5','Expt3','Expt4','Expt6') & errors$corrHand == 0 & errors$corrCouplet == 0 & errors$finger_press %in% c(1,3,5,7) & errors$stimNum %in% c(1,3,5,7)] = '0/0/1'
+errors$errorType[errors$expt %in% c('Expt1','Expt5','Expt3','Expt4','Expt6') & errors$corrHand == 0 & errors$corrCouplet == 0 & errors$finger_press %in% c(2,4,6,8) & errors$stimNum %in% c(2,4,6,8)] = '0/0/1'
+#0/0/0
+errors$errorType[errors$expt %in% c('Expt1','Expt5','Expt3','Expt4','Expt6') & errors$corrHand == 0 & errors$corrCouplet == 0 & errors$finger_press %in% c(1,3,5,7) & errors$stimNum %in% c(2,4,6,8)] = '0/0/0'
+errors$errorType[errors$expt %in% c('Expt1','Expt5','Expt3','Expt4','Expt6') & errors$corrHand == 0 & errors$corrCouplet == 0 & errors$finger_press %in% c(2,4,6,8) & errors$stimNum %in% c(1,3,5,7)] = '0/0/0'
+# NOW FOR THE FINGER SPACE VERSION
+#1/1/0
+errors$errorType[errors$expt %in% c('Expt2') & errors$corrHand == 1 & errors$corrCouplet == 1 & errors$finger_press %in% c(1,3,6,8) & errors$stimNum %in% c(2,4,5,7)] = '1/1/0'
+errors$errorType[errors$expt %in% c('Expt2') & errors$corrHand == 1 & errors$corrCouplet == 1 & errors$finger_press %in% c(2,4,5,7) & errors$stimNum %in% c(1,3,6,8)] = '1/1/0'
+# 1/0/1
+errors$errorType[errors$expt %in% c('Expt2') & errors$corrHand == 1 & errors$corrCouplet == 0 & errors$finger_press %in% c(1,3,6,8) & errors$stimNum %in% c(1,3,6,8)] = '1/0/1'
+errors$errorType[errors$expt %in% c('Expt2') & errors$corrHand == 1 & errors$corrCouplet == 0 & errors$finger_press %in% c(2,4,5,7) & errors$stimNum %in% c(2,4,5,7)] = '1/0/1'
+
+#1/0/0
+errors$errorType[errors$expt %in% c('Expt2') & errors$corrHand == 1 & errors$corrCouplet == 0 & errors$finger_press %in% c(1,3,6,8) & errors$stimNum %in% c(2,4,5,7)] = '1/0/0'
+errors$errorType[errors$expt %in% c('Expt2') & errors$corrHand == 1 & errors$corrCouplet == 0 & errors$finger_press %in% c(2,4,5,7) & errors$stimNum %in% c(1,3,6,8)] = '1/0/0'
+
+# 0/1/1
+errors$errorType[errors$expt %in% c('Expt2') & errors$corrHand == 0 & errors$corrCouplet == 1 & errors$finger_press %in% c(1,3,6,8) & errors$stimNum %in% c(1,3,6,8)] = '0/1/1'
+errors$errorType[errors$expt %in% c('Expt2') & errors$corrHand == 0 & errors$corrCouplet == 1 & errors$finger_press %in% c(2,4,5,7) & errors$stimNum %in% c(2,4,5,7)] = '0/1/1'
+# 0/1/0
+errors$errorType[errors$expt %in% c('Expt2') & errors$corrHand == 0 & errors$corrCouplet == 1 & errors$finger_press %in% c(1,3,6,8) & errors$stimNum %in% c(2,4,5,7)] = '0/1/0'
+errors$errorType[errors$expt %in% c('Expt2') & errors$corrHand == 0 & errors$corrCouplet == 1 & errors$finger_press %in% c(2,4,5,7) & errors$stimNum %in% c(1,3,6,8)] = '0/1/0'
+#0/0/1
+errors$errorType[errors$expt %in% c('Expt2') & errors$corrHand == 0 & errors$corrCouplet == 0 & errors$finger_press %in% c(1,3,6,8) & errors$stimNum %in% c(1,3,6,8)] = '0/0/1'
+errors$errorType[errors$expt %in% c('Expt2') & errors$corrHand == 0 & errors$corrCouplet == 0 & errors$finger_press %in% c(2,4,5,7) & errors$stimNum %in% c(2,4,5,7)] = '0/0/1'
+#0/0/0
+errors$errorType[errors$expt %in% c('Expt2') & errors$corrHand == 0 & errors$corrCouplet == 0 & errors$finger_press %in% c(1,3,6,8) & errors$stimNum %in% c(2,4,5,7)] = '0/0/0'
+errors$errorType[errors$expt %in% c('Expt2') & errors$corrHand == 0 & errors$corrCouplet == 0 & errors$finger_press %in% c(2,4,5,7) & errors$stimNum %in% c(1,3,6,8)] = '0/0/0'
+errors$topCorr = NA
+errors$midCorr = NA
+errors$lowCorr = NA
+errors$topCorr[errors$errorType %in% c('1/1/0','1/0/1','1/0/0')] = 1
+errors$topCorr[errors$errorType %in% c('0/1/1','0/1/0','0/0/1','0/0/0')] = 0
+
+errors$midCorr[errors$errorType %in% c('1/1/0','0/1/1','0/1/0')] = 1
+errors$midCorr[errors$errorType %in% c('1/0/1','1/0/0','0/0/1','0/0/0')] = 0
+
+errors$lowCorr[errors$errorType %in% c('1/0/1','0/1/1','0/0/1')] = 1
+errors$lowCorr[errors$errorType %in% c('1/1/0','1/0/0','0/1/0','0/0/0')] = 0
+
+all_errorType = errors %>% group_by(expt,subject,errorType) %>% dplyr::summarise(counts = n()) %>% mutate(prop = counts/sum(counts))
+ggplot(all_errorType, aes(x = errorType, y = prop))+geom_bar(stat = 'summary',fun.y='mean')+geom_point()+facet_wrap(~expt, ncol = 6)
+hier_errorType = all_errorType %>% filter(expt %in% c('Expt1','Expt2','Expt5'))
+flat_errorType = all_errorType %>% filter(expt %in% c('Expt3','Expt4','Expt6'))
+ggplot(hier_errorType, aes(x = errorType, y = prop))+geom_bar(stat = 'summary',fun.y='mean')+geom_point()+facet_wrap(~expt, ncol = 6)
+ggplot(flat_errorType, aes(x = errorType, y = prop))+geom_bar(stat = 'summary',fun.y='mean')+geom_point()+facet_wrap(~expt, ncol = 6)
+anova_test(data.frame(all_errorType), dv = prop, wid = subject, between = expt, within = c(errorType), effect.size = 'pes')
+dyn_errorType = all_errorType %>% filter(expt %in% c('Expt5','Expt6'))
+anova_test(data.frame(dyn_errorType), dv = prop, wid = subject, between = expt, within = c(errorType), effect.size = 'pes')
+t.test(hier_errorType$prop[hier_errorType$expt == 'Expt1' & hier_errorType$errorType == '1/0/1'],hier_errorType$prop[hier_errorType$expt == 'Expt1' & hier_errorType$errorType == '1/0/0'], paired = TRUE)
+t.test(hier_errorType$prop[hier_errorType$expt == 'Expt2' & hier_errorType$errorType == '1/0/1'],hier_errorType$prop[hier_errorType$expt == 'Expt2' & hier_errorType$errorType == '1/0/0'], paired = TRUE)
+t.test(hier_errorType$prop[hier_errorType$expt == 'Expt5' & hier_errorType$errorType == '1/0/1'],hier_errorType$prop[hier_errorType$expt == 'Expt5' & hier_errorType$errorType == '1/0/0'], paired = TRUE)
+
+
+all_topMid = errors %>% group_by(expt, subject,topCorr,midCorr) %>% dplyr::summarise(counts = n()) %>% group_by(expt,subject)%>% mutate(prop = counts/sum(counts)) 
+all_topMid_plot = all_topMid%>% group_by(expt, topCorr, midCorr) %>% dplyr::summarise(avgProp = mean(prop))
+ggplot(all_topMid_plot, aes(x = topCorr, y = avgProp, fill = midCorr))+geom_bar(stat = 'identity')+facet_wrap(~expt)
+anova_test(data.frame(all_topMid), dv = prop, wid = subject, between = expt, within = c(topCorr, midCorr), effect.size = 'pes')
+long_topMid = all_topMid %>% filter(expt %in% c('Expt1','Expt3'))
+anova_test(data.frame(long_topMid), dv = prop, wid = subject, between = expt, within = c(topCorr, midCorr), effect.size = 'pes')
+dyn_topMid = all_topMid %>% filter(expt %in% c('Expt5','Expt6'))
+anova_test(data.frame(dyn_topMid), dv = prop, wid = subject, between = expt, within = c(topCorr, midCorr), effect.size = 'pes')
+
+all_errorType$struct = NA
+all_errorType$struct[all_errorType$expt %in% c('Expt1','Expt2','Expt5')] = 'hier'
+all_errorType$struct[all_errorType$expt %in% c('Expt3','Expt4','Expt6')] = 'flat'
+anova_test(data.frame(all_errorType), dv = prop, wid = subject, between = struct, within = c(errorType), effect.size = 'pes')
+anova_test(data.frame(all_errorType), dv = prop, wid = subject, between = expt, within = c(errorType), effect.size = 'pes')
+anova_test(data.frame(hier_errorType), dv = prop, wid = subject, between = expt, within = c(errorType), effect.size = 'pes')
+anova_test(data.frame(flat_errorType), dv = prop, wid = subject, between = expt, within = c(errorType), effect.size = 'pes')
+
+all_errorType_sameIter = errors %>% group_by(expt,subject,errorType) %>% filter(iter<=56) %>% dplyr::summarise(counts = n()) %>% mutate(prop = counts/sum(counts))
+hier_errorType_sameIter = all_errorType_sameIter %>% filter(expt %in% c('Expt1','Expt2','Expt5'))
+flat_errorType_sameIter = all_errorType_sameIter %>% filter(expt %in% c('Expt3','Expt4','Expt6'))
+ggplot(hier_errorType_sameIter, aes(x = errorType, y = prop))+geom_bar(stat = 'summary',fun.y='mean')+geom_point()+facet_wrap(~expt, ncol = 6)+
+  scale_y_continuous(expand = c(0,0), limits = c(0,.7))+
+  theme(panel.grid = element_blank(),
+        panel.background = element_rect(fill = "white", colour = "black"),axis.line.x.bottom=element_line(size=.5), 
+        axis.line.y.left=element_line(size=.5), 
+        panel.border = element_rect(fill = NA, colour = "white"))
+
+hier_errorType_sameIter_summary = summarySEwithin(hier_errorType_sameIter,measurevar="prop", betweenvars = 'expt',withinvars=c("errorType"),idvar="subject", na.rm=FALSE, conf.interval=.95)
+ggplot(hier_errorType_sameIter_summary, aes(x = errorType, y = prop))+geom_bar(stat = 'summary',fun.y='mean')+geom_errorbar(aes(ymin=prop-se,ymax=prop+se),width=.2)+facet_wrap(~expt, ncol = 6)+
+  scale_y_continuous(expand = c(0,0), limits = c(0,.4))+
+  theme(panel.grid = element_blank(),
+        panel.background = element_rect(fill = "white", colour = "black"),axis.line.x.bottom=element_line(size=.5), 
+        axis.line.y.left=element_line(size=.5), 
+        panel.border = element_rect(fill = NA, colour = "white"))
+#ggsave('free_errorTypes_hier_sameIter_errorbars.eps')
+ggplot(flat_errorType_sameIter, aes(x = errorType, y = prop))+geom_bar(stat = 'summary',fun.y='mean')+geom_point()+facet_wrap(~expt, ncol = 6)+
+  scale_y_continuous(expand = c(0,0), limits = c(0,.7))+
+  theme(panel.grid = element_blank(),
+        panel.background = element_rect(fill = "white", colour = "black"),axis.line.x.bottom=element_line(size=.5), 
+        axis.line.y.left=element_line(size=.5), 
+        panel.border = element_rect(fill = NA, colour = "white"))
+#ggsave('free_errorTypes_flat_sameIter.eps')
+
+flat_errorType_sameIter_summary = summarySEwithin(flat_errorType_sameIter,measurevar="prop", betweenvars = 'expt',withinvars=c("errorType"),idvar="subject", na.rm=FALSE, conf.interval=.95)
+ggplot(flat_errorType_sameIter_summary, aes(x = errorType, y = prop))+geom_bar(stat = 'summary',fun.y='mean')+geom_errorbar(aes(ymin=prop-se,ymax=prop+se),width=.2)+facet_wrap(~expt, ncol = 6)+
+  scale_y_continuous(expand = c(0,0), limits = c(0,.4))+
+  theme(panel.grid = element_blank(),
+        panel.background = element_rect(fill = "white", colour = "black"),axis.line.x.bottom=element_line(size=.5), 
+        axis.line.y.left=element_line(size=.5), 
+        panel.border = element_rect(fill = NA, colour = "white"))
+#ggsave('free_errorTypes_flat_sameIter_errorbars.eps')
+anova_test(data.frame(hier_errorType_sameIter), dv = prop, wid = subject, between = expt, within = c(errorType), effect.size = 'pes')
+anova_test(data.frame(flat_errorType_sameIter), dv = prop, wid = subject, between = expt, within = c(errorType), effect.size = 'pes')
+
+flat_errorType_sameIter_nothreeDFL = flat_errorType_sameIter %>% filter(expt != 'Expt4')
+anova_test(data.frame(flat_errorType_sameIter_nothreeDFL), dv = prop, wid = subject, between = expt, within = c(errorType), effect.size = 'pes')
+all_errorType_sameIter$struct = NA
+all_errorType_sameIter$struct[all_errorType_sameIter$expt %in% c('Expt1','Expt2','Expt5')] = 'hier'
+all_errorType_sameIter$struct[all_errorType_sameIter$expt %in% c('Expt3','Expt4','Expt6')] = 'flat'
+anova_test(data.frame(all_errorType_sameIter), dv = prop, wid = subject, between = struct, within = c(errorType), effect.size = 'pes')
+anova_test(data.frame(all_errorType_sameIter), dv = prop, wid = subject, between = expt, within = c(errorType), effect.size = 'pes')
+
+all_errorType_sameIter_noDyn = errors %>% group_by(expt,subject,errorType) %>% filter(iter<=56, expt %in% c('Expt1','Expt2','Expt3','Expt4')) %>% dplyr::summarise(counts = n()) %>% mutate(prop = counts/sum(counts))
+all_errorType_sameIter_noDyn$struct = NA
+all_errorType_sameIter_noDyn$struct[all_errorType_sameIter_noDyn$expt %in% c('Expt1','Expt2')] = 'hier'
+all_errorType_sameIter_noDyn$struct[all_errorType_sameIter_noDyn$expt %in% c('Expt3','Expt4')] = 'flat'
+anova_test(data.frame(all_errorType_sameIter_noDyn), dv = prop, wid = subject, between = struct, within = c(errorType), effect.size = 'pes')
+all_errorType_sameIter_noDyn_hier = all_errorType_sameIter_noDyn %>% filter(struct == 'hier')
+all_errorType_sameIter_noDyn_flat = all_errorType_sameIter_noDyn %>% filter(struct == 'flat')
+anova_test(data.frame(all_errorType_sameIter_noDyn_hier), dv = prop, wid = subject, between = expt, within = c(errorType), effect.size = 'pes')
+anova_test(data.frame(all_errorType_sameIter_noDyn_flat), dv = prop, wid = subject, between = expt, within = c(errorType), effect.size = 'pes')
+
+```
+
+```{r, echo=F, message=F, warning=F, error=T,fig.width=8, fig.height=16, fig.align='center'  }
+
+all_errorDist = errors %>% group_by(expt,subject,errorDist) %>% dplyr::summarise(counts = n()) %>% group_by(expt,subject) %>% mutate(prop = counts/sum(counts))
+ggplot(all_errorDist, aes(x = errorDist, y = prop))+geom_bar(stat = 'summary', fun.y = 'mean')+geom_point()+facet_wrap(~expt)
+
+hier_errorDistStim = errors %>% filter(expt %in% c('Expt1', 'Expt2','Expt5')) %>% group_by(expt,subject,stimNum,errorDist) %>% dplyr::summarise(counts = n()) %>% group_by(expt,subject,stimNum) %>%mutate(prop = counts/sum(counts))
+ggplot(hier_errorDistStim, aes(x = errorDist, y = prop))+geom_bar(stat = 'summary', fun.y = 'mean')+geom_point()+facet_wrap(~stimNum+expt, ncol=3)
+flat_errorDistStim = errors %>% filter(expt %in% c('Expt3', 'Expt4','Expt6')) %>% group_by(expt,subject,stimNum,errorDist) %>% dplyr::summarise(counts = n()) %>% group_by(expt,subject,stimNum) %>%mutate(prop = counts/sum(counts))
+ggplot(flat_errorDistStim, aes(x = errorDist, y = prop))+geom_bar(stat = 'summary', fun.y = 'mean')+geom_point()+facet_wrap(~stimNum+expt, ncol=3)
+
+
+corrHand = errors %>% group_by(expt, subject, corrHand) %>% dplyr::summarise(counts = n()) %>% group_by(expt,subject) %>% mutate(prop = counts/sum(counts))
+ggplot(corrHand, aes(x = subject, y = prop, fill = corrHand))+geom_bar(stat = 'identity')+facet_wrap(~expt)
+ggplot(corrHand,aes(x = corrHand, y = counts))+geom_bar(stat = 'summary',fun.y = 'mean')+geom_point()+facet_wrap(~expt)
+ggplot(corrHand,aes(x = corrHand, y = prop))+geom_bar(stat = 'summary',fun.y = 'mean')+geom_point()+facet_wrap(~expt)
+t.test(corrHand$prop[corrHand$expt == 'Expt1' & corrHand$corrHand == 0],corrHand$prop[corrHand$expt == 'Expt1' & corrHand$corrHand == 1], paired = TRUE)
+t.test(corrHand$prop[corrHand$expt == 'Expt3' & corrHand$corrHand == 0],corrHand$prop[corrHand$expt == 'Expt3' & corrHand$corrHand == 1], paired = TRUE)
+t.test(corrHand$prop[corrHand$expt == 'Expt4' & corrHand$corrHand == 0],corrHand$prop[corrHand$expt == 'Expt4' & corrHand$corrHand == 1], paired = TRUE)
+t.test(corrHand$prop[corrHand$expt == 'Expt2' & corrHand$corrHand == 0],corrHand$prop[corrHand$expt == 'Expt2' & corrHand$corrHand == 1], paired = TRUE)
+t.test(corrHand$prop[corrHand$expt == 'Expt6' & corrHand$corrHand == 0],corrHand$prop[corrHand$expt == 'Expt6' & corrHand$corrHand == 1], paired = TRUE)
+t.test(corrHand$prop[corrHand$expt == 'Expt5' & corrHand$corrHand == 0],corrHand$prop[corrHand$expt == 'Expt5' & corrHand$corrHand == 1], paired = TRUE)
+
+corrHand_sameIter = errors %>% filter(iter < 56) %>% group_by(expt, subject, corrHand) %>% dplyr::summarise(counts = n()) %>% group_by(expt,subject) %>% mutate(prop = counts/sum(counts))
+ggplot(corrHand_sameIter, aes(x = subject, y = prop, fill = corrHand))+geom_bar(stat = 'identity')+facet_wrap(~expt)
+ggplot(corrHand_sameIter,aes(x = corrHand, y = counts))+geom_bar(stat = 'summary',fun.y = 'mean')+geom_point()+facet_wrap(~expt)
+ggplot(corrHand_sameIter,aes(x = corrHand, y = prop))+geom_bar(stat = 'summary',fun.y = 'mean')+geom_point()+facet_wrap(~expt)
+t.test(corrHand_sameIter$prop[corrHand_sameIter$expt == 'Expt1' & corrHand_sameIter$corrHand == 0],corrHand_sameIter$prop[corrHand_sameIter$expt == 'Expt1' & corrHand_sameIter$corrHand == 1], paired = TRUE)
+t.test(corrHand_sameIter$prop[corrHand_sameIter$expt == 'Expt3' & corrHand_sameIter$corrHand == 0],corrHand_sameIter$prop[corrHand_sameIter$expt == 'Expt3' & corrHand_sameIter$corrHand == 1], paired = TRUE)
+t.test(corrHand_sameIter$prop[corrHand_sameIter$expt == 'Expt4' & corrHand_sameIter$corrHand == 0],corrHand_sameIter$prop[corrHand_sameIter$expt == 'Expt4' & corrHand_sameIter$corrHand == 1], paired = TRUE)
+t.test(corrHand_sameIter$prop[corrHand_sameIter$expt == 'Expt2' & corrHand_sameIter$corrHand == 0],corrHand_sameIter$prop[corrHand_sameIter$expt == 'Expt2' & corrHand_sameIter$corrHand == 1], paired = TRUE)
+t.test(corrHand_sameIter$prop[corrHand_sameIter$expt == 'Expt6' & corrHand_sameIter$corrHand == 0],corrHand_sameIter$prop[corrHand_sameIter$expt == 'Expt6' & corrHand_sameIter$corrHand == 1], paired = TRUE)
+t.test(corrHand_sameIter$prop[corrHand_sameIter$expt == 'Expt5' & corrHand_sameIter$corrHand == 0],corrHand_sameIter$prop[corrHand_sameIter$expt == 'Expt5' & corrHand_sameIter$corrHand == 1], paired = TRUE)
+```
+
+
