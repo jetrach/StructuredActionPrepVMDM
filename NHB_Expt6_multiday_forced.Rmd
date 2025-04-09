@@ -380,9 +380,37 @@ t.test(errorLevel_actual$prop_corrected[errorLevel_actual$errorLevel == 'dtop'& 
 t.test(errorLevel_actual$prop_corrected[errorLevel_actual$errorLevel == 'bbottom'& errorLevel_actual$day == 1],errorLevel_actual$prop_corrected[errorLevel_actual$errorLevel == 'cmid'& errorLevel_actual$day == 1],paired = TRUE)
 
 t.test(errorLevel_actual$prop_corrected[errorLevel_actual$errorLevel == 'dtop'& errorLevel_actual$day == 8],errorLevel_actual$prop_corrected[errorLevel_actual$errorLevel == 'cmid' & errorLevel_actual$day == 8],paired = TRUE)
+cohen.d(errorLevel_actual$prop_corrected[errorLevel_actual$errorLevel == 'dtop'& errorLevel_actual$day == 8],errorLevel_actual$prop_corrected[errorLevel_actual$errorLevel == 'cmid' & errorLevel_actual$day == 8],paired = TRUE)
+
 t.test(errorLevel_actual$prop_corrected[errorLevel_actual$errorLevel == 'bbottom'& errorLevel_actual$day == 8],errorLevel_actual$prop_corrected[errorLevel_actual$errorLevel == 'cmid'& errorLevel_actual$day == 8],paired = TRUE)
 
+errorLevel_actual$errorLevel_ordered = NA
+errorLevel_actual$errorLevel_ordered[errorLevel_actual$errorLevel == 'dtop'] = 'a'
+errorLevel_actual$errorLevel_ordered[errorLevel_actual$errorLevel == 'cmid'] = 'b'
+errorLevel_actual$errorLevel_ordered[errorLevel_actual$errorLevel == 'bbottom'] = 'c'
 
+errorLevel_actual_level_summary = summarySEwithin(errorLevel_actual, measurevar = 'prop_corrected',withinvars = c('day','errorLevel_ordered'), idvar = 'subject', na.rm = TRUE) %>% filter(!is.na(errorLevel_ordered))
+ggplot(errorLevel_actual_level_summary, aes(x = errorLevel_ordered, y = prop_corrected, fill = errorLevel_ordered ))+geom_bar(stat = 'identity', position = 'dodge')+geom_errorbar(aes(ymin = prop_corrected-se,ymax =prop_corrected+se), position = position_dodge(.9), width = .2) + 
+  geom_point(data = errorLevel_actual, aes(x = errorLevel_ordered, y = prop_corrected),
+             size = 2, color = "black",shape = 21,position = position_jitter(width = 0.1), alpha = 1) + 
+  facet_wrap(~day)+scale_y_continuous(expand = c(0,0), limits = c(0,.2))+
+  theme(axis.line=element_line(),
+        panel.grid = element_blank(),
+        panel.background = element_rect(fill = "white", colour = "black")
+        ,panel.border = element_rect(fill = NA, colour = "white"),
+        strip.text = element_text(size=axisTitleSize,face="bold"), 
+        axis.title.x = element_text(size = axisTitleSize, face = 'bold'), 
+        axis.title.y = element_text(size = axisTitleSize, face = 'bold'), 
+        axis.text.x = element_text(size = axisTextSize), 
+        axis.text.y = element_text(size = axisTextSize), 
+        legend.position = "none", 
+        legend.title = element_blank(),
+        legend.text = element_text(size = axisTextSize),
+        axis.line.x.bottom=element_line(size=axisWidth), 
+        axis.line.y.left=element_line(size=axisWidth), 
+        axis.ticks = element_line(colour = axisColor, size = tickWidth), 
+        axis.ticks.length = unit(tickLength,"cm"))
+ggsave('multiday_errorLevel_forced_POINTS.eps')
 # by PT bin
 errorLevel_emlactual = testData_forced_wExclusions %>% filter(PT_actual <1.4) %>% group_by(subject,day,eml_actual,errorLevel, .drop = FALSE) %>% dplyr::summarise(counts = n()) %>% mutate(prop = counts/sum(counts))
 errorLevel_emlactual$prop_corrected = errorLevel_emlactual$prop
@@ -400,7 +428,11 @@ errorLevel_emlactual$errorLevel_ordered[errorLevel_emlactual$errorLevel == 'cmid
 errorLevel_emlactual$errorLevel_ordered[errorLevel_emlactual$errorLevel == 'bbottom'] = 'c'
 
 errorLevel_emlactual_level_summary = summarySEwithin(errorLevel_emlactual, measurevar = 'prop_corrected',withinvars = c('day','eml_actual','errorLevel_ordered'), idvar = 'subject', na.rm = TRUE) %>% filter(!is.na(errorLevel_ordered))
-ggplot(errorLevel_emlactual_level_summary, aes(x = eml_actual, y = prop_corrected, fill = errorLevel_ordered ))+geom_bar(stat = 'identity', position = 'dodge')+geom_errorbar(aes(ymin = prop_corrected-se,ymax =prop_corrected+se), position = position_dodge(.9)) + facet_wrap(~day)+scale_y_continuous(expand = c(0,0), limits = c(0,.17))+
+ggplot(errorLevel_emlactual_level_summary, aes(x = eml_actual, y = prop_corrected, fill = errorLevel_ordered ))+geom_bar(stat = 'identity', position = 'dodge')+geom_errorbar(aes(ymin = prop_corrected-se,ymax =prop_corrected+se), position = position_dodge(.9), width = .2) + 
+  geom_point(data = errorLevel_emlactual, aes(x = eml_actual, y = prop_corrected),
+             position = position_dodge(0.9),  # Same dodge as the bars
+             size = 2, color = "black",shape = 21) + 
+  facet_wrap(~day)+scale_y_continuous(expand = c(0,0), limits = c(0,.25))+
   theme(axis.line=element_line(),
         panel.grid = element_blank(),
         panel.background = element_rect(fill = "white", colour = "black")
@@ -410,7 +442,7 @@ ggplot(errorLevel_emlactual_level_summary, aes(x = eml_actual, y = prop_correcte
         axis.title.y = element_text(size = axisTitleSize, face = 'bold'), 
         axis.text.x = element_text(size = axisTextSize), 
         axis.text.y = element_text(size = axisTextSize), 
-        legend.position = "right", 
+        legend.position = "none", 
         legend.title = element_blank(),
         legend.text = element_text(size = axisTextSize),
         axis.line.x.bottom=element_line(size=axisWidth), 
@@ -418,7 +450,7 @@ ggplot(errorLevel_emlactual_level_summary, aes(x = eml_actual, y = prop_correcte
         axis.ticks = element_line(colour = axisColor, size = tickWidth), 
         axis.ticks.length = unit(tickLength,"cm"))
 
-#ggsave('multi_eml_errorLevel_nocorr.eps')
+#ggsave('multi_eml_errorLevel_nocorr_POINTS.eps')
 ```
 # top mid low level errors (corrected probabilities) across PTs
 ```{r, echo=F, message=F, warning=F, error=T,fig.width=5, fig.height=5, fig.align='center'}
@@ -960,8 +992,8 @@ muVals_diff$level =muVals_one$valType
 muVals_diff$value = muVals_one$value-muVals_eight$value
 
 muVals_plot = muVals %>% group_by(day, level) %>% dplyr::summarise(mu = mean(value))
-ggplot(muVals_plot, aes(x = level, y = mu, fill = day))+geom_bar(stat = 'summary', fun.y= 'mean')+
-  scale_y_continuous(expand = c(0,0), limits = c(0,1.2))+
+ggplot(muVals_plot, aes(x = level, y = mu, fill = day))+geom_bar(stat = 'summary', fun.y= 'mean')+geom_point(data = muVals, aes(x = level, y = value),position = position_jitter(width = 0.1), alpha = 1)+
+  scale_y_continuous(expand = c(0,0), limits = c(0,2.25))+
         theme(panel.grid = element_blank(),
         panel.background = element_rect(fill = "white", colour = "black"),
         panel.border = element_rect(fill = NA, colour = "white"),
@@ -974,7 +1006,7 @@ ggplot(muVals_plot, aes(x = level, y = mu, fill = day))+geom_bar(stat = 'summary
         axis.line.y.left=element_line(size=axisWidth), 
         axis.ticks = element_line(colour = axisColor, size = tickWidth), 
         axis.ticks.length = unit(tickLength,"cm"))+facet_wrap(~day)
- #ggsave('multiday_muvals.eps')
+# ggsave('multiday_muvals_POINTS.eps')
 
 ```
 

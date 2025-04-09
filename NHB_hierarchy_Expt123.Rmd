@@ -17,6 +17,7 @@ setwd("~/Documents/GitHub/StructuredActionPrepVMDM")
 datadir = "~/Documents/GitHub/StructuredActionPrepVMDM/compiledData/"
 # load libraries
 library(ggplot2)
+library(MBESS)
 library(gridExtra)
 library(ggpubr)
 library(reshape2)
@@ -415,10 +416,11 @@ sonaHL$hierarchy[sonaHL$hierarchy == "shape;color;pattern"] = "shape,color,patte
 sonaHL$hierarchy[sonaHL$hierarchy == "color;pattern;shape"] = "color,pattern,shape"
 sonaHL$hierarchy[sonaHL$hierarchy == "color;shape;pattern"] = "color,shape,pattern"
 sonaHL_accu_struct = sonaHL %>% group_by(subject, hierarchy) %>% dplyr::summarise(accu = mean(corr, na.rm = TRUE))
-anova_test(data.frame(sonaHL_accu_struct), dv = accu, wid = subject, between = hierarchy,effect.size = 'pes')
+structAccu_anova = anova_test(data.frame(sonaHL_accu_struct), dv = accu, wid = subject, between = hierarchy,effect.size = 'pes')
+
 
 sonaHL_rt_struct = sonaHL %>% group_by(subject, hierarchy) %>% dplyr::summarise(avgRT = mean(rt, na.rm = TRUE))
-anova_test(data.frame(sonaHL_rt_struct), dv = avgRT, wid = subject, between = hierarchy,effect.size = 'pes')
+structRT_anova =anova_test(data.frame(sonaHL_rt_struct), dv = avgRT, wid = subject, between = hierarchy,effect.size = 'pes')
 
 ```
 # tree distance fig sonaHL
@@ -447,6 +449,7 @@ sonaHL_tree_streak_summaryStats = summarySEwithin(sonaHL_tree_streak,measurevar=
 ggplot(sonaHL_tree_streak_summaryStats, aes(x = as.factor(treeDistance), y = avgRT)) + 
   geom_bar(stat = "identity",position = "dodge")+
   geom_errorbar(aes(ymin=avgRT-se, ymax=avgRT+se), width=.2,position=position_dodge(.9))+
+  geom_point(data=sonaHL_tree_streak, aes(x = as.factor(treeDistance), y = avgRT))+
   labs(x= 'tree distance', y = 'RT')+
   scale_y_continuous(expand = c(0,0), limits = c(0,900))+
   theme(panel.grid = element_blank(),
@@ -461,6 +464,37 @@ ggplot(sonaHL_tree_streak_summaryStats, aes(x = as.factor(treeDistance), y = avg
         axis.line.y.left=element_line(size=axisWidth), 
         axis.ticks = element_line(colour = axisColor, size = tickWidth), 
         axis.ticks.length = unit(tickLength,"cm"))
+
+ggplot(sonaHL_tree_streak_summaryStats, aes(x = as.factor(treeDistance), y = avgRT)) + 
+  geom_bar(stat = "identity", position = "dodge") +
+  
+  # Shift error bars slightly to the left
+  geom_errorbar(aes(x = as.numeric(as.factor(treeDistance)) - 0.1, 
+                    ymin = avgRT - se, ymax = avgRT + se), 
+                width = 0.2, position = position_dodge(0.9)) +
+  
+  # Shift points slightly to the left and jitter them
+  geom_point(data = sonaHL_tree_streak, 
+             aes(x = as.numeric(as.factor(treeDistance)) + 0.1, y = avgRT), 
+             position = position_jitter(width = 0.1), alpha = 1) +
+  
+  labs(x = 'Tree Distance', y = 'RT') +
+  scale_y_continuous(expand = c(0, 0), limits = c(0, 1050)) +
+  
+  theme(
+    panel.grid = element_blank(),
+    panel.background = element_rect(fill = "white", colour = "black"),
+    panel.border = element_rect(fill = NA, colour = "white"),
+    strip.text = element_text(size = axisTitleSize), 
+    axis.title.x = element_text(size = axisTitleSize), 
+    axis.title.y = element_text(size = axisTitleSize), 
+    axis.text.x = element_text(size = axisTextSize, color = textColor), 
+    axis.text.y = element_text(size = axisTextSize, color = textColor), 
+    axis.line.x.bottom = element_line(size = axisWidth), 
+    axis.line.y.left = element_line(size = axisWidth), 
+    axis.ticks = element_line(colour = axisColor, size = tickWidth), 
+    axis.ticks.length = unit(tickLength, "cm")
+  )
 ```
 # accu x tree distance fig sonaHL
 ```{r, echo=F, message=F, warning=F, error=T, fig.width=3, fig.height=3, fig.align='center' }
@@ -754,6 +788,38 @@ ggplot(fingerHL_tree_streak_summaryStats, aes(x = as.factor(treeDistance), y = a
         axis.line.y.left=element_line(size=axisWidth), 
         axis.ticks = element_line(colour = axisColor, size = tickWidth), 
         axis.ticks.length = unit(tickLength,"cm"))
+
+ggplot(fingerHL_tree_streak_summaryStats, aes(x = as.factor(treeDistance), y = avgRT)) + 
+  geom_bar(stat = "identity", position = "dodge") +
+  
+  # Shift error bars slightly to the left
+  geom_errorbar(aes(x = as.numeric(as.factor(treeDistance)) - 0.1, 
+                    ymin = avgRT - se, ymax = avgRT + se), 
+                width = 0.2, position = position_dodge(0.9)) +
+  
+  # Shift points slightly to the left and jitter them
+  geom_point(data = fingerHL_tree_streak, 
+             aes(x = as.numeric(as.factor(treeDistance)) + 0.1, y = avgRT), 
+             position = position_jitter(width = 0.1), alpha = 1) +
+  
+  labs(x = 'Tree Distance', y = 'RT') +
+  scale_y_continuous(expand = c(0, 0), limits = c(0, 1050)) +
+  
+  theme(
+    panel.grid = element_blank(),
+    panel.background = element_rect(fill = "white", colour = "black"),
+    panel.border = element_rect(fill = NA, colour = "white"),
+    strip.text = element_text(size = axisTitleSize), 
+    axis.title.x = element_text(size = axisTitleSize), 
+    axis.title.y = element_text(size = axisTitleSize), 
+    axis.text.x = element_text(size = axisTextSize, color = textColor), 
+    axis.text.y = element_text(size = axisTextSize, color = textColor), 
+    axis.line.x.bottom = element_line(size = axisWidth), 
+    axis.line.y.left = element_line(size = axisWidth), 
+    axis.ticks = element_line(colour = axisColor, size = tickWidth), 
+    axis.ticks.length = unit(tickLength, "cm")
+  )
+ggsave('treeDistance_fingerHL_wpoints.eps')
 ```
 # accu x tree distance fig fingerHL
 ```{r, echo=F, message=F, warning=F, error=T, fig.width=3, fig.height=3, fig.align='center' }
@@ -995,6 +1061,38 @@ ggplot(oneDFL_tree_streak_summaryStats, aes(x = as.factor(treeDistance), y = avg
         axis.line.y.left=element_line(size=axisWidth), 
         axis.ticks = element_line(colour = axisColor, size = tickWidth), 
         axis.ticks.length = unit(tickLength,"cm"))
+
+ggplot(oneDFL_tree_streak_summaryStats, aes(x = as.factor(treeDistance), y = avgRT)) + 
+  geom_bar(stat = "identity", position = "dodge") +
+  
+  # Shift error bars slightly to the left
+  geom_errorbar(aes(x = as.numeric(as.factor(treeDistance)) - 0.1, 
+                    ymin = avgRT - se, ymax = avgRT + se), 
+                width = 0.2, position = position_dodge(0.9)) +
+  
+  # Shift points slightly to the left and jitter them
+  geom_point(data = oneDFL_tree_streak, 
+             aes(x = as.numeric(as.factor(treeDistance)) + 0.1, y = avgRT), 
+             position = position_jitter(width = 0.1), alpha = 1) +
+  
+  labs(x = 'Tree Distance', y = 'RT') +
+  scale_y_continuous(expand = c(0, 0), limits = c(0, 1050)) +
+  
+  theme(
+    panel.grid = element_blank(),
+    panel.background = element_rect(fill = "white", colour = "black"),
+    panel.border = element_rect(fill = NA, colour = "white"),
+    strip.text = element_text(size = axisTitleSize), 
+    axis.title.x = element_text(size = axisTitleSize), 
+    axis.title.y = element_text(size = axisTitleSize), 
+    axis.text.x = element_text(size = axisTextSize, color = textColor), 
+    axis.text.y = element_text(size = axisTextSize, color = textColor), 
+    axis.line.x.bottom = element_line(size = axisWidth), 
+    axis.line.y.left = element_line(size = axisWidth), 
+    axis.ticks = element_line(colour = axisColor, size = tickWidth), 
+    axis.ticks.length = unit(tickLength, "cm")
+  )
+ggsave('treeDistance_oneDFL_wpoints.eps')
 ```
 # accu x tree distance fig oneDFL
 ```{r, echo=F, message=F, warning=F, error=T, fig.width=3, fig.height=3, fig.align='center' }
@@ -1237,6 +1335,38 @@ ggplot(threeDFL_tree_streak_summaryStats, aes(x = as.factor(treeDistance), y = a
         axis.line.y.left=element_line(size=axisWidth), 
         axis.ticks = element_line(colour = axisColor, size = tickWidth), 
         axis.ticks.length = unit(tickLength,"cm"))
+
+ggplot(threeDFL_tree_streak_summaryStats, aes(x = as.factor(treeDistance), y = avgRT)) + 
+  geom_bar(stat = "identity", position = "dodge") +
+  
+  # Shift error bars slightly to the left
+  geom_errorbar(aes(x = as.numeric(as.factor(treeDistance)) - 0.1, 
+                    ymin = avgRT - se, ymax = avgRT + se), 
+                width = 0.2, position = position_dodge(0.9)) +
+  
+  # Shift points slightly to the left and jitter them
+  geom_point(data = threeDFL_tree_streak, 
+             aes(x = as.numeric(as.factor(treeDistance)) + 0.1, y = avgRT), 
+             position = position_jitter(width = 0.1), alpha = 1) +
+  
+  labs(x = 'Tree Distance', y = 'RT') +
+  scale_y_continuous(expand = c(0, 0), limits = c(0, 1050)) +
+  
+  theme(
+    panel.grid = element_blank(),
+    panel.background = element_rect(fill = "white", colour = "black"),
+    panel.border = element_rect(fill = NA, colour = "white"),
+    strip.text = element_text(size = axisTitleSize), 
+    axis.title.x = element_text(size = axisTitleSize), 
+    axis.title.y = element_text(size = axisTitleSize), 
+    axis.text.x = element_text(size = axisTextSize, color = textColor), 
+    axis.text.y = element_text(size = axisTextSize, color = textColor), 
+    axis.line.x.bottom = element_line(size = axisWidth), 
+    axis.line.y.left = element_line(size = axisWidth), 
+    axis.ticks = element_line(colour = axisColor, size = tickWidth), 
+    axis.ticks.length = unit(tickLength, "cm")
+  )
+ggsave('treeDistance_threeDFL_wpoints.eps')
 ```
 # accu x tree distance fig threeDFL
 ```{r, echo=F, message=F, warning=F, error=T, fig.width=3, fig.height=3, fig.align='center' }

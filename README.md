@@ -1,19 +1,19 @@
 # StructuredActionPrepVMDM
-data and analysis/modeling code for all studies in "Traversing mental graphs: Linking structured memory retrieval and action selection in learned visuomotor mappings"
+data and analysis/modeling code for all studies in "Mental graphs structure the storage and retrieval of visuomotor associations"
 
 These scripts use R (4.2.1), RStudio (2022.07.1), and MATLAB (9.12.0, 2022a, Update 4). Links to installation help are below. Installation time can vary by computer.
 
 We recommend using the precompiled data to run analyses in order to expedite run time of the scripts. 
 
-NHB_hierarchy_Expt1234.Rmd - (R version 4.2.1,https://www.r-project.org/ , RStudio version 2022.07.1, https://rstudio-education.github.io/hopr/starting.html, rmarkdown) main analysis script for Experiments 1-4. Script loads in csv files of usable data for each study (saved in compiledData) and conducts main analyses and figures. Run time is <5min.
+NHB_hierarchy_Expt123.Rmd - (R version 4.2.1,https://www.r-project.org/ , RStudio version 2022.07.1, https://rstudio-education.github.io/hopr/starting.html, rmarkdown) main analysis script for Experiments 1-4. Script loads in csv files of usable data for each study (saved in compiledData) and conducts main analyses and figures. Run time is <5min. Experiment 1 = sonaHL, Experiment 2 = oneDFL, Experiment 3 = threeDFL, Modified structure control = fingerHL.
 
-NHB_hierarchy_Expt56.Rmd - main analysis script for Experiments 5 and 6. Same as previous except that it loads in different data and additionally has forced response analyses. Run time is ~5min.
+NHB_hierarchy_Expt45.Rmd - Main analysis script for Experiments 5 and 6. Same as previous except that it loads in different data and additionally has forced response analyses. Run time is ~5min. Experiment 4 = hierDyn, Experiment 5 = flatDyn.
 
 NHB_SurveyAnalyses.Rmd - Script to plot survey results. Raw data included in strucureIntuitions.csv. Run time < 1min.
 
-NHB_hierarchy_additionalAnalyses - Script for additional analyses added in revision. Run time <5 min.
+NHB_hierarchy_additionalAnalyses - Script for additional analyses added in revision. Run time <5 min. This script includes analyses for Experiments 1-5.
 
-NHB_Expt6_multiday_learn - main analysis script for the multiday experiment. Loads in compiled data for analyses. Analyses include all subjects that participated in the longitudinal experiment (not just participants with the forced response phase too.) Run time <5min.
+NHB_Expt6_multiday_learn - Main analysis script for the multiday experiment. Loads in compiled data for analyses. Analyses include all subjects that participated in the longitudinal experiment (not just participants with the forced response phase too.) Run time <5min.
 
 NHB_Expt6_multiday_forced - Main analysis script for the forced response multi-day sessions. Also loads in data from Experiments 4 and 5 (other forced response experiments). Run time <5min.
 

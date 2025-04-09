@@ -7,7 +7,7 @@ output: html_document
 
 \newpage
 # Abstract
-Additional analyses for 
+Additional analyses for "Structured action preparation during visuomotor decision-making."
 
 \newpage
 ```{r, echo=F, message=F, warning=F, error=T, fig.width=6, fig.height=4, fig.align='center'}
@@ -18,6 +18,7 @@ setwd("~/Documents/GitHub/StructuredActionPrepVMDM")
 datadir = "~/Documents/GitHub/StructuredActionPrepVMDM/compiledData/"
 # load libraries
 library(ggplot2)
+library(MBESS)
 library(gridExtra)
 library(ggpubr)
 library(reshape2)
@@ -44,6 +45,28 @@ library(ggdendro)
 
 # set up the column order for all data frames
 colOrder = c('rt',	'subject',	'prolificID',	'trialType',	'key_press',	'corrresp',	'phase',	'stimNum',	'trialNum',	'corr',	'hierarchy',	'corrrespAll',	'finger_press',	'iter',	'zscoredRTs',	'logRTs',	'hand',	'couplet',	'handSwitch',	'coupletSwitch',	'fingerSwitch',	'handSwitch_actual',	'coupletSwitch_actual',	'fingerSwitch_actual',	'respHand',	'respCouplet',	'corrHand',	'corrCouplet',	'combinedType',	'treeDistance', 'includeStrict',	'fingerDistance',	'corrrespAll_prev',	'finger_press_prev',	'nFeatureSwitch',	'topType',	'midType',	'lowType',	'rt_corrected_both',	'rt_corrected', 'rt_corrected_both_z', 'streak', 'expt', 'struct')
+
+
+## STUDY 1A ### PROLIFIC HIERLEARN
+prolificHL = read_csv(file = '~/Documents/GitHub/StructuredActionPrepVMDM/compiledData/hierLearn_prolific.csv')
+prolificHL = subset(prolificHL, select = -c(time_elapsed, rlType, attType, allStimuli, stim, repeatTrial,motorSwitch, pracCounter,stimulus) ) # take out extra cols
+prolificHL <- prolificHL[ -c(1) ]
+# add missing columns
+prolificHL$includeStrict = NA #stay NA
+prolificHL$include_25secondhalf = NA  #stay NA
+prolificHL$rt_corrected_both = NA
+prolificHL$rt_corrected_both_z = NA
+
+prolificHL$expt = 'A_prolificHL'
+prolificHL$struct = 'hier'
+#fill columns that should be filled
+prolificHL$rt_corrected_both = prolificHL$rt_corrected
+zscored = prolificHL%>% group_by(subject) %>% dplyr::summarize(z = scale(rt_corrected))
+prolificHL$rt_corrected_both_z = zscored$z
+#order cols
+prolificHL = prolificHL[,colOrder]
+subjNums_prolificHL = unique(prolificHL$subject)
+
 
 ## STUDY 1 ### SONA HIERLEARN
 sonaHL = read_csv(file = '~/Documents/GitHub/StructuredActionPrepVMDM/compiledData/Experiment1.csv')
@@ -443,6 +466,19 @@ compiledData_all$expt_new[compiledData_all$expt == 'Expt6'] = 'Expt5'
 
 modelingwStructure = read_csv(file = 'modelingData_wstruct.csv')
 ```
+
+# Prolific comparisons
+```{r, echo=F, message=F, warning=F, error=T,fig.width=12, fig.height=4, fig.align='center'  }
+prolificTreeDistance = prolificHL %>% group_by(subject,treeDistance) %>% dplyr::summarise(avgRT = mean(rt_corrected_both)) %>% filter(!is.na(treeDistance))
+prolificTreeDistance$expt = 'prolificHL'
+threeDFLTreeDistance = threeDFL %>% group_by(subject,treeDistance) %>% dplyr::summarise(avgRT = mean(rt_corrected_both)) %>% filter(!is.na(treeDistance))
+threeDFLTreeDistance$expt = 'threeDFL'
+
+prolificvthreeDFL = rbind(prolificTreeDistance, threeDFLTreeDistance)
+anova_test(data.frame(prolificvthreeDFL), dv = avgRT, wid = subject, between = expt, within = c(treeDistance), effect.size = 'pes')
+
+```
+
 # Difference in modeling by hierarchy
 ```{r, echo=F, message=F, warning=F, error=T,fig.width=12, fig.height=4, fig.align='center'  }
 modelingwStructure$subject = as.character(modelingwStructure$subject)
@@ -835,7 +871,9 @@ ggplot(Expt1v4_treeDist_same,aes(x = treeDistance, y = avgRT))+geom_bar(stat = '
         strip.text = element_text(size = 20))
 #ggsave('expt1vthreeDFL_treedistance.png')
 
-anova_test(data.frame(Expt1v4_treeDist_same), dv = avgRT, wid = subject, within = c(treeDistance),between=expt, effect.size = 'pes')
+onevthreeDFL_anova = anova_test(data.frame(Expt1v4_treeDist_same), dv = avgRT, wid = subject, within = c(treeDistance),between=expt_new, effect.size = 'pes')
+
+
 ```
 # Expt 5 vs Expt 4: corrected rt x tree distance (all, at same trial num)
 ```{r, echo=F, message=F, warning=F, error=T,fig.width=8, fig.height=4, fig.align='center'  }
@@ -857,7 +895,7 @@ ggplot(Expt5v4_treeDist_same,aes(x = treeDistance, y = avgRT))+geom_bar(stat = '
         axis.line.y.left=element_line(size=axisWidth),
         strip.text = element_text(size = 20))
 #ggsave('expt4vsexpt5_treeDistance.png')
-anova_test(data.frame(Expt5v4_treeDist_same), dv = avgRT, wid = subject, within = c(treeDistance),between=expt, effect.size = 'pes')
+threeDFLvhierDyn_anova = anova_test(data.frame(Expt5v4_treeDist_same), dv = avgRT, wid = subject, within = c(treeDistance),between=expt_new, effect.size = 'pes')
 
 ```
 # Expts 1-6: RT x iter, corrected RT x iter
@@ -1014,14 +1052,27 @@ ggplot(hier_errorType_sameIter, aes(x = errorType, y = prop))+geom_bar(stat = 's
         axis.line.y.left=element_line(size=.5), 
         panel.border = element_rect(fill = NA, colour = "white"))
 
+error_colors <- c(
+  "0/0/0" = "#E06937",
+  "0/0/1" = "#E06937",
+  "0/1/0" = "#E06937",
+  "0/1/1" = "#E06937",
+  "1/0/0" = "#CB3B7C",
+  "1/0/1" = "#CB3B7C",
+  "1/1/0" = "#6765A6"
+)
+
 hier_errorType_sameIter_summary = summarySEwithin(hier_errorType_sameIter,measurevar="prop", betweenvars = 'expt',withinvars=c("errorType"),idvar="subject", na.rm=FALSE, conf.interval=.95)
-ggplot(hier_errorType_sameIter_summary, aes(x = errorType, y = prop))+geom_bar(stat = 'summary',fun.y='mean')+geom_errorbar(aes(ymin=prop-se,ymax=prop+se),width=.2)+facet_wrap(~expt, ncol = 6)+
-  scale_y_continuous(expand = c(0,0), limits = c(0,.4))+
+ggplot(hier_errorType_sameIter_summary, aes(x = errorType, y = prop,fill = errorType))+geom_bar(stat = 'summary',fun.y='mean')+geom_errorbar(aes(ymin=prop-se,ymax=prop+se),width=.2)+geom_point(data = hier_errorType_sameIter, aes(x = errorType, y = prop),position = position_jitter(width = 0.1), alpha = 1)+facet_wrap(~expt, ncol = 6)+
+  scale_y_continuous(expand = c(0,0), limits = c(0,.75))+
+  scale_fill_manual(values = error_colors) +
+  scale_color_manual(values = error_colors) +
   theme(panel.grid = element_blank(),
         panel.background = element_rect(fill = "white", colour = "black"),axis.line.x.bottom=element_line(size=.5), 
         axis.line.y.left=element_line(size=.5), 
-        panel.border = element_rect(fill = NA, colour = "white"))
-#ggsave('free_errorTypes_hier_sameIter_errorbars.eps')
+        panel.border = element_rect(fill = NA, colour = "white"),
+        legend.position = 'none')
+#ggsave('free_errorTypes_hier_sameIter_errorbars_POINTS.eps')
 ggplot(flat_errorType_sameIter, aes(x = errorType, y = prop))+geom_bar(stat = 'summary',fun.y='mean')+geom_point()+facet_wrap(~expt, ncol = 6)+
   scale_y_continuous(expand = c(0,0), limits = c(0,.7))+
   theme(panel.grid = element_blank(),
@@ -1031,14 +1082,19 @@ ggplot(flat_errorType_sameIter, aes(x = errorType, y = prop))+geom_bar(stat = 's
 #ggsave('free_errorTypes_flat_sameIter.eps')
 
 flat_errorType_sameIter_summary = summarySEwithin(flat_errorType_sameIter,measurevar="prop", betweenvars = 'expt',withinvars=c("errorType"),idvar="subject", na.rm=FALSE, conf.interval=.95)
-ggplot(flat_errorType_sameIter_summary, aes(x = errorType, y = prop))+geom_bar(stat = 'summary',fun.y='mean')+geom_errorbar(aes(ymin=prop-se,ymax=prop+se),width=.2)+facet_wrap(~expt, ncol = 6)+
-  scale_y_continuous(expand = c(0,0), limits = c(0,.4))+
+ggplot(flat_errorType_sameIter_summary, aes(x = errorType, y = prop,fill = errorType))+geom_bar(stat = 'summary',fun.y='mean')+geom_errorbar(aes(ymin=prop-se,ymax=prop+se),width=.2)+geom_point(data = flat_errorType_sameIter, aes(x = errorType, y = prop),position = position_jitter(width = 0.1), alpha = 1)+facet_wrap(~expt, ncol = 6)+
+  scale_y_continuous(expand = c(0,0), limits = c(0,.475))+
+  scale_fill_manual(values = error_colors) +
+  scale_color_manual(values = error_colors) +
   theme(panel.grid = element_blank(),
         panel.background = element_rect(fill = "white", colour = "black"),axis.line.x.bottom=element_line(size=.5), 
         axis.line.y.left=element_line(size=.5), 
-        panel.border = element_rect(fill = NA, colour = "white"))
-#ggsave('free_errorTypes_flat_sameIter_errorbars.eps')
-anova_test(data.frame(hier_errorType_sameIter), dv = prop, wid = subject, between = expt, within = c(errorType), effect.size = 'pes')
+        panel.border = element_rect(fill = NA, colour = "white"),
+        legend.position = 'none')
+#ggsave('free_errorTypes_flat_sameIter_errorbars_POINTS.eps')
+hier_errorType_sameIter_aov=anova_test(data.frame(hier_errorType_sameIter), dv = prop, wid = subject, between = expt, within = c(errorType), effect.size = 'pes')
+
+
 anova_test(data.frame(flat_errorType_sameIter), dv = prop, wid = subject, between = expt, within = c(errorType), effect.size = 'pes')
 
 flat_errorType_sameIter_nothreeDFL = flat_errorType_sameIter %>% filter(expt != 'Expt4')
@@ -1046,8 +1102,8 @@ anova_test(data.frame(flat_errorType_sameIter_nothreeDFL), dv = prop, wid = subj
 all_errorType_sameIter$struct = NA
 all_errorType_sameIter$struct[all_errorType_sameIter$expt %in% c('Expt1','Expt2','Expt5')] = 'hier'
 all_errorType_sameIter$struct[all_errorType_sameIter$expt %in% c('Expt3','Expt4','Expt6')] = 'flat'
-anova_test(data.frame(all_errorType_sameIter), dv = prop, wid = subject, between = struct, within = c(errorType), effect.size = 'pes')
-anova_test(data.frame(all_errorType_sameIter), dv = prop, wid = subject, between = expt, within = c(errorType), effect.size = 'pes')
+all_errorType_sameIter_aov = anova_test(data.frame(all_errorType_sameIter), dv = prop, wid = subject, between = struct, within = c(errorType), effect.size = 'pes')
+
 
 all_errorType_sameIter_noDyn = errors %>% group_by(expt,subject,errorType) %>% filter(iter<=56, expt %in% c('Expt1','Expt2','Expt3','Expt4')) %>% dplyr::summarise(counts = n()) %>% mutate(prop = counts/sum(counts))
 all_errorType_sameIter_noDyn$struct = NA

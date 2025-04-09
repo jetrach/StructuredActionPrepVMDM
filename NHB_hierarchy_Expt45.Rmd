@@ -19,6 +19,7 @@ datadir = "~/Documents/GitHub/StructuredActionPrepVMDM/compiledData/"
 # load libraries
 library(ggplot2)
 library(gridExtra)
+library(MBESS)
 library(ggpubr)
 library(reshape2)
 library(dplyr)
@@ -328,7 +329,7 @@ ggplot(flatDyn_learningCurve_across,aes(x=iter))+
 # Learning curves
 ```{r, echo=F, message=F, warning=F, error=T, fig.width=4, fig.height=4, fig.align='center' }
 accuComp = compiledData %>% group_by(subject, expt) %>% dplyr::summarise(accu = mean(corr,na.rm = TRUE))
-t.test(accuComp$accu[accuComp$expt == 'hierDyn'],accuComp$accu[accuComp$expt == 'flatDyn'])
+t.test(accuComp$accu[accuComp$expt ==  'hierDyn'],accuComp$accu[accuComp$expt == 'flatDyn'])
 
 rtComp = compiledData %>% group_by(subject, expt) %>% filter(streak == 1) %>% dplyr::summarise(avgRT = mean(rt,na.rm = TRUE))
 t.test(rtComp$avgRT[rtComp$expt == 'hierDyn'],rtComp$avgRT[rtComp$expt == 'flatDyn'])
@@ -369,7 +370,37 @@ ggplot(hierDyn_tree_streak_summaryStats, aes(x = as.factor(treeDistance), y = av
         axis.line.y.left=element_line(size=axisWidth), 
         axis.ticks = element_line(colour = axisColor, size = tickWidth), 
         axis.ticks.length = unit(tickLength,"cm"))
-
+ggplot(hierDyn_tree_streak_summaryStats, aes(x = as.factor(treeDistance), y = avgRT)) + 
+  geom_bar(stat = "identity", position = "dodge") +
+  
+  # Shift error bars slightly to the left
+  geom_errorbar(aes(x = as.numeric(as.factor(treeDistance)) - 0.1, 
+                    ymin = avgRT - se, ymax = avgRT + se), 
+                width = 0.2, position = position_dodge(0.9)) +
+  
+  # Shift points slightly to the left and jitter them
+  geom_point(data = hierDyn_tree_streak, 
+             aes(x = as.numeric(as.factor(treeDistance)) + 0.1, y = avgRT), 
+             position = position_jitter(width = 0.1), alpha = 1) +
+  
+  labs(x = 'Tree Distance', y = 'RT') +
+  scale_y_continuous(expand = c(0, 0), limits = c(0, 1750)) +
+  
+  theme(
+    panel.grid = element_blank(),
+    panel.background = element_rect(fill = "white", colour = "black"),
+    panel.border = element_rect(fill = NA, colour = "white"),
+    strip.text = element_text(size = axisTitleSize), 
+    axis.title.x = element_text(size = axisTitleSize), 
+    axis.title.y = element_text(size = axisTitleSize), 
+    axis.text.x = element_text(size = axisTextSize, color = textColor), 
+    axis.text.y = element_text(size = axisTextSize, color = textColor), 
+    axis.line.x.bottom = element_line(size = axisWidth), 
+    axis.line.y.left = element_line(size = axisWidth), 
+    axis.ticks = element_line(colour = axisColor, size = tickWidth), 
+    axis.ticks.length = unit(tickLength, "cm")
+  )
+#ggsave('treeDistance_hierDyn_wpoints.eps')
 
 
 flatDyn_tree_streak= flatDyn %>% filter(streak == 1) %>%group_by(subject, treeDistance) %>% filter(!is.na(treeDistance))%>% dplyr::summarize(avgRT = mean(rt_corrected_both,na.rm = TRUE))
@@ -405,6 +436,37 @@ ggplot(flatDyn_tree_streak_summaryStats, aes(x = as.factor(treeDistance), y = av
         axis.ticks = element_line(colour = axisColor, size = tickWidth), 
         axis.ticks.length = unit(tickLength,"cm"))
 
+ggplot(flatDyn_tree_streak_summaryStats, aes(x = as.factor(treeDistance), y = avgRT)) + 
+  geom_bar(stat = "identity", position = "dodge") +
+  
+  # Shift error bars slightly to the left
+  geom_errorbar(aes(x = as.numeric(as.factor(treeDistance)) - 0.1, 
+                    ymin = avgRT - se, ymax = avgRT + se), 
+                width = 0.2, position = position_dodge(0.9)) +
+  
+  # Shift points slightly to the left and jitter them
+  geom_point(data = flatDyn_tree_streak, 
+             aes(x = as.numeric(as.factor(treeDistance)) + 0.1, y = avgRT), 
+             position = position_jitter(width = 0.1), alpha = 1) +
+  
+  labs(x = 'Tree Distance', y = 'RT') +
+  scale_y_continuous(expand = c(0, 0), limits = c(0, 1750)) +
+  
+  theme(
+    panel.grid = element_blank(),
+    panel.background = element_rect(fill = "white", colour = "black"),
+    panel.border = element_rect(fill = NA, colour = "white"),
+    strip.text = element_text(size = axisTitleSize), 
+    axis.title.x = element_text(size = axisTitleSize), 
+    axis.title.y = element_text(size = axisTitleSize), 
+    axis.text.x = element_text(size = axisTextSize, color = textColor), 
+    axis.text.y = element_text(size = axisTextSize, color = textColor), 
+    axis.line.x.bottom = element_line(size = axisWidth), 
+    axis.line.y.left = element_line(size = axisWidth), 
+    axis.ticks = element_line(colour = axisColor, size = tickWidth), 
+    axis.ticks.length = unit(tickLength, "cm")
+  )
+#ggsave('treeDistance_flatDyn_wpoints.eps')
 
 ```
 # tree distance figs - accuracy
@@ -1105,7 +1167,10 @@ errorLevel_expt_summary = summarySEwithin(errorLevel_expt, measurevar = 'prop_co
 errorLevel_expt_summary_HD = errorLevel_expt_summary %>% filter(expt == 'hierDyn')
 errorLevel_expt_summary_FD = errorLevel_expt_summary %>% filter(expt == 'flatDyn')
 errorLevel_expt_summary_nocorr = errorLevel_expt_summary %>% filter(errorLevel != 'acorr')
-ggplot(errorLevel_expt_summary_nocorr, aes(x =errorLevel,y = prop_corrected, group = errorLevel,fill = errorLevel)) + geom_bar(stat = 'identity')+ geom_errorbar(aes(x = errorLevel,ymin = prop_corrected-se, ymax = prop_corrected+se), width = .2)+facet_wrap(~expt)+scale_y_continuous(expand = c(0,0), limits = c(0,.13))+
+errorLevel_expt_nocorr = errorLevel_expt %>% filter(errorLevel != 'acorr')
+
+ggplot(errorLevel_expt_summary_nocorr, aes(x =errorLevel,y = prop_corrected, group = errorLevel,fill = errorLevel)) + geom_bar(stat = 'identity')+ geom_errorbar(aes(x = errorLevel,ymin = prop_corrected-se, ymax = prop_corrected+se), width = .2)+ geom_point(data = errorLevel_expt_nocorr, aes(x = errorLevel, y = prop_corrected),position = position_jitter(width = 0.1), alpha = 1)+
+  facet_wrap(~expt)+scale_y_continuous(expand = c(0,0), limits = c(0,.2))+
   theme(axis.line=element_line(),
         panel.grid = element_blank(),
         panel.background = element_rect(fill = "white", colour = "black")
@@ -1122,7 +1187,9 @@ ggplot(errorLevel_expt_summary_nocorr, aes(x =errorLevel,y = prop_corrected, gro
         axis.line.y.left=element_line(size=axisWidth), 
         axis.ticks = element_line(colour = axisColor, size = tickWidth), 
         axis.ticks.length = unit(tickLength,"cm"))
-#ggsave('Dyn_errorLevel_nocorr.eps')
+
+
+#ggsave('Dyn_errorLevel_nocorr_POINTS.eps')
 ggplot(errorLevel_expt_summary_HD, aes(x =errorLevel,y = prop_corrected, group = errorLevel,fill = errorLevel)) + geom_bar(stat = 'identity')+ geom_errorbar(aes(x = errorLevel,ymin = prop_corrected-se, ymax = prop_corrected+se), width = .2)+facet_wrap(~expt)+scale_y_continuous(expand = c(0,0))+
   theme(axis.line=element_line(),
         panel.grid = element_blank(),
@@ -1160,26 +1227,25 @@ ggplot(errorLevel_expt_summary_FD, aes(x =errorLevel,y = prop_corrected, group =
         axis.ticks.length = unit(tickLength,"cm"))
 
 errorLevel_expt_levels = errorLevel_expt %>% group_by(expt,subject,errorLevel) %>% dplyr::summarise(prop = mean(prop), prop_corrected = mean(prop_corrected))
-anova_test(data.frame(errorLevel_expt_levels), dv = prop, wid = subject, between = expt, within = c(errorLevel), effect.size = 'pes')
 anova_test(data.frame(errorLevel_expt_levels), dv = prop_corrected, wid = subject, between = expt, within = c(errorLevel), effect.size = 'pes')
 
 HL_errorLevel_expt_levels = errorLevel_expt_levels %>% filter(expt == 'hierDyn')
 FL_errorLevel_expt_levels = errorLevel_expt_levels %>% filter(expt == 'flatDyn')
-anova_test(data.frame(HL_errorLevel_expt_levels), dv = prop, wid = subject,within = c(errorLevel), effect.size = 'pes')
-anova_test(data.frame(FL_errorLevel_expt_levels), dv = prop, wid = subject, within = c(errorLevel), effect.size = 'pes')
 anova_test(data.frame(HL_errorLevel_expt_levels), dv = prop_corrected, wid = subject,within = c(errorLevel), effect.size = 'pes')
 anova_test(data.frame(FL_errorLevel_expt_levels), dv = prop_corrected, wid = subject, within = c(errorLevel), effect.size = 'pes')
 
 errorLevel_expt_levels_errors = errorLevel_expt_levels %>% filter(errorLevel != 'acorr')
-anova_test(data.frame(errorLevel_expt_levels_errors), dv = prop, wid = subject, between = expt, within = c(errorLevel), effect.size = 'pes')
 anova_test(data.frame(errorLevel_expt_levels_errors), dv = prop_corrected, wid = subject, between = expt, within = c(errorLevel), effect.size = 'pes')
+errorLevel_across_aov = anova_test(data.frame(errorLevel_expt_levels_errors), dv = prop_corrected, wid = subject, between = expt, within = c(errorLevel), effect.size = 'pes')
+
+
 HL_errorLevel_expt_levels_errors = errorLevel_expt_levels %>% filter(expt == 'hierDyn', errorLevel != 'acorr')
 FL_errorLevel_expt_levels_errors= errorLevel_expt_levels %>% filter(expt == 'flatDyn', errorLevel != 'acorr')
-anova_test(data.frame(HL_errorLevel_expt_levels_errors), dv = prop, wid = subject,within = c(errorLevel), effect.size = 'pes')
-anova_test(data.frame(FL_errorLevel_expt_levels_errors), dv = prop, wid = subject, within = c(errorLevel), effect.size = 'pes')
+
 anova_test(data.frame(HL_errorLevel_expt_levels_errors), dv = prop_corrected, wid = subject,within = c(errorLevel), effect.size = 'pes')
 anova_test(data.frame(FL_errorLevel_expt_levels_errors), dv = prop_corrected, wid = subject, within = c(errorLevel), effect.size = 'pes')
 ggplot(errorLevel_expt_levels_errors, aes(x = errorLevel, y= prop_corrected))+geom_bar(stat = 'summary',fun.y='mean')+geom_point()+facet_wrap(~expt)
+
 t.test(FL_errorLevel_expt_levels_errors$prop_corrected[FL_errorLevel_expt_levels_errors$expt=='flatDyn' & FL_errorLevel_expt_levels_errors$errorLevel == 'bbottom'],FL_errorLevel_expt_levels_errors$prop_corrected[FL_errorLevel_expt_levels_errors$expt=='flatDyn' & FL_errorLevel_expt_levels_errors$errorLevel == 'cmid'], paired = TRUE)
 cohen.d(FL_errorLevel_expt_levels_errors$prop_corrected[FL_errorLevel_expt_levels_errors$expt=='flatDyn' & FL_errorLevel_expt_levels_errors$errorLevel == 'bbottom'],FL_errorLevel_expt_levels_errors$prop_corrected[FL_errorLevel_expt_levels_errors$expt=='flatDyn' & FL_errorLevel_expt_levels_errors$errorLevel == 'cmid'],paired = TRUE)
 
@@ -1204,8 +1270,9 @@ cohen.d(HL_errorLevel_expt_levels_errors$prop_corrected[HL_errorLevel_expt_level
 oneaway = compiledData_forced_trimmed %>% group_by(expt, subject, corrCouplet,errorDiff) %>% filter(!(resp %in% c(1,4,5,8)),errorDiff == 1, timing == 1) %>% dplyr::summarise(counts = n()) %>% group_by(expt,subject, errorDiff.drop = FALSE) %>% dplyr::mutate(prop = counts/sum(counts))
 oneaway_summary = summarySEwithin(oneaway,measurevar="prop", withinvars=c("corrCouplet"),between = "expt",idvar="subject", na.rm=FALSE, conf.interval=.95)
 
-ggplot(oneaway_summary, aes(x = corrCouplet, y = prop))+geom_bar(stat = 'summary', fun.y = 'mean')+geom_errorbar(aes(ymin=prop-se, ymax=prop+se), width=.2)+facet_wrap(~expt)+
-  scale_y_continuous(expand = c(0,0), limits = c(0,.65))+
+ggplot(oneaway_summary, aes(x = as.factor(corrCouplet), y = prop))+geom_bar(stat = 'summary', fun.y = 'mean')+geom_errorbar(aes(ymin=prop-se, ymax=prop+se), width=.2)+geom_point(data = oneaway, aes(x = as.factor(corrCouplet), y = prop),position = position_jitter(width = 0.1), alpha = 1)+
+  facet_wrap(~expt)+
+  scale_y_continuous(expand = c(0,0), limits = c(0,1))+
     theme(axis.line=element_line(),
         panel.grid = element_blank(),
         panel.background = element_rect(fill = "white", colour = "black")
@@ -1217,7 +1284,7 @@ ggplot(oneaway_summary, aes(x = corrCouplet, y = prop))+geom_bar(stat = 'summary
         axis.line.y.left=element_line(size=axisWidth), 
         axis.ticks = element_line(colour = axisColor, size = tickWidth), 
         axis.ticks.length = unit(tickLength,"cm"))
-
+#ggsave('oneawayError_errorbars_POINTS.eps')
 oneaway_summary_hier = oneaway_summary %>% filter(expt == 'hierDyn')
 oneaway_summary_flat = oneaway_summary %>% filter(expt == 'flatDyn')
 t.test(oneaway$prop[oneaway$expt == 'hierDyn' & oneaway$corrCouplet == 0],oneaway$prop[oneaway$expt == 'hierDyn' & oneaway$corrCouplet == 1], paired = TRUE)
@@ -1261,11 +1328,18 @@ eml2errortype = compiledData_forced_trimmed %>% filter(timing == 1) %>% group_by
 eml2errortype_two = eml2errortype %>% filter(errorType2 %in% c('1/1/0','1/0/1','0/1/1'))
 eml2errortype_two_summary = summarySEwithin(eml2errortype_two,measurevar="prop", withinvars=c("errorType2"),between = "expt",idvar="subject", na.rm=FALSE, conf.interval=.95)
 eml2errortype_noeml2 = compiledData_forced_trimmed %>% filter(timing == 1) %>% group_by(expt, subject,errorType2, .drop = FALSE) %>% dplyr::summarise(counts = n()) %>% mutate(prop = counts/sum(counts))
-anova_test(data.frame(eml2errortype_noeml2), dv = prop, wid = subject, between = expt, within = c(errorType2), effect.size = 'pes')
+twofeat_aov = anova_test(data.frame(eml2errortype_noeml2), dv = prop, wid = subject, between = expt, within = c(errorType2), effect.size = 'pes')
 
-ggplot(eml2errortype_two_summary, aes(x = errorType2, y = prop, fill = errorType2))+geom_bar(stat = 'identity')+geom_errorbar(aes(ymin=prop-se, ymax=prop+se), width=.2)+
+eml2errortype_noeml2_two = eml2errortype_noeml2 %>% filter(errorType2 %in% c('1/1/0','1/0/1','0/1/1'))
+eml2errortype_noeml2_two_HD = eml2errortype_noeml2 %>% filter(errorType2 %in% c('1/1/0','1/0/1','0/1/1'), expt == 'hierDyn')
+eml2errortype_noeml2_two_FD = eml2errortype_noeml2 %>% filter(errorType2 %in% c('1/1/0','1/0/1','0/1/1'),expt == 'flatDyn')
+
+eml2errortype_noeml2_two_summary_HD = summarySEwithin(eml2errortype_noeml2_two_HD,measurevar="prop", withinvars=c("errorType2"),idvar="subject", na.rm=TRUE, conf.interval=.95)
+eml2errortype_noeml2_two_summary_FD = summarySEwithin(eml2errortype_noeml2_two_FD,measurevar="prop", withinvars=c("errorType2"),idvar="subject", na.rm=TRUE, conf.interval=.95)
+
+ggplot(eml2errortype_noeml2_two_summary_HD, aes(x = errorType2, y = prop, fill = errorType2))+geom_bar(stat = 'identity')+geom_errorbar(aes(ymin=prop-se, ymax=prop+se), width=.2)+geom_point(data = eml2errortype_noeml2_two_HD, aes(x = errorType2, y = prop),position = position_jitter(width = 0.1), alpha = 1)+
   facet_wrap(~expt)+
-  scale_y_continuous(expand = c(0,0), limits = c(0,.15))+
+  scale_y_continuous(expand = c(0,0), limits = c(0,.2))+
     theme(axis.line=element_line(),
         panel.grid = element_blank(),
         panel.background = element_rect(fill = "white", colour = "black")
@@ -1277,7 +1351,23 @@ ggplot(eml2errortype_two_summary, aes(x = errorType2, y = prop, fill = errorType
         axis.line.y.left=element_line(size=axisWidth), 
         axis.ticks = element_line(colour = axisColor, size = tickWidth), 
         axis.ticks.length = unit(tickLength,"cm"))
+#ggsave('HD_matchtwofeatures_errorbars_POINTS.eps')
 
+ggplot(eml2errortype_noeml2_two_summary_FD, aes(x = errorType2, y = prop, fill = errorType2))+geom_bar(stat = 'identity')+geom_errorbar(aes(ymin=prop-se, ymax=prop+se), width=.2)+geom_point(data = eml2errortype_noeml2_two_FD, aes(x = errorType2, y = prop),position = position_jitter(width = 0.1), alpha = 1)+
+  facet_wrap(~expt)+
+  scale_y_continuous(expand = c(0,0), limits = c(0,.2))+
+    theme(axis.line=element_line(),
+        panel.grid = element_blank(),
+        panel.background = element_rect(fill = "white", colour = "black")
+        ,panel.border = element_rect(fill = NA, colour = "white"), 
+        legend.position = "right", 
+        legend.title = element_blank(),
+        legend.text = element_text(size = axisTextSize),
+        axis.line.x.bottom=element_line(size=axisWidth), 
+        axis.line.y.left=element_line(size=axisWidth), 
+        axis.ticks = element_line(colour = axisColor, size = tickWidth), 
+        axis.ticks.length = unit(tickLength,"cm"))
+#ggsave('FD_matchtwofeatures_errorbars_POINTS.eps')
 eml2errortype_two_HL = eml2errortype_two_summary %>% filter(expt =='hierDyn')
 eml2errortype_two_FL = eml2errortype_two_summary %>% filter(expt =='flatDyn')
 ggplot(eml2errortype_two_HL, aes(x = errorType2, y = prop, fill = errorType2))+geom_bar(stat = 'identity')+geom_errorbar(aes(ymin=prop-se, ymax=prop+se), width=.2)+
@@ -1511,7 +1601,8 @@ accuDist_stim_eml = compiledData_forced_trimmed %>% filter(timing == 1,!is.na(tr
 HL_accuDist_stim_eml = accuDist_stim_eml %>% filter(expt == 'hierDyn')
 FL_accuDist_stim_eml = accuDist_stim_eml %>% filter(expt == 'flatDyn')
 
-anova_test(data.frame(accuDist_stim_eml), dv = accu, wid = subject, between = expt, within = c(treeDistance_stim, eml2), effect.size = 'pes')
+accuDist_eml_aov = anova_test(data.frame(accuDist_stim_eml), dv = accu, wid = subject, between = expt, within = c(treeDistance_stim, eml2), effect.size = 'pes')
+
 anova_test(data.frame(HL_accuDist_stim_eml), dv = accu, wid = subject, within = c(treeDistance_stim, eml2), effect.size = 'pes')
 anova_test(data.frame(FL_accuDist_stim_eml), dv = accu, wid = subject, within = c(treeDistance_stim, eml2), effect.size = 'pes')
 
@@ -1520,6 +1611,7 @@ HL_accuDist_stim_eml2_summaryStats =  summarySEwithin(HL_accuDist_stim_eml,measu
 ggplot(HL_accuDist_stim_eml2_summaryStats, aes(x = as.factor(treeDistance_stim), y = accu)) + 
   geom_bar(stat = "identity",position = "dodge")+
   geom_errorbar(aes(ymin=accu-se, ymax=accu+se), width=.2,position=position_dodge(.9))+
+  geom_point(data = HL_accuDist_stim_eml, aes(x = as.factor(treeDistance_stim), y = accu),position = position_jitter(width = 0.1), alpha = 1)+
   labs(x= 'tree distance', y = 'accuracy')+
   scale_y_continuous(expand = c(0,0), limits = c(0,1))+
   theme(panel.grid = element_blank(),
@@ -1534,11 +1626,12 @@ ggplot(HL_accuDist_stim_eml2_summaryStats, aes(x = as.factor(treeDistance_stim),
         axis.line.y.left=element_line(size=axisWidth), 
         axis.ticks = element_line(colour = axisColor, size = tickWidth), 
         axis.ticks.length = unit(tickLength,"cm"))+facet_wrap(~eml2)
-#ggsave('Expt5_accuxdistxeml2.eps')
+ggsave('Expt5_accuxdistxeml2_POINTS.eps')
 FL_accuDist_stim_eml2_summaryStats =  summarySEwithin(FL_accuDist_stim_eml,measurevar="accu", withinvars=c("treeDistance_stim", "eml2"),idvar="subject", na.rm=FALSE, conf.interval=.95)
 ggplot(FL_accuDist_stim_eml2_summaryStats, aes(x = as.factor(treeDistance_stim), y = accu)) + 
   geom_bar(stat = "identity",position = "dodge")+
   geom_errorbar(aes(ymin=accu-se, ymax=accu+se), width=.2,position=position_dodge(.9))+
+  geom_point(data = FL_accuDist_stim_eml, aes(x = as.factor(treeDistance_stim), y = accu),position = position_jitter(width = 0.1), alpha = 1)+
   labs(x= 'tree distance', y = 'accuracy')+
   scale_y_continuous(expand = c(0,0), limits = c(0,1))+
   theme(panel.grid = element_blank(),
@@ -1553,7 +1646,7 @@ ggplot(FL_accuDist_stim_eml2_summaryStats, aes(x = as.factor(treeDistance_stim),
         axis.line.y.left=element_line(size=axisWidth), 
         axis.ticks = element_line(colour = axisColor, size = tickWidth), 
         axis.ticks.length = unit(tickLength,"cm"))+facet_wrap(~eml2)
-#ggsave('Expt6_accuxdistxeml2.eps')
+ggsave('Expt6_accuxdistxeml2_POINTS.eps')
 ```
 # Smoothed curves for across PT bins by error type
 ```{r, echo=F, message=F, warning=F, error=T, fig.width=9, fig.height=6, fig.align='center'}

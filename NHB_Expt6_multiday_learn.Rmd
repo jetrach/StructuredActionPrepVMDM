@@ -271,6 +271,7 @@ t.test(lastiter$accu[lastiter$day == 1],lastiter$accu[lastiter$day == 'flatDyn']
 t.test(lastiter$accu[lastiter$day == 8],lastiter$accu[lastiter$day == 'hierDyn'])
 t.test(lastiter$accu[lastiter$day == 8],lastiter$accu[lastiter$day == 'flatDyn'])
 t.test(lastiter$accu[lastiter$day == 'hierDyn'],lastiter$accu[lastiter$day == 'flatDyn'])
+cohen.d(lastiter$accu[lastiter$day == 8],lastiter$accu[lastiter$day == 'flatDyn'])
 
 
 dyn_lastiter_rt = compiledData %>% filter(iter>40, streak == 1) %>% group_by(subject, day) %>% dplyr::summarise(avgRT = mean(rt_corrected_both, na.rm = TRUE))
@@ -283,6 +284,7 @@ t.test(lastiter_rt$avgRT[lastiter_rt$day == 1],lastiter_rt$avgRT[lastiter_rt$day
 t.test(lastiter_rt$avgRT[lastiter_rt$day == 8],lastiter_rt$avgRT[lastiter_rt$day == 'hierDyn'])
 t.test(lastiter_rt$avgRT[lastiter_rt$day == 8],lastiter_rt$avgRT[lastiter_rt$day == 'flatDyn'])
 t.test(lastiter_rt$avgRT[lastiter_rt$day == 'hierDyn'],lastiter_rt$avgRT[lastiter_rt$day == 'flatDyn'])
+cohen.d(lastiter_rt$avgRT[lastiter_rt$day == 8],lastiter_rt$avgRT[lastiter_rt$day == 'flatDyn'])
 
 ```
 ## Path distance x day (or experiment)
@@ -591,11 +593,13 @@ ggplot(summaryStats_treeDist_days_streak, aes(x = treeDistance, y = avgRT)) +
         axis.ticks.length = unit(tickLength,"cm"))+ facet_wrap(~day)
 
 summaryStats_treeDist_days_firstlast_streak = summaryStats_treeDist_days_streak %>% filter(day %in% c(1,8))
+treeDist_days_streak_firstlast = treeDist_days_streak %>% filter(day %in% c(1,8))
 ggplot(summaryStats_treeDist_days_firstlast_streak, aes(x = treeDistance, y = avgRT)) + 
   geom_bar(stat = "identity",position = "dodge")+
   geom_errorbar(aes(ymin=avgRT-se, ymax=avgRT+se), width=.2,position=position_dodge(.9))+
+  geom_point(data = treeDist_days_streak_firstlast, aes(x = treeDistance, y= avgRT),position = position_jitter(width = 0.1), alpha = 1)+
   labs(x= 'treeDistance', y = 'corrected RT')+
-  scale_y_continuous(expand = c(0,0), limits = c(0,800))+
+  scale_y_continuous(expand = c(0,0), limits = c(0,1250))+
   theme(panel.grid = element_blank(),
         panel.background = element_rect(fill = "white", colour = "black"),
         panel.border = element_rect(fill = NA, colour = "white"),
@@ -608,7 +612,7 @@ ggplot(summaryStats_treeDist_days_firstlast_streak, aes(x = treeDistance, y = av
         axis.line.y.left=element_line(size=axisWidth), 
         axis.ticks = element_line(colour = axisColor, size = tickWidth), 
         axis.ticks.length = unit(tickLength,"cm"))+ facet_wrap(~day)
-
+#ggsave('multiday_firstlast_treedist_POINTS.eps')
 treeDist_days_streak_firstlast = treeDist_days_streak %>% filter(day %in% c(1,8))
 anova_test(data.frame(treeDist_days_streak_firstlast), dv = avgRT, wid = subject, within = c(day,treeDistance), effect.size = 'pes')
 
