@@ -929,20 +929,20 @@ ggplot(oneDFL_rt_iter, aes(x = iter))+geom_line(aes(y = avgRT_across))+geom_ribb
         panel.background = element_rect(fill = "white", colour = "black"),
         panel.border = element_rect(fill = NA, colour = "white"))
 
-ggplot(sonaHL_rt_iter, aes(x = iter))+geom_line(aes(y = avgRT_across))+geom_ribbon(aes(x = iter,ymin= avgRT_across-SE, ymax = avgRT_across+SE), fill = "purple", alpha = .5)+geom_line(data = fingerHL_rt_iter,aes(y = avgRT_across))+geom_ribbon(data = fingerHL_rt_iter,aes(x = iter,ymin= avgRT_across-SE, ymax = avgRT_across+SE), fill = "blue", alpha = .5)+geom_line(data = oneDFL_rt_iter,aes(y = avgRT_across))+geom_ribbon(data = oneDFL_rt_iter,aes(x = iter,ymin= avgRT_across-SE, ymax = avgRT_across+SE), fill = "red", alpha = .5)+geom_line(data = threeDFL_rt_iter,aes(y = avgRT_across))+geom_ribbon(data = threeDFL_rt_iter,aes(x = iter,ymin= avgRT_across-SE, ymax = avgRT_across+SE), fill = "orange", alpha = .5)+ggtitle('Expts 1-4: avgRT x iteration')+
+ggplot(sonaHL_rt_iter, aes(x = iter))+geom_line(aes(y = avgRT_across))+geom_ribbon(aes(x = iter,ymin= avgRT_across-SE, ymax = avgRT_across+SE), fill = "purple", alpha = 1)+geom_line(data = fingerHL_rt_iter,aes(y = avgRT_across))+geom_ribbon(data = fingerHL_rt_iter,aes(x = iter,ymin= avgRT_across-SE, ymax = avgRT_across+SE), fill = "blue", alpha = 1)+geom_line(data = oneDFL_rt_iter,aes(y = avgRT_across))+geom_ribbon(data = oneDFL_rt_iter,aes(x = iter,ymin= avgRT_across-SE, ymax = avgRT_across+SE), fill = "red", alpha = 1)+geom_line(data = threeDFL_rt_iter,aes(y = avgRT_across))+geom_ribbon(data = threeDFL_rt_iter,aes(x = iter,ymin= avgRT_across-SE, ymax = avgRT_across+SE), fill = "orange", alpha = 1)+ggtitle('Expts 1-4: avgRT x iteration')+
   scale_y_continuous(expand = c(0,0), limits = c(250,1500))+
   theme(panel.grid = element_blank(),
         panel.background = element_rect(fill = "white", colour = "black"),
         panel.border = element_rect(fill = NA, colour = "white"),axis.line.x.bottom=element_line(size=.5), 
         axis.line.y.left=element_line(size=.5))
-#ggsave('expt1234_rtxiter.png')
-ggplot(sonaHL_rt_iter, aes(x = iter))+geom_line(aes(y = avgRT_corrected_across))+geom_ribbon(aes(x = iter,ymin= avgRT_corrected_across-SE_corrected, ymax = avgRT_corrected_across+SE_corrected), fill = "purple", alpha = .5)+geom_line(data = fingerHL_rt_iter,aes(y = avgRT_corrected_across))+geom_ribbon(data = fingerHL_rt_iter,aes(x = iter,ymin= avgRT_corrected_across-SE_corrected, ymax = avgRT_corrected_across+SE_corrected), fill = "blue", alpha = .5)+geom_line(data = oneDFL_rt_iter,aes(y = avgRT_corrected_across))+geom_ribbon(data = oneDFL_rt_iter,aes(x = iter,ymin= avgRT_corrected_across-SE_corrected, ymax = avgRT_corrected_across+SE_corrected), fill = "red", alpha = .5)+geom_line(data = threeDFL_rt_iter,aes(y = avgRT_corrected_across))+geom_ribbon(data = threeDFL_rt_iter,aes(x = iter,ymin= avgRT_corrected_across-SE_corrected, ymax = avgRT_corrected_across+SE_corrected), fill = "orange", alpha = .5)+ggtitle('Expts 1-4: avgRT_corrected x iteration')+
+ggsave('expt1234_rtxiter.eps')
+ggplot(sonaHL_rt_iter, aes(x = iter))+geom_line(aes(y = avgRT_corrected_across))+geom_ribbon(aes(x = iter,ymin= avgRT_corrected_across-SE_corrected, ymax = avgRT_corrected_across+SE_corrected), fill = "purple", alpha = 1)+geom_line(data = fingerHL_rt_iter,aes(y = avgRT_corrected_across))+geom_ribbon(data = fingerHL_rt_iter,aes(x = iter,ymin= avgRT_corrected_across-SE_corrected, ymax = avgRT_corrected_across+SE_corrected), fill = "blue", alpha = 1)+geom_line(data = oneDFL_rt_iter,aes(y = avgRT_corrected_across))+geom_ribbon(data = oneDFL_rt_iter,aes(x = iter,ymin= avgRT_corrected_across-SE_corrected, ymax = avgRT_corrected_across+SE_corrected), fill = "red", alpha = 1)+geom_line(data = threeDFL_rt_iter,aes(y = avgRT_corrected_across))+geom_ribbon(data = threeDFL_rt_iter,aes(x = iter,ymin= avgRT_corrected_across-SE_corrected, ymax = avgRT_corrected_across+SE_corrected), fill = "orange", alpha = 1)+ggtitle('Expts 1-4: avgRT_corrected x iteration')+
   scale_y_continuous(expand = c(0,0), limits = c(250,1500))+
   theme(panel.grid = element_blank(),
         panel.background = element_rect(fill = "white", colour = "black"),
         panel.border = element_rect(fill = NA, colour = "white"),axis.line.x.bottom=element_line(size=.5), 
         axis.line.y.left=element_line(size=.5))
-#ggsave('expt1234_rt_correctedxiter.png')
+ggsave('expt1234_rt_correctedxiter.eps')
 
 ```
 

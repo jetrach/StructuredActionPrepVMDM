@@ -1239,7 +1239,7 @@ ggplot(oneDFL_heatmapData_corrected,aes(as.factor(currResp), as.factor(prevResp)
 # oneDFL
 # models streak trials
 ```{r, echo=F, message=F, warning=F, error=T, fig.width=3.5, fig.height=3, fig.align='center'}
-oneDFL_ModelData_streak = oneDFL %>% filter(streak == 1,trialNum > 3, !is.na(treeDistance), !is.na(nFeatureSwitch), !is.na(fingerDistance))
+oneDFL_ModelData_streak = oneDFL %>% filter(streak == 1, trialNum >3, !is.na(treeDistance), !is.na(nFeatureSwitch), !is.na(fingerDistance))
 #tree
 oneDFL_MEM_tree_streak = lmer(rt_corrected_both ~ treeDistance+(1|subject), data = oneDFL_ModelData_streak, na.action = na.exclude)
 # flat
